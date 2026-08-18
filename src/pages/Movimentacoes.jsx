@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Plus } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Plus, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export default function Movimentacoes() {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({
     produto_id: '',
     tipo: 'entrada',
@@ -56,6 +57,27 @@ export default function Movimentacoes() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  async function handleUndo(mov) {
+    const produto = produtos.find((p) => p.id === mov.produto_id);
+    setSaving(true);
+    try {
+      if (produto) {
+        const qtdAtual = produto.quantidade || 0;
+        const novaQtd =
+          mov.tipo === 'entrada'
+            ? Math.max(0, qtdAtual - (mov.quantidade || 0))
+            : qtdAtual + (mov.quantidade || 0);
+        await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+      }
+      await base44.entities.Movimentacao.delete(mov.id);
+      toast({ title: 'Movimentação desfeita', description: `${mov.nome_produto} — estoque atualizado.` });
+      setSelectedId(null);
+      load();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -147,7 +169,23 @@ export default function Movimentacoes() {
 
         <div className="lg:col-span-2">
           <Card className="p-5">
-            <h3 className="font-semibold mb-3">Movimentações Recentes</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">Movimentações Recentes</h3>
+              {selectedId && (() => {
+                const sel = movimentacoes.find((m) => m.id === selectedId);
+                return sel ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => handleUndo(sel)}
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    {saving ? 'Desfazendo…' : 'Desfazer Movimentação'}
+                  </Button>
+                ) : null;
+              })()}
+            </div>
             {loading ? (
               <p className="text-sm text-muted-foreground">Carregando…</p>
             ) : movimentacoes.length === 0 ? (
@@ -163,11 +201,16 @@ export default function Movimentacoes() {
                       <TableHead>Tipo</TableHead>
                       <TableHead className="text-right">Qtd.</TableHead>
                       <TableHead>Setor</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {movimentacoes.map((m) => (
-                      <TableRow key={m.id}>
+                      <TableRow
+                        key={m.id}
+                        onClick={() => setSelectedId(selectedId === m.id ? null : m.id)}
+                        className={`cursor-pointer transition-colors ${selectedId === m.id ? 'bg-accent' : 'hover:bg-muted/50'}`}
+                      >
                         <TableCell className="text-sm whitespace-nowrap">
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
@@ -186,6 +229,11 @@ export default function Movimentacoes() {
                         </TableCell>
                         <TableCell className="text-right font-semibold">{m.quantidade}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
+                        <TableCell className="text-center">
+                          {selectedId === m.id && (
+                            <Undo2 className="w-4 h-4 text-destructive mx-auto" />
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
