@@ -13,6 +13,7 @@ import Produtos from '@/pages/Produtos';
 import Cadastros from '@/pages/Cadastros';
 import Movimentacoes from '@/pages/Movimentacoes';
 import Relatorios from '@/pages/Relatorios';
+import Usuarios from '@/pages/Usuarios';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -47,6 +48,7 @@ const AuthenticatedApp = () => {
         <Route path="/cadastros" element={<Cadastros />} />
         <Route path="/movimentacoes" element={<Movimentacoes />} />
         <Route path="/relatorios" element={<Relatorios />} />
+        <Route path="/usuarios" element={<Usuarios />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

@@ -5,6 +5,7 @@ import {
   Settings,
   ArrowLeftRight,
   FileBarChart,
+  Users,
   Leaf,
   X,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
   { to: '/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, end: false },
   { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
+  { to: '/usuarios', label: 'Usuários', icon: Users, end: false },
 ];
 
 export default function Sidebar({ open, onClose }) {
