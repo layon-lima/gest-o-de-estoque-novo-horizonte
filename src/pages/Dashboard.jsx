@@ -6,8 +6,6 @@ import FilterBar from '@/components/FilterBar';
 import StatCard from '@/components/StatCard';
 import AlertsPanel from '@/components/AlertsPanel';
 import ProductsTable from '@/components/ProductsTable';
-import EstoquePorSetorChart from '@/components/charts/EstoquePorSetorChart';
-import EstoquePorMaquinaChart from '@/components/charts/EstoquePorMaquinaChart';
 import SearchBar from '@/components/SearchBar';
 import { filterProdutos } from '@/lib/estoqueFilters';
 
@@ -79,17 +77,6 @@ export default function Dashboard() {
         <StatCard icon={Boxes} title="Itens em Estoque" value={totalQuantidade} colorClass="bg-blue-100 text-blue-600" />
         <StatCard icon={AlertTriangle} title="Estoque Baixo" value={baixoCount} subtitle="atenção à reposição" colorClass="bg-amber-100 text-amber-600" />
         <StatCard icon={AlertCircle} title="Estoque Zerado" value={zeradoCount} subtitle="reposição crítica" colorClass="bg-red-100 text-red-600" />
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="p-5">
-          <h3 className="font-semibold mb-2">Distribuição por Setor</h3>
-          <EstoquePorSetorChart produtos={produtos} setores={setores} />
-        </Card>
-        <Card className="p-5">
-          <h3 className="font-semibold mb-2">Distribuição por Máquina</h3>
-          <EstoquePorMaquinaChart produtos={produtos} maquinas={maquinas} />
-        </Card>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
