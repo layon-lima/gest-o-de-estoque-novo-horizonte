@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { setorControlaValidade } from '@/lib/lotes';
+import { sortGavetas } from '@/lib/gavetas';
 
 const empty = {
   codigo: '',
@@ -145,7 +146,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Nenhuma —</SelectItem>
-                  {gavetas.map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                  {sortGavetas(gavetas).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

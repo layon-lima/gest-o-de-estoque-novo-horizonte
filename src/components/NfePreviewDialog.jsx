@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
+import { sortGavetas } from '@/lib/gavetas';
 
 export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
@@ -213,7 +214,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">— Nenhuma —</SelectItem>
-                          {gavetas.map((g) => (
+                          {sortGavetas(gavetas).map((g) => (
                             <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>
                           ))}
                         </SelectContent>

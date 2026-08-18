@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
 import SearchInput from './SearchInput';
+import { sortGavetas } from '@/lib/gavetas';
 
 export default function GavetaManager() {
   const [items, setItems] = useState([]);
@@ -16,7 +17,7 @@ export default function GavetaManager() {
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
-    if (!q) return items;
+    if (!q) return sortGavetas(items);
     return items.filter((g) =>
       (g.codigo || '').toLowerCase().includes(q) ||
       (g.descricao || '').toLowerCase().includes(q)

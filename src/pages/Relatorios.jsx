@@ -26,6 +26,7 @@ import { getNome } from '@/lib/estoqueFilters';
 import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
 import SearchSelect from '@/components/SearchSelect';
+import { sortGavetas } from '@/lib/gavetas';
 
 export default function Relatorios() {
   const [produtos, setProdutos] = useState([]);
@@ -236,7 +237,7 @@ export default function Relatorios() {
               <SearchSelect
                 value={filtro.gaveta_id}
                 onChange={(v) => setFiltro({ ...filtro, gaveta_id: v })}
-                options={gavetaOptions.map((g) => ({ value: g.id, label: g.codigo }))}
+                options={sortGavetas(gavetaOptions).map((g) => ({ value: g.id, label: g.codigo }))}
                 placeholder="Gaveta"
                 allLabel="Todas as gavetas"
                 className="w-[200px]"
