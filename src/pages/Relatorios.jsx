@@ -63,6 +63,45 @@ export default function Relatorios() {
     });
   }, [produtos, filtro]);
 
+  // Opções em cascata: cada filtro mostra apenas opções com produtos em comum com os demais filtros ativos
+  const setorOptions = useMemo(() => {
+    const ids = new Set(
+      produtos
+        .filter((p) => p.setor_id && (filtro.maquina_id === 'all' || p.maquina_id === filtro.maquina_id) && (filtro.gaveta_id === 'all' || p.gaveta_id === filtro.gaveta_id))
+        .map((p) => p.setor_id)
+    );
+    return setores.filter((s) => ids.has(s.id));
+  }, [produtos, setores, filtro.maquina_id, filtro.gaveta_id]);
+
+  const maquinaOptions = useMemo(() => {
+    const ids = new Set(
+      produtos
+        .filter((p) => p.maquina_id && (filtro.setor_id === 'all' || p.setor_id === filtro.setor_id) && (filtro.gaveta_id === 'all' || p.gaveta_id === filtro.gaveta_id))
+        .map((p) => p.maquina_id)
+    );
+    return maquinas.filter((m) => ids.has(m.id));
+  }, [produtos, maquinas, filtro.setor_id, filtro.gaveta_id]);
+
+  const gavetaOptions = useMemo(() => {
+    const ids = new Set(
+      produtos
+        .filter((p) => p.gaveta_id && (filtro.setor_id === 'all' || p.setor_id === filtro.setor_id) && (filtro.maquina_id === 'all' || p.maquina_id === filtro.maquina_id))
+        .map((p) => p.gaveta_id)
+    );
+    return gavetas.filter((g) => ids.has(g.id));
+  }, [produtos, gavetas, filtro.setor_id, filtro.maquina_id]);
+
+  // Reseta automaticamente valores que não existem mais nas opções derivadas
+  useEffect(() => {
+    setFiltro((f) => {
+      const next = { ...f };
+      if (f.setor_id !== 'all' && !setorOptions.some((s) => s.id === f.setor_id)) next.setor_id = 'all';
+      if (f.maquina_id !== 'all' && !maquinaOptions.some((m) => m.id === f.maquina_id)) next.maquina_id = 'all';
+      if (f.gaveta_id !== 'all' && !gavetaOptions.some((g) => g.id === f.gaveta_id)) next.gaveta_id = 'all';
+      return next;
+    });
+  }, [setorOptions, maquinaOptions, gavetaOptions]);
+
   function buildRows() {
     return filtered.map((p) => {
       const qtd = p.quantidade || 0;
@@ -183,13 +222,13 @@ export default function Relatorios() {
                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Setor" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os setores</SelectItem>
-                  {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                  {setorOptions.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
               <SearchSelect
                 value={filtro.maquina_id}
                 onChange={(v) => setFiltro({ ...filtro, maquina_id: v })}
-                options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+                options={maquinaOptions.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
                 placeholder="Máquina"
                 allLabel="Todas as máquinas"
                 className="w-[220px]"
@@ -198,7 +237,7 @@ export default function Relatorios() {
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Gaveta" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as gavetas</SelectItem>
-                  {gavetas.map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                  {gavetaOptions.map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
