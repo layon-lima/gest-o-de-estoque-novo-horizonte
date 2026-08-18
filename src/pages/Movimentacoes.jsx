@@ -25,6 +25,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { getNome } from '@/lib/estoqueFilters';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
+import NfeImportButton from '@/components/NfeImportButton';
 
 export default function Movimentacoes() {
   const [produtos, setProdutos] = useState([]);
@@ -135,6 +136,13 @@ export default function Movimentacoes() {
               {saving ? 'Registrando…' : 'Registrar Movimentação'}
             </Button>
           </form>
+
+          {form.tipo === 'entrada' && (
+            <div className="border-t pt-4">
+              <p className="text-xs text-muted-foreground mb-2">Ou importe uma NF-e:</p>
+              <NfeImportButton produtos={produtos} onImported={load} />
+            </div>
+          )}
         </Card>
 
         <div className="lg:col-span-2">
