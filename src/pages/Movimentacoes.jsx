@@ -24,11 +24,13 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { getNome } from '@/lib/estoqueFilters';
+import ProductSearchSelect from '@/components/ProductSearchSelect';
 
 export default function Movimentacoes() {
   const [produtos, setProdutos] = useState([]);
   const [setores, setSetores] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
+  const [gavetas, setGavetas] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,13 +45,14 @@ export default function Movimentacoes() {
 
   async function load() {
     setLoading(true);
-    const [p, s, m, movs] = await Promise.all([
+    const [p, s, m, g, movs] = await Promise.all([
       base44.entities.Produto.list(),
       base44.entities.Setor.list(),
       base44.entities.Maquina.list(),
+      base44.entities.Gaveta.list(),
       base44.entities.Movimentacao.list('-data', 50),
     ]);
-    setProdutos(p); setSetores(s); setMaquinas(m); setMovimentacoes(movs);
+    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setMovimentacoes(movs);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -99,14 +102,14 @@ export default function Movimentacoes() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Produto *</Label>
-              <Select value={form.produto_id} onValueChange={(v) => setForm({ ...form, produto_id: v })} required>
-                <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
-                <SelectContent>
-                  {produtos.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.codigo} — {p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProductSearchSelect
+                produtos={produtos}
+                maquinas={maquinas}
+                gavetas={gavetas}
+                value={form.produto_id}
+                onChange={(v) => setForm({ ...form, produto_id: v })}
+                placeholder="Buscar produto por nome, código, referência…"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
