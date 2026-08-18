@@ -1,0 +1,39 @@
+{
+  "name": "UsuarioLocal",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome"
+    },
+    "usuario": {
+      "type": "string",
+      "title": "Usu\u00e1rio (Login)",
+      "description": "Identificador de login \u00fanico do usu\u00e1rio"
+    },
+    "senha": {
+      "type": "string",
+      "title": "Senha"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "master",
+        "user"
+      ],
+      "title": "Cargo",
+      "default": "user"
+    },
+    "ativo": {
+      "type": "boolean",
+      "title": "Ativo",
+      "default": true
+    }
+  },
+  "required": [
+    "nome",
+    "usuario",
+    "senha",
+    "role"
+  ]
+}
