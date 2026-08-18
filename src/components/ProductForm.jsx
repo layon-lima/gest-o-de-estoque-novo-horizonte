@@ -17,8 +17,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
+import { useToast } from '@/components/ui/use-toast';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
+import { findProdutoDuplicado } from '@/lib/produtoDedup';
 
 const empty = {
   codigo: '',
@@ -35,6 +37,7 @@ const empty = {
 export default function ProductForm({ open, onOpenChange, produto, setores, maquinas, gavetas, onSaved }) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (produto) setForm({ ...empty, ...produto });
@@ -72,20 +75,57 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
           }
         }
       } else {
-        const created = await base44.entities.Produto.create(payload);
-        if (!controlaValidade && newQtd > 0) {
-          await base44.entities.Movimentacao.create({
-            data: new Date().toISOString(),
-            produto_id: created.id,
-            codigo: form.codigo,
-            nome_produto: form.nome,
-            quantidade: newQtd,
-            setor_id: form.setor_id,
-            maquina_id: form.maquina_id,
-            gaveta_id: form.gaveta_id,
-            tipo: 'entrada',
-            observacao: 'Cadastro inicial de produto',
+        const allProdutos = await base44.entities.Produto.list();
+        const duplicado = findProdutoDuplicado({ produtos: allProdutos, dados: form });
+        if (duplicado) {
+          if (controlaValidade) {
+            toast({
+              title: 'Produto já existe',
+              description: 'Já existe um produto com este código e referência. Use Movimentações para registrar entradas de lote.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          const novaQtd = (Number(duplicado.quantidade) || 0) + newQtd;
+          await base44.entities.Produto.update(duplicado.id, {
+            quantidade: novaQtd,
+            maquina_id: form.maquina_id || duplicado.maquina_id,
+            gaveta_id: form.gaveta_id || duplicado.gaveta_id,
           });
+          if (newQtd > 0) {
+            await base44.entities.Movimentacao.create({
+              data: new Date().toISOString(),
+              produto_id: duplicado.id,
+              codigo: duplicado.codigo,
+              nome_produto: duplicado.nome,
+              quantidade: newQtd,
+              setor_id: duplicado.setor_id,
+              maquina_id: form.maquina_id || duplicado.maquina_id,
+              gaveta_id: form.gaveta_id || duplicado.gaveta_id,
+              tipo: 'entrada',
+              observacao: 'Entrada via cadastro (produto existente)',
+            });
+          }
+          toast({
+            title: 'Quantidade somada ao produto existente',
+            description: `${duplicado.nome} — adicionadas ${newQtd} ${form.unidade || 'un'}.`,
+          });
+        } else {
+          const created = await base44.entities.Produto.create(payload);
+          if (!controlaValidade && newQtd > 0) {
+            await base44.entities.Movimentacao.create({
+              data: new Date().toISOString(),
+              produto_id: created.id,
+              codigo: form.codigo,
+              nome_produto: form.nome,
+              quantidade: newQtd,
+              setor_id: form.setor_id,
+              maquina_id: form.maquina_id,
+              gaveta_id: form.gaveta_id,
+              tipo: 'entrada',
+              observacao: 'Cadastro inicial de produto',
+            });
+          }
         }
       }
       onSaved();

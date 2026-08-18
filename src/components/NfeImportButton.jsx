@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
+import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 
 export default function NfeImportButton({ produtos, setores, maquinas, gavetas, onImported }) {
@@ -50,40 +51,46 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
       const obs = `NF-e ${preview.nNF}${preview.emitente ? ' — ' + preview.emitente : ''}`;
       const now = new Date().toISOString();
       const lotesAtuais = await base44.entities.Lote.list();
+      const produtosWork = produtos.map((p) => ({ ...p }));
       let matched = 0;
       let unmatched = 0;
       let criados = 0;
 
       for (const item of editedItems) {
         let produto;
+        let criouNovo = false;
 
-        if (item.create_new) {
-          if (!item.novo_nome || !item.novo_setor_id) {
-            unmatched++;
-            continue;
-          }
-          produto = await base44.entities.Produto.create({
-            nome: item.novo_nome,
-            codigo: item.novo_codigo || '',
-            setor_id: item.novo_setor_id,
-            maquina_id: item.maquina_id || '',
-            gaveta_id: item.gaveta_id || '',
-            codigo_referencia: item.codigo_referencia || '',
-            unidade: item.novo_unidade || 'un',
-            quantidade: item.qCom,
-            estoque_minimo: 0,
+        if (!item.create_new && item.produto_id) {
+          produto = produtosWork.find((p) => p.id === item.produto_id);
+          if (!produto) { unmatched++; continue; }
+        } else if (item.create_new) {
+          if (!item.novo_nome || !item.novo_setor_id) { unmatched++; continue; }
+          // Dedup: se já existe produto com mesmo código + referência, soma em vez de duplicar
+          const duplicado = findProdutoDuplicado({
+            produtos: produtosWork,
+            dados: { codigo: item.novo_codigo || '', codigo_referencia: item.codigo_referencia || '' },
           });
-          criados++;
+          if (duplicado) {
+            produto = duplicado;
+          } else {
+            produto = await base44.entities.Produto.create({
+              nome: item.novo_nome,
+              codigo: item.novo_codigo || '',
+              setor_id: item.novo_setor_id,
+              maquina_id: item.maquina_id || '',
+              gaveta_id: item.gaveta_id || '',
+              codigo_referencia: item.codigo_referencia || '',
+              unidade: item.novo_unidade || 'un',
+              quantidade: item.qCom,
+              estoque_minimo: 0,
+            });
+            produtosWork.push(produto);
+            criouNovo = true;
+            criados++;
+          }
         } else {
-          if (!item.produto_id) {
-            unmatched++;
-            continue;
-          }
-          produto = produtos.find((p) => p.id === item.produto_id);
-          if (!produto) {
-            unmatched++;
-            continue;
-          }
+          unmatched++;
+          continue;
         }
 
         const controla = setorControlaValidade(produto.setor_id, setores);
@@ -96,8 +103,8 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           );
           if (lote) {
             loteId = lote.id;
-            await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + item.qCom });
-            lotesAtuais.find((l) => l.id === lote.id).quantidade = (lote.quantidade || 0) + item.qCom;
+            lote.quantidade = (lote.quantidade || 0) + item.qCom;
+            await base44.entities.Lote.update(lote.id, { quantidade: lote.quantidade });
           } else {
             const created = await base44.entities.Lote.create({
               produto_id: produto.id,
@@ -131,8 +138,8 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           data_validade: dataValidade,
         });
 
-        if (item.create_new) {
-          // quantidade já definida na criação; para validade, reflete o lote criado
+        if (criouNovo && !controla) {
+          produto.quantidade = item.qCom;
         } else if (controla && loteId) {
           const lotesProduto = lotesAtuais.filter((l) => l.produto_id === produto.id);
           const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
@@ -142,6 +149,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
             gaveta_id: item.gaveta_id || produto.gaveta_id,
             codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
           });
+          produto.quantidade = novaQtd;
         } else {
           const novaQtd = (produto.quantidade || 0) + item.qCom;
           await base44.entities.Produto.update(produto.id, {
@@ -150,6 +158,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
             gaveta_id: item.gaveta_id || produto.gaveta_id,
             codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
           });
+          produto.quantidade = novaQtd;
         }
         matched++;
       }
