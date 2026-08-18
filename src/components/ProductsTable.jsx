@@ -39,6 +39,7 @@ export default function ProductsTable({
             <TableRow>
               <TableHead>Produto</TableHead>
               <TableHead>Código</TableHead>
+              <TableHead>Ref.</TableHead>
               <TableHead>Setor</TableHead>
               <TableHead>Máquina</TableHead>
               <TableHead>Gaveta</TableHead>
@@ -54,6 +55,7 @@ export default function ProductsTable({
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.nome}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo_referencia || '—'}</TableCell>
                   <TableCell className="text-sm">{getNome(p.setor_id, setores)}</TableCell>
                   <TableCell className="text-sm">{getNome(p.maquina_id, maquinas)}</TableCell>
                   <TableCell className="text-sm font-mono">{getNome(p.gaveta_id, gavetas, 'codigo')}</TableCell>

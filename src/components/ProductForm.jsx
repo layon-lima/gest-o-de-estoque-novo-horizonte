@@ -20,6 +20,7 @@ import { base44 } from '@/api/base44Client';
 
 const empty = {
   codigo: '',
+  codigo_referencia: '',
   nome: '',
   setor_id: '',
   maquina_id: '',
@@ -78,6 +79,11 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
               <Label htmlFor="nome">Nome *</Label>
               <Input id="nome" value={form.nome} onChange={(e) => set('nome', e.target.value)} required />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="codigo_referencia">Código de Referência</Label>
+            <Input id="codigo_referencia" value={form.codigo_referencia || ''} onChange={(e) => set('codigo_referencia', e.target.value)} placeholder="Definido na entrada em estoque" />
           </div>
 
           <div className="space-y-1.5">
