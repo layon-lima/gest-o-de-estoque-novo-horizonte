@@ -14,7 +14,7 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-muted">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-primary">Novo Horizonte</span>
+          <span className="font-bold text-primary">Gestão Estoque Novo Horizonte</span>
         </header>
         <main className="flex-1 overflow-y-auto scrollbar-thin">
           <Outlet />

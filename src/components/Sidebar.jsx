@@ -42,8 +42,8 @@ export default function Sidebar({ open, onClose }) {
               <Leaf className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="font-bold text-lg leading-tight">Novo Horizonte</h1>
-              <p className="text-xs opacity-70 font-medium">Controle de Estoque</p>
+              <h1 className="font-bold text-base leading-tight">Gestão Estoque</h1>
+              <p className="text-xs opacity-70 font-medium">Novo Horizonte</p>
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden p-1 rounded-lg hover:bg-white/10">
