@@ -33,11 +33,14 @@ export default function Dashboard() {
   const filtered = useMemo(() => {
     const porFiltros = filterProdutos(produtos, filtros);
     if (!busca.trim()) return porFiltros;
-    const termo = busca.toLowerCase().trim();
-    return porFiltros.filter(
-      (p) =>
+    const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
+    if (termos.length === 0) return porFiltros;
+    return porFiltros.filter((p) =>
+      termos.every((termo) =>
         (p.nome || '').toLowerCase().includes(termo) ||
-        (p.codigo || '').toLowerCase().includes(termo)
+        (p.codigo || '').toLowerCase().includes(termo) ||
+        (p.codigo_referencia || '').toLowerCase().includes(termo)
+      )
     );
   }, [produtos, filtros, busca]);
 
@@ -58,7 +61,7 @@ export default function Dashboard() {
       </header>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <SearchBar value={busca} onChange={setBusca} />
+        <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} />
         <div className="flex items-center gap-2 flex-wrap">
           <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} />
         </div>
