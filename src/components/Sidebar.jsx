@@ -9,7 +9,6 @@ import {
   Leaf,
   X,
   LogOut,
-  Boxes,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -17,7 +16,6 @@ const navItems = [
   { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
   { to: '/movimentacoes', label: 'Entradas e Saídas', icon: ArrowLeftRight, end: false },
   { to: '/produtos', label: 'Produtos', icon: Package, end: false },
-  { to: '/lotes', label: 'Lotes e Validade', icon: Boxes, end: false },
   { to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
   { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
   { to: '/usuarios', label: 'Usuários', icon: Users, end: false },
