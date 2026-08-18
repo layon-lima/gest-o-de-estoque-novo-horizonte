@@ -328,6 +328,7 @@ export default function Movimentacoes() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
+                        <TableCell className="text-right font-semibold">{m.quantidade}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo}</TableCell>
                         <TableCell>
                           {m.tipo === 'entrada' ? (
@@ -340,7 +341,6 @@ export default function Movimentacoes() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-semibold">{m.quantidade}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
                         <TableCell><ValidadeBadge dataValidade={m.data_validade} /></TableCell>
                         <TableCell className="text-center">

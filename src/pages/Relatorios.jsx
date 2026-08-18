@@ -109,24 +109,24 @@ export default function Relatorios() {
       const st = qtd === 0 ? 'Zerado' : 'Normal';
       return [
         p.nome,
+        qtd,
+        p.unidade || '',
         p.codigo,
         getNome(p.setor_id, setores),
         getNome(p.maquina_id, maquinas),
         getNome(p.gaveta_id, gavetas, 'codigo'),
-        qtd,
-        p.unidade || '',
         st,
       ];
     });
   }
 
   function handlePDF() {
-    const cols = ['Produto', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Unidade', 'Status'];
+    const cols = ['Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Status'];
     exportPDF('Relatório de Estoque', cols, buildRows());
   }
 
   function handleCSV() {
-    const cols = ['Produto', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Unidade', 'Status'];
+    const cols = ['Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Status'];
     exportCSV('Relatório de Estoque', cols, buildRows());
   }
 
@@ -141,22 +141,22 @@ export default function Relatorios() {
     return entradasRecentes.map((m) => [
       m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
       m.nome_produto || '',
+      m.quantidade || 0,
       m.codigo || '',
       getNome(m.setor_id, setores),
       getNome(m.maquina_id, maquinas),
       getNome(m.gaveta_id, gavetas, 'codigo'),
-      m.quantidade || 0,
       m.observacao || '',
     ]);
   }
 
   function handleEntradasPDF() {
-    const cols = ['Data/Hora', 'Produto', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Observação'];
+    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
     exportPDF('Relatório de Entradas Recentes', cols, buildEntradasRows());
   }
 
   function handleEntradasCSV() {
-    const cols = ['Data/Hora', 'Produto', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Observação'];
+    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
     exportCSV('Relatório de Entradas Recentes', cols, buildEntradasRows());
   }
 
@@ -173,23 +173,23 @@ export default function Relatorios() {
       const produto = produtos.find((p) => p.id === l.produto_id);
       return [
         produto?.nome || '—',
+        l.quantidade || 0,
+        l.unidade || '',
         l.codigo_lote || '',
         l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—',
         statusValidade(l).label,
         getNome(l.setor_id, setores),
         getNome(l.maquina_id, maquinas),
         getNome(l.gaveta_id, gavetas, 'codigo'),
-        l.quantidade || 0,
-        l.unidade || '',
       ];
     });
   }
 
   function handleValidadePDF() {
-    exportPDF('Relatório de Validade', ['Produto', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Unidade'], buildValidadeRows());
+    exportPDF('Relatório de Validade', ['Produto', 'Quantidade', 'Unidade', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta'], buildValidadeRows());
   }
   function handleValidadeCSV() {
-    exportCSV('Relatório de Validade', ['Produto', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Unidade'], buildValidadeRows());
+    exportCSV('Relatório de Validade', ['Produto', 'Quantidade', 'Unidade', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta'], buildValidadeRows());
   }
 
   return (
@@ -285,15 +285,15 @@ export default function Relatorios() {
                 <Table>
                   <TableHeader className="sticky top-0 bg-muted">
                     <TableRow>
-                      <TableHead>Data/Hora</TableHead>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Setor</TableHead>
-                      <TableHead>Máquina</TableHead>
-                      <TableHead>Gaveta</TableHead>
-                      <TableHead className="text-right">Qtd.</TableHead>
-                      <TableHead>Observação</TableHead>
-                    </TableRow>
+                       <TableHead>Data/Hora</TableHead>
+                       <TableHead>Produto</TableHead>
+                       <TableHead className="text-right">Qtd.</TableHead>
+                       <TableHead>Código</TableHead>
+                       <TableHead>Setor</TableHead>
+                       <TableHead>Máquina</TableHead>
+                       <TableHead>Gaveta</TableHead>
+                       <TableHead>Observação</TableHead>
+                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {entradasRecentes.map((m) => (
@@ -302,11 +302,11 @@ export default function Relatorios() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
+                        <TableCell className="text-right font-semibold text-green-600">{m.quantidade}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
                         <TableCell className="text-sm">{getNome(m.maquina_id, maquinas)}</TableCell>
                         <TableCell className="text-sm">{getNome(m.gaveta_id, gavetas, 'codigo')}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">{m.quantidade}</TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.observacao || '—'}</TableCell>
                       </TableRow>
                     ))}
@@ -359,13 +359,13 @@ export default function Relatorios() {
                   <TableHeader className="sticky top-0 bg-muted">
                     <TableRow>
                       <TableHead>Produto</TableHead>
+                      <TableHead className="text-right">Qtd.</TableHead>
                       <TableHead>Lote</TableHead>
                       <TableHead>Validade</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Setor</TableHead>
                       <TableHead>Máquina</TableHead>
                       <TableHead>Gaveta</TableHead>
-                      <TableHead className="text-right">Qtd.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -374,13 +374,13 @@ export default function Relatorios() {
                       return (
                         <TableRow key={l.id}>
                           <TableCell className="font-medium text-sm">{produto?.nome || '—'}</TableCell>
+                          <TableCell className="text-right font-semibold">{l.quantidade} {l.unidade}</TableCell>
                           <TableCell className="font-mono text-xs">{l.codigo_lote}</TableCell>
                           <TableCell className="text-sm whitespace-nowrap">{l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—'}</TableCell>
                           <TableCell><ValidadeBadge dataValidade={l.data_validade} /></TableCell>
                           <TableCell className="text-sm">{getNome(l.setor_id, setores)}</TableCell>
                           <TableCell className="text-sm">{getNome(l.maquina_id, maquinas)}</TableCell>
                           <TableCell className="text-sm">{getNome(l.gaveta_id, gavetas, 'codigo')}</TableCell>
-                          <TableCell className="text-right font-semibold">{l.quantidade} {l.unidade}</TableCell>
                         </TableRow>
                       );
                     })}
