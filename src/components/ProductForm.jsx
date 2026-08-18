@@ -53,9 +53,43 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, quantidade: Number(form.quantidade) || 0, estoque_minimo: Number(form.estoque_minimo) || 0 };
-      if (produto) await base44.entities.Produto.update(produto.id, payload);
-      else await base44.entities.Produto.create(payload);
+      const newQtd = Number(form.quantidade) || 0;
+      const payload = { ...form, quantidade: newQtd, estoque_minimo: Number(form.estoque_minimo) || 0 };
+      if (produto) {
+        await base44.entities.Produto.update(produto.id, payload);
+        const oldQtd = Number(produto.quantidade) || 0;
+        const diff = newQtd - oldQtd;
+        if (diff !== 0) {
+          await base44.entities.Movimentacao.create({
+            data: new Date().toISOString(),
+            produto_id: produto.id,
+            codigo: form.codigo,
+            nome_produto: form.nome,
+            quantidade: Math.abs(diff),
+            setor_id: form.setor_id,
+            maquina_id: form.maquina_id,
+            gaveta_id: form.gaveta_id,
+            tipo: diff > 0 ? 'entrada' : 'saida',
+            observacao: 'Ajuste via cadastro de produto',
+          });
+        }
+      } else {
+        const created = await base44.entities.Produto.create(payload);
+        if (newQtd > 0) {
+          await base44.entities.Movimentacao.create({
+            data: new Date().toISOString(),
+            produto_id: created.id,
+            codigo: form.codigo,
+            nome_produto: form.nome,
+            quantidade: newQtd,
+            setor_id: form.setor_id,
+            maquina_id: form.maquina_id,
+            gaveta_id: form.gaveta_id,
+            tipo: 'entrada',
+            observacao: 'Cadastro inicial de produto',
+          });
+        }
+      }
       onSaved();
       onOpenChange(false);
     } finally {
