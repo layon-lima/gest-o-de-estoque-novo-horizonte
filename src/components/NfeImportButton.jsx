@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 
-export default function NfeImportButton({ produtos, onImported }) {
+export default function NfeImportButton({ produtos, maquinas, gavetas, onImported }) {
   const inputRef = useRef(null);
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -69,14 +69,19 @@ export default function NfeImportButton({ produtos, onImported }) {
           nome_produto: produto.nome,
           quantidade: item.qCom,
           setor_id: produto.setor_id,
-          maquina_id: produto.maquina_id,
-          gaveta_id: produto.gaveta_id,
+          maquina_id: item.maquina_id || produto.maquina_id,
+          gaveta_id: item.gaveta_id || produto.gaveta_id,
           tipo: 'entrada',
           observacao: obs,
         });
 
         const novaQtd = (produto.quantidade || 0) + item.qCom;
-        await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+        await base44.entities.Produto.update(produto.id, {
+          quantidade: novaQtd,
+          maquina_id: item.maquina_id || produto.maquina_id,
+          gaveta_id: item.gaveta_id || produto.gaveta_id,
+          codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
+        });
         matched++;
       }
 
@@ -133,6 +138,8 @@ export default function NfeImportButton({ produtos, onImported }) {
           nfeInfo={{ nNF: preview.nNF, emitente: preview.emitente }}
           items={preview.items}
           produtos={produtos}
+          maquinas={maquinas}
+          gavetas={gavetas}
           onClose={() => setPreview(null)}
           onConfirm={handleConfirm}
         />

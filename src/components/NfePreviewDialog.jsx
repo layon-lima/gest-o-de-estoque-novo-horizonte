@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -28,16 +27,22 @@ import {
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
 
-export default function NfePreviewDialog({ open, nfeInfo, items, produtos, onClose, onConfirm }) {
+export default function NfePreviewDialog({ open, nfeInfo, items, produtos, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
 
   useEffect(() => {
     if (items) {
       setEdited(
-        items.map((item) => ({
-          ...item,
-          produto_id: matchNfeItem(item, produtos)?.id || '',
-        }))
+        items.map((item) => {
+          const produto = matchNfeItem(item, produtos);
+          return {
+            ...item,
+            produto_id: produto?.id || '',
+            maquina_id: produto?.maquina_id || '',
+            gaveta_id: produto?.gaveta_id || '',
+            codigo_referencia: produto?.codigo_referencia || item.cProd || '',
+          };
+        })
       );
     }
   }, [items, produtos]);
@@ -50,12 +55,27 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, onClo
     });
   }
 
+  function handleProductChange(idx, produtoId) {
+    setEdited((prev) => {
+      const copy = [...prev];
+      const produto = produtos.find((p) => p.id === produtoId);
+      copy[idx] = {
+        ...copy[idx],
+        produto_id: produtoId,
+        maquina_id: produto?.maquina_id || '',
+        gaveta_id: produto?.gaveta_id || '',
+        codigo_referencia: produto?.codigo_referencia || copy[idx].codigo_referencia || '',
+      };
+      return copy;
+    });
+  }
+
   const matchedCount = edited.filter((i) => i.produto_id).length;
   const canConfirm = edited.some((i) => i.produto_id);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Confirmar Importação da NF-e</DialogTitle>
           <DialogDescription>
@@ -80,9 +100,11 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, onClo
               <TableRow>
                 <TableHead className="w-[60px]">Cód. NF</TableHead>
                 <TableHead>Produto (NF-e)</TableHead>
-                <TableHead>Un.</TableHead>
-                <TableHead className="w-[100px]">Qtd.</TableHead>
-                <TableHead className="min-w-[220px]">Produto do Estoque</TableHead>
+                <TableHead className="w-[80px]">Qtd.</TableHead>
+                <TableHead className="min-w-[200px]">Produto do Estoque</TableHead>
+                <TableHead className="min-w-[160px]">Máquina</TableHead>
+                <TableHead className="min-w-[140px]">Gaveta</TableHead>
+                <TableHead className="min-w-[140px]">Referência</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -90,7 +112,6 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, onClo
                 <TableRow key={idx}>
                   <TableCell className="font-mono text-xs text-muted-foreground">{item.cProd || '—'}</TableCell>
                   <TableCell className="text-sm font-medium">{item.xProd}</TableCell>
-                  <TableCell className="text-xs">{item.uCom || '—'}</TableCell>
                   <TableCell>
                     <Input
                       type="number"
@@ -104,7 +125,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, onClo
                   <TableCell>
                     <Select
                       value={item.produto_id || 'none'}
-                      onValueChange={(v) => updateRow(idx, 'produto_id', v === 'none' ? '' : v)}
+                      onValueChange={(v) => handleProductChange(idx, v === 'none' ? '' : v)}
                     >
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Selecionar produto…" />
@@ -118,6 +139,49 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, onClo
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={item.maquina_id || 'none'}
+                      onValueChange={(v) => updateRow(idx, 'maquina_id', v === 'none' ? '' : v)}
+                      disabled={!item.produto_id}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Selecionar…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Nenhuma —</SelectItem>
+                        {maquinas.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={item.gaveta_id || 'none'}
+                      onValueChange={(v) => updateRow(idx, 'gaveta_id', v === 'none' ? '' : v)}
+                      disabled={!item.produto_id}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Selecionar…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Nenhuma —</SelectItem>
+                        {gavetas.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="text"
+                      className="h-8"
+                      value={item.codigo_referencia || ''}
+                      onChange={(e) => updateRow(idx, 'codigo_referencia', e.target.value)}
+                      disabled={!item.produto_id}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
