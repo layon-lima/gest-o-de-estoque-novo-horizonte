@@ -1,10 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Package, Boxes } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
 import FilterBar from '@/components/FilterBar';
-import StatCard from '@/components/StatCard';
-import AlertsPanel from '@/components/AlertsPanel';
 import ProductsTable from '@/components/ProductsTable';
 import SearchBar from '@/components/SearchBar';
 import { filterProdutos } from '@/lib/estoqueFilters';
@@ -44,12 +41,7 @@ export default function Dashboard() {
     );
   }, [produtos, filtros, busca]);
 
-  const nonZeroAll = produtos.filter((p) => (p.quantidade || 0) > 0);
-  const avgAll = nonZeroAll.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZeroAll.length || 1);
-  const zeradoCount = produtos.filter((p) => (p.quantidade || 0) === 0).length;
-  const baixoCount = nonZeroAll.filter((p) => (p.quantidade || 0) < avgAll).length;
 
-  const totalQuantidade = filtered.reduce((s, p) => s + (p.quantidade || 0), 0);
 
   if (loading)
     return (
@@ -72,21 +64,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard icon={Package} title="Produtos" value={filtered.length} colorClass="bg-primary/10 text-primary" />
-        <StatCard icon={Boxes} title="Itens em Estoque" value={totalQuantidade} colorClass="bg-blue-100 text-blue-600" />
-
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card className="p-5">
-            <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
-            <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
-          </Card>
-        </div>
-        <AlertsPanel baixoCount={baixoCount} zeradoCount={zeradoCount} />
-      </div>
+      <Card className="p-5">
+        <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
+        <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+      </Card>
     </div>
   );
 }
