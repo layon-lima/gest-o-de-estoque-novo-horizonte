@@ -4,8 +4,8 @@
   "properties": {
     "data": {
       "type": "string",
-      "format": "date",
-      "title": "Data"
+      "format": "date-time",
+      "title": "Data e Hora"
     },
     "produto_id": {
       "type": "string",

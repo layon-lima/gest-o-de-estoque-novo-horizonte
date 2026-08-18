@@ -38,7 +38,6 @@ export default function Movimentacoes() {
     produto_id: '',
     tipo: 'entrada',
     quantidade: 1,
-    data: new Date().toISOString().slice(0, 10),
     observacao: '',
   });
   const { toast } = useToast();
@@ -65,7 +64,7 @@ export default function Movimentacoes() {
     try {
       const qtd = Number(form.quantidade) || 0;
       await base44.entities.Movimentacao.create({
-        data: form.data,
+        data: new Date().toISOString(),
         produto_id: produto.id,
         codigo: produto.codigo,
         nome_produto: produto.nome,
@@ -82,7 +81,7 @@ export default function Movimentacoes() {
           : Math.max(0, (produto.quantidade || 0) - qtd);
       await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
       toast({ title: 'Movimentação registrada com sucesso' });
-      setForm({ produto_id: '', tipo: 'entrada', quantidade: 1, data: new Date().toISOString().slice(0, 10), observacao: '' });
+      setForm({ produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '' });
       load();
     } finally {
       setSaving(false);
@@ -128,10 +127,6 @@ export default function Movimentacoes() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="mv-data">Data</Label>
-              <Input id="mv-data" type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
               <Label htmlFor="mv-obs">Observação</Label>
               <Textarea id="mv-obs" rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
             </div>
@@ -166,7 +161,7 @@ export default function Movimentacoes() {
                     {movimentacoes.map((m) => (
                       <TableRow key={m.id}>
                         <TableCell className="text-sm whitespace-nowrap">
-                          {m.data ? new Date(m.data).toLocaleDateString('pt-BR') : '—'}
+                          {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo}</TableCell>
