@@ -7,7 +7,10 @@ import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
+import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
+
+const norm = (v) => String(v || '').trim().toLowerCase();
 
 const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 
@@ -17,6 +20,7 @@ export default function SetorManager() {
   const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
+  const { toast } = useToast();
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -36,6 +40,15 @@ export default function SetorManager() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const duplicado = items.some((s) => norm(s.nome) === norm(form.nome) && s.id !== editingId);
+    if (duplicado) {
+      toast({
+        variant: 'destructive',
+        title: 'Setor duplicado',
+        description: `Já existe um setor com o nome "${form.nome}".`,
+      });
+      return;
+    }
     if (editingId) await base44.entities.Setor.update(editingId, form);
     else await base44.entities.Setor.create(form);
     setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });

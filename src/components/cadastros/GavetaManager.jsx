@@ -5,8 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
+import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
 import { sortGavetas } from '@/lib/gavetas';
+
+const norm = (v) => String(v || '').trim().toLowerCase();
 
 export default function GavetaManager() {
   const [items, setItems] = useState([]);
@@ -14,6 +17,7 @@ export default function GavetaManager() {
   const [form, setForm] = useState({ codigo: '', descricao: '' });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
+  const { toast } = useToast();
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -33,6 +37,15 @@ export default function GavetaManager() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const duplicado = items.some((g) => norm(g.codigo) === norm(form.codigo) && g.id !== editingId);
+    if (duplicado) {
+      toast({
+        variant: 'destructive',
+        title: 'Gaveta duplicada',
+        description: `Já existe uma gaveta com o código "${form.codigo}". Gavetas são endereços e não podem ser repetidas.`,
+      });
+      return;
+    }
     if (editingId) await base44.entities.Gaveta.update(editingId, form);
     else await base44.entities.Gaveta.create(form);
     setForm({ codigo: '', descricao: '' });

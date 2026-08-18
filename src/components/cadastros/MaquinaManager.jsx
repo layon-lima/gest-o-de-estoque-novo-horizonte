@@ -5,7 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
+import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
+
+const norm = (v) => String(v || '').trim().toLowerCase();
 
 export default function MaquinaManager() {
   const [items, setItems] = useState([]);
@@ -13,6 +16,7 @@ export default function MaquinaManager() {
   const [form, setForm] = useState({ codigo: '', nome: '', descricao: '' });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
+  const { toast } = useToast();
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -33,6 +37,15 @@ export default function MaquinaManager() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const duplicado = items.some((m) => norm(m.codigo) === norm(form.codigo) && m.id !== editingId);
+    if (duplicado) {
+      toast({
+        variant: 'destructive',
+        title: 'Máquina duplicada',
+        description: `Já existe uma máquina com o código "${form.codigo}".`,
+      });
+      return;
+    }
     if (editingId) await base44.entities.Maquina.update(editingId, form);
     else await base44.entities.Maquina.create(form);
     setForm({ codigo: '', nome: '', descricao: '' });
