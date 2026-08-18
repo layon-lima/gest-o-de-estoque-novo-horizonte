@@ -6,6 +6,11 @@
       "type": "string",
       "title": "C\u00f3digo Interno"
     },
+    "codigo_referencia": {
+      "type": "string",
+      "title": "C\u00f3digo de Refer\u00eancia",
+      "description": "Definido pelo usu\u00e1rio no momento da entrada em estoque"
+    },
     "nome": {
       "type": "string",
       "title": "Nome"
