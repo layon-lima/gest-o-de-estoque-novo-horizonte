@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
+import SearchInput from './SearchInput';
 
 export default function GavetaManager({ maquinas }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ codigo: '', descricao: '', maquina_id: '' });
   const [editingId, setEditingId] = useState(null);
+  const [busca, setBusca] = useState('');
+
+  const filteredItems = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (!q) return items;
+    return items.filter((g) => {
+      const maq = maquinas.find((m) => m.id === g.maquina_id);
+      return (
+        (g.codigo || '').toLowerCase().includes(q) ||
+        (g.descricao || '').toLowerCase().includes(q) ||
+        (maq ? `${maq.codigo} ${maq.nome}` : '').toLowerCase().includes(q)
+      );
+    });
+  }, [items, maquinas, busca]);
 
   async function load() {
     setLoading(true);
@@ -69,25 +84,28 @@ export default function GavetaManager({ maquinas }) {
         </form>
       </Card>
 
-      <div className="md:col-span-2 space-y-2">
+      <div className="md:col-span-2 space-y-3">
+        <SearchInput value={busca} onChange={setBusca} placeholder="Buscar gaveta por código, descrição ou máquina..." />
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-        {!loading && items.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma gaveta cadastrada.</p>}
-        {items.map((item) => {
-          const maq = getMaquinaNome(item.maquina_id);
-          return (
-            <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
-                  <p className="font-medium truncate">{item.descricao || '—'}</p>
+        {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma gaveta encontrada.</p>}
+        <div className="space-y-2">
+          {filteredItems.map((item) => {
+            const maq = getMaquinaNome(item.maquina_id);
+            return (
+              <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
+                    <p className="font-medium truncate">{item.descricao || '—'}</p>
+                  </div>
+                  {maq && <p className="text-sm text-muted-foreground truncate mt-0.5">{maq.codigo} — {maq.nome}</p>}
                 </div>
-                {maq && <p className="text-sm text-muted-foreground truncate mt-0.5">{maq.codigo} — {maq.nome}</p>}
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
-              <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
-            </Card>
-          );
-        })}
+                <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
+                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

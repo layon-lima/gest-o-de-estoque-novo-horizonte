@@ -1,16 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
+import SearchInput from './SearchInput';
 
 export default function MaquinaManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ codigo: '', nome: '', descricao: '' });
   const [editingId, setEditingId] = useState(null);
+  const [busca, setBusca] = useState('');
+
+  const filteredItems = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (!q) return items;
+    return items.filter((m) =>
+      (m.codigo || '').toLowerCase().includes(q) ||
+      (m.nome || '').toLowerCase().includes(q) ||
+      (m.descricao || '').toLowerCase().includes(q)
+    );
+  }, [items, busca]);
 
   async function load() {
     setLoading(true);
@@ -62,22 +74,25 @@ export default function MaquinaManager() {
         </form>
       </Card>
 
-      <div className="md:col-span-2 space-y-2">
+      <div className="md:col-span-2 space-y-3">
+        <SearchInput value={busca} onChange={setBusca} placeholder="Buscar máquina por código, nome ou descrição..." />
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-        {!loading && items.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma máquina cadastrada.</p>}
-        {items.map((item) => (
-          <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
-                <p className="font-medium truncate">{item.nome}</p>
+        {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma máquina encontrada.</p>}
+        <div className="space-y-2">
+          {filteredItems.map((item) => (
+            <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
+                  <p className="font-medium truncate">{item.nome}</p>
+                </div>
+                {item.descricao && <p className="text-sm text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
               </div>
-              {item.descricao && <p className="text-sm text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
-            </div>
-            <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
-            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
-          </Card>
-        ))}
+              <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
+              <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

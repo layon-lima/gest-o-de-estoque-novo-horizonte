@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
+import SearchInput from './SearchInput';
 
 const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 
@@ -15,6 +16,16 @@ export default function SetorManager() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });
   const [editingId, setEditingId] = useState(null);
+  const [busca, setBusca] = useState('');
+
+  const filteredItems = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (!q) return items;
+    return items.filter((s) =>
+      (s.nome || '').toLowerCase().includes(q) ||
+      (s.descricao || '').toLowerCase().includes(q)
+    );
+  }, [items, busca]);
 
   async function load() {
     setLoading(true);
@@ -80,25 +91,28 @@ export default function SetorManager() {
         </form>
       </Card>
 
-      <div className="md:col-span-2 space-y-2">
+      <div className="md:col-span-2 space-y-3">
+        <SearchInput value={busca} onChange={setBusca} placeholder="Buscar setor por nome ou descrição..." />
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-        {!loading && items.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor cadastrado.</p>}
-        {items.map((item) => (
-          <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
-            <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: item.cor || '#16a34a' }} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="font-medium truncate">{item.nome}</p>
-                {item.controla_validade && (
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0">Validade</Badge>
-                )}
+        {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor encontrado.</p>}
+        <div className="space-y-2">
+          {filteredItems.map((item) => (
+            <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+              <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: item.cor || '#16a34a' }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium truncate">{item.nome}</p>
+                  {item.controla_validade && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0">Validade</Badge>
+                  )}
+                </div>
+                {item.descricao && <p className="text-sm text-muted-foreground truncate">{item.descricao}</p>}
               </div>
-              {item.descricao && <p className="text-sm text-muted-foreground truncate">{item.descricao}</p>}
-            </div>
-            <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
-            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
-          </Card>
-        ))}
+              <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
+              <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );
