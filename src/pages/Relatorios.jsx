@@ -25,6 +25,7 @@ import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
 import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
+import SearchSelect from '@/components/SearchSelect';
 
 export default function Relatorios() {
   const [produtos, setProdutos] = useState([]);
@@ -185,13 +186,14 @@ export default function Relatorios() {
                   {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={filtro.maquina_id} onValueChange={(v) => setFiltro({ ...filtro, maquina_id: v })}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Máquina" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as máquinas</SelectItem>
-                  {maquinas.map((m) => <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={filtro.maquina_id}
+                onChange={(v) => setFiltro({ ...filtro, maquina_id: v })}
+                options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+                placeholder="Máquina"
+                allLabel="Todas as máquinas"
+                className="w-[220px]"
+              />
               <Select value={filtro.gaveta_id} onValueChange={(v) => setFiltro({ ...filtro, gaveta_id: v })}>
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Gaveta" /></SelectTrigger>
                 <SelectContent>
