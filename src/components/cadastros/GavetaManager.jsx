@@ -62,16 +62,6 @@ export default function GavetaManager({ maquinas }) {
             <Label htmlFor="g-desc">Descrição</Label>
             <Input id="g-desc" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Máquina</Label>
-            <Select value={form.maquina_id || 'none'} onValueChange={(v) => setForm({ ...form, maquina_id: v === 'none' ? '' : v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione a máquina" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhuma —</SelectItem>
-                {maquinas.map((m) => <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
             {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', descricao: '', maquina_id: '' }); }}>Cancelar</Button>}
