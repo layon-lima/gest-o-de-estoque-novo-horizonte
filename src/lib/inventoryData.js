@@ -1,7 +1,5 @@
-/* eslint-disable no-undef */
 // Inventory data: machine|drawer|reference|product|quantity (pipe-separated, one row per line)
-// eslint-disable-next-line no-undef
-module.exports = `9670 STS|1|H229008|CHAPA DE DESLIZAMENTO|0
+export default `9670 STS|1|H229008|CHAPA DE DESLIZAMENTO|0
 9670 STS|1|JD8524|ROLAMENTO ESFERA|4
 9670 STS|1|AA15756|TRAVA R|17
 9670 STS|1|H172459|RETENTOR|10
