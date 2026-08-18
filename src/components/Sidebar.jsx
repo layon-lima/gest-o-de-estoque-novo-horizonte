@@ -13,7 +13,7 @@ import {
 import { useAuth } from '@/lib/AuthContext';
 
 const navItems = [
-  { to: '/', label: 'Painel', icon: LayoutDashboard, end: true },
+  { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
   { to: '/produtos', label: 'Produtos', icon: Package, end: false },
   { to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
   { to: '/movimentacoes', label: 'Movimentações', icon: ArrowLeftRight, end: false },
