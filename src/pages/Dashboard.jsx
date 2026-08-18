@@ -5,7 +5,6 @@ import FilterBar from '@/components/FilterBar';
 import ProductsTable from '@/components/ProductsTable';
 import SearchBar from '@/components/SearchBar';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
-import ValidadeAlerts from '@/components/ValidadeAlerts';
 
 export default function Dashboard() {
   const [produtos, setProdutos] = useState([]);
@@ -66,15 +65,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card className="p-5">
-            <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
-            <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
-          </Card>
-        </div>
-        <ValidadeAlerts lotes={lotes} produtos={produtos} setores={setores} maquinas={maquinas} gavetas={gavetas} />
-      </div>
+      <Card className="p-5">
+        <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
+        <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+      </Card>
     </div>
   );
 }
