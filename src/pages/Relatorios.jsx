@@ -233,13 +233,14 @@ export default function Relatorios() {
                 allLabel="Todas as máquinas"
                 className="w-[220px]"
               />
-              <Select value={filtro.gaveta_id} onValueChange={(v) => setFiltro({ ...filtro, gaveta_id: v })}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Gaveta" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as gavetas</SelectItem>
-                  {gavetaOptions.map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={filtro.gaveta_id}
+                onChange={(v) => setFiltro({ ...filtro, gaveta_id: v })}
+                options={gavetaOptions.map((g) => ({ value: g.id, label: g.codigo }))}
+                placeholder="Gaveta"
+                allLabel="Todas as gavetas"
+                className="w-[200px]"
+              />
             </div>
           </Card>
 
