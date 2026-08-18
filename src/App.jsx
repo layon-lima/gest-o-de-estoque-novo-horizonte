@@ -13,6 +13,7 @@ import Dashboard from '@/pages/Dashboard';
 import Produtos from '@/pages/Produtos';
 import Cadastros from '@/pages/Cadastros';
 import Movimentacoes from '@/pages/Movimentacoes';
+import Lotes from '@/pages/Lotes';
 import Relatorios from '@/pages/Relatorios';
 import Usuarios from '@/pages/Usuarios';
 
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
         <Route path="/produtos" element={<Produtos />} />
         <Route path="/cadastros" element={<Cadastros />} />
         <Route path="/movimentacoes" element={<Movimentacoes />} />
+        <Route path="/lotes" element={<Lotes />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/usuarios" element={<Usuarios />} />
       </Route>

@@ -48,6 +48,21 @@
     "observacao": {
       "type": "string",
       "title": "Observa\u00e7\u00e3o"
+    },
+    "lote_id": {
+      "type": "string",
+      "title": "Lote",
+      "description": "Refer\u00eancia ao Lote (setores com controle de validade)"
+    },
+    "data_validade": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Validade"
+    },
+    "lotes_consumidos": {
+      "type": "string",
+      "title": "Lotes Consumidos (FEFO)",
+      "description": "JSON com os lotes consumidos em uma sa\u00edda"
     }
   },
   "required": [

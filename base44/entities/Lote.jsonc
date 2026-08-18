@@ -1,0 +1,48 @@
+{
+  "name": "Lote",
+  "type": "object",
+  "properties": {
+    "produto_id": {
+      "type": "string",
+      "title": "Produto",
+      "description": "Refer\u00eancia ao Produto"
+    },
+    "setor_id": {
+      "type": "string",
+      "title": "Setor"
+    },
+    "maquina_id": {
+      "type": "string",
+      "title": "M\u00e1quina"
+    },
+    "gaveta_id": {
+      "type": "string",
+      "title": "Gaveta"
+    },
+    "codigo_lote": {
+      "type": "string",
+      "title": "C\u00f3digo do Lote"
+    },
+    "data_validade": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Validade"
+    },
+    "quantidade": {
+      "type": "number",
+      "title": "Quantidade",
+      "default": 0
+    },
+    "unidade": {
+      "type": "string",
+      "title": "Unidade",
+      "default": "un"
+    }
+  },
+  "required": [
+    "produto_id",
+    "codigo_lote",
+    "data_validade",
+    "quantidade"
+  ]
+}

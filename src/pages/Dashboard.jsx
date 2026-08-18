@@ -5,12 +5,14 @@ import FilterBar from '@/components/FilterBar';
 import ProductsTable from '@/components/ProductsTable';
 import SearchBar from '@/components/SearchBar';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
+import ValidadeAlerts from '@/components/ValidadeAlerts';
 
 export default function Dashboard() {
   const [produtos, setProdutos] = useState([]);
   const [setores, setSetores] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [gavetas, setGavetas] = useState([]);
+  const [lotes, setLotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
   const [busca, setBusca] = useState('');
@@ -18,13 +20,14 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [p, s, m, g] = await Promise.all([
+      const [p, s, m, g, l] = await Promise.all([
         base44.entities.Produto.list(),
         base44.entities.Setor.list(),
         base44.entities.Maquina.list(),
         base44.entities.Gaveta.list(),
+        base44.entities.Lote.list(),
       ]);
-      setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g);
+      setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l);
       setLoading(false);
     }
     load();
@@ -63,10 +66,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <Card className="p-5">
-        <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
-        <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
-      </Card>
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card className="p-5">
+            <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
+            <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+          </Card>
+        </div>
+        <ValidadeAlerts lotes={lotes} produtos={produtos} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+      </div>
     </div>
   );
 }

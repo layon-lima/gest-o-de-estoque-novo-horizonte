@@ -27,6 +27,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
+import { setorControlaValidade } from '@/lib/lotes';
 
 export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
@@ -48,6 +49,8 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
             maquina_id: produto?.maquina_id || '',
             gaveta_id: produto?.gaveta_id || '',
             codigo_referencia: produto?.codigo_referencia || item.cProd || '',
+            codigo_lote: '',
+            data_validade: '',
           };
         })
       );
@@ -84,10 +87,18 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
     });
   }
 
+  function itemControlaValidade(item) {
+    const setorId = item.create_new
+      ? item.novo_setor_id
+      : produtos.find((p) => p.id === item.produto_id)?.setor_id;
+    return setorControlaValidade(setorId, setores);
+  }
+
   function isItemValid(item) {
-    if (item.produto_id) return true;
-    if (item.create_new && item.novo_nome && item.novo_setor_id) return true;
-    return false;
+    const hasProduto = item.produto_id || (item.create_new && item.novo_nome && item.novo_setor_id);
+    if (!hasProduto) return false;
+    if (itemControlaValidade(item)) return !!(item.codigo_lote && item.data_validade);
+    return true;
   }
 
   const matchedCount = edited.filter(isItemValid).length;
@@ -262,6 +273,34 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                               value={item.novo_unidade || ''}
                               onChange={(e) => updateRow(idx, 'novo_unidade', e.target.value)}
                             />
+                          </div>
+                          {itemControlaValidade(item) && (
+                            <>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Lote *</Label>
+                                <Input className="h-8 w-[140px]" value={item.codigo_lote || ''} onChange={(e) => updateRow(idx, 'codigo_lote', e.target.value)} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Validade *</Label>
+                                <Input type="date" className="h-8 w-[150px]" value={item.data_validade || ''} onChange={(e) => updateRow(idx, 'data_validade', e.target.value)} />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!item.create_new && item.produto_id && itemControlaValidade(item) && (
+                    <TableRow key={`${idx}-lote`} className="bg-amber-50/50">
+                      <TableCell colSpan={7} className="py-2">
+                        <div className="flex items-end gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Lote *</Label>
+                            <Input className="h-8 w-[160px]" value={item.codigo_lote || ''} onChange={(e) => updateRow(idx, 'codigo_lote', e.target.value)} placeholder="Código do lote" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Validade *</Label>
+                            <Input type="date" className="h-8 w-[160px]" value={item.data_validade || ''} onChange={(e) => updateRow(idx, 'data_validade', e.target.value)} />
                           </div>
                         </div>
                       </TableCell>

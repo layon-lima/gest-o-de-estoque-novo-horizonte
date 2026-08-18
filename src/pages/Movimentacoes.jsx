@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Plus, Undo2 } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Plus, Undo2, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,51 +24,84 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { getNome } from '@/lib/estoqueFilters';
+import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
+import ValidadeBadge from '@/components/ValidadeBadge';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import NfeImportButton from '@/components/NfeImportButton';
+
+const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '' };
 
 export default function Movimentacoes() {
   const [produtos, setProdutos] = useState([]);
   const [setores, setSetores] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [gavetas, setGavetas] = useState([]);
+  const [lotes, setLotes] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  const [form, setForm] = useState({
-    produto_id: '',
-    tipo: 'entrada',
-    quantidade: 1,
-    observacao: '',
-  });
+  const [form, setForm] = useState(emptyForm);
   const { toast } = useToast();
 
   async function load() {
     setLoading(true);
-    const [p, s, m, g, movs] = await Promise.all([
+    const [p, s, m, g, l, movs] = await Promise.all([
       base44.entities.Produto.list(),
       base44.entities.Setor.list(),
       base44.entities.Maquina.list(),
       base44.entities.Gaveta.list(),
+      base44.entities.Lote.list(),
       base44.entities.Movimentacao.list('-data', 50),
     ]);
-    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setMovimentacoes(movs);
+    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  const produtoSelecionado = produtos.find((p) => p.id === form.produto_id);
+  const controlaValidade = produtoSelecionado
+    ? setorControlaValidade(produtoSelecionado.setor_id, setores)
+    : false;
+  const lotesDoProduto = produtoSelecionado
+    ? lotes.filter((l) => l.produto_id === produtoSelecionado.id)
+    : [];
 
   async function handleUndo(mov) {
     const produto = produtos.find((p) => p.id === mov.produto_id);
     setSaving(true);
     try {
-      if (produto) {
-        const qtdAtual = produto.quantidade || 0;
-        const novaQtd =
-          mov.tipo === 'entrada'
-            ? Math.max(0, qtdAtual - (mov.quantidade || 0))
-            : qtdAtual + (mov.quantidade || 0);
-        await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+      if (mov.lote_id || mov.lotes_consumidos) {
+        if (mov.tipo === 'entrada') {
+          const lote = lotes.find((l) => l.id === mov.lote_id);
+          if (lote) {
+            const novaQtdLote = Math.max(0, (lote.quantidade || 0) - (mov.quantidade || 0));
+            await base44.entities.Lote.update(lote.id, { quantidade: novaQtdLote });
+          }
+        } else {
+          const consumidos = mov.lotes_consumidos
+            ? JSON.parse(mov.lotes_consumidos)
+            : (mov.lote_id ? [{ lote_id: mov.lote_id, quantidade: mov.quantidade }] : []);
+          for (const c of consumidos) {
+            const l = lotes.find((x) => x.id === c.lote_id);
+            if (l) await base44.entities.Lote.update(l.id, { quantidade: (l.quantidade || 0) + c.quantidade });
+          }
+        }
+        if (produto) {
+          const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
+          let total = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
+          total = mov.tipo === 'entrada' ? total - (mov.quantidade || 0) : total + (mov.quantidade || 0);
+          await base44.entities.Produto.update(produto.id, { quantidade: Math.max(0, total) });
+        }
+      } else {
+        if (produto) {
+          const qtdAtual = produto.quantidade || 0;
+          const novaQtd =
+            mov.tipo === 'entrada'
+              ? Math.max(0, qtdAtual - (mov.quantidade || 0))
+              : qtdAtual + (mov.quantidade || 0);
+          await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+        }
       }
       await base44.entities.Movimentacao.delete(mov.id);
       toast({ title: 'Movimentação desfeita', description: `${mov.nome_produto} — estoque atualizado.` });
@@ -86,8 +119,9 @@ export default function Movimentacoes() {
     setSaving(true);
     try {
       const qtd = Number(form.quantidade) || 0;
-      await base44.entities.Movimentacao.create({
-        data: new Date().toISOString(),
+      const now = new Date().toISOString();
+      const baseMov = {
+        data: now,
         produto_id: produto.id,
         codigo: produto.codigo,
         nome_produto: produto.nome,
@@ -97,14 +131,72 @@ export default function Movimentacoes() {
         gaveta_id: produto.gaveta_id,
         tipo: form.tipo,
         observacao: form.observacao,
-      });
-      const novaQtd =
-        form.tipo === 'entrada'
-          ? (produto.quantidade || 0) + qtd
-          : Math.max(0, (produto.quantidade || 0) - qtd);
-      await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+      };
+
+      if (controlaValidade) {
+        if (form.tipo === 'entrada') {
+          if (!form.codigo_lote || !form.data_validade) {
+            toast({ title: 'Lote e validade obrigatórios', description: 'Este setor controla validade.', variant: 'destructive' });
+            return;
+          }
+          let lote = lotes.find(
+            (l) => l.produto_id === produto.id && l.codigo_lote === form.codigo_lote && l.data_validade === form.data_validade
+          );
+          let loteId;
+          if (lote) {
+            loteId = lote.id;
+            await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + qtd });
+          } else {
+            const created = await base44.entities.Lote.create({
+              produto_id: produto.id,
+              setor_id: produto.setor_id,
+              maquina_id: produto.maquina_id || '',
+              gaveta_id: produto.gaveta_id || '',
+              codigo_lote: form.codigo_lote,
+              data_validade: form.data_validade,
+              quantidade: qtd,
+              unidade: produto.unidade || 'un',
+            });
+            loteId = created.id;
+          }
+          await base44.entities.Movimentacao.create({ ...baseMov, lote_id: loteId, data_validade: form.data_validade });
+          const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
+          const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) + qtd;
+          await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+        } else {
+          const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
+          const { alocacoes, totalDisponivel, suficiente } = consumirFefo(lotesProduto, qtd);
+          if (!suficiente) {
+            toast({
+              title: 'Saldo insuficiente em lotes válidos',
+              description: `Disponível: ${totalDisponivel} ${produto.unidade || 'un'}.`,
+              variant: 'destructive',
+            });
+            return;
+          }
+          for (const a of alocacoes) {
+            const l = lotesProduto.find((x) => x.id === a.lote_id);
+            await base44.entities.Lote.update(a.lote_id, { quantidade: (l.quantidade || 0) - a.quantidade });
+          }
+          await base44.entities.Movimentacao.create({
+            ...baseMov,
+            lote_id: alocacoes[0]?.lote_id || '',
+            data_validade: alocacoes[0]?.data_validade || '',
+            lotes_consumidos: JSON.stringify(alocacoes),
+          });
+          const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) - qtd;
+          await base44.entities.Produto.update(produto.id, { quantidade: Math.max(0, novaQtd) });
+        }
+      } else {
+        await base44.entities.Movimentacao.create(baseMov);
+        const novaQtd =
+          form.tipo === 'entrada'
+            ? (produto.quantidade || 0) + qtd
+            : Math.max(0, (produto.quantidade || 0) - qtd);
+        await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+      }
       toast({ title: 'Movimentação registrada com sucesso' });
-      setForm({ produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '' });
+      setForm(emptyForm);
       load();
     } finally {
       setSaving(false);
@@ -129,7 +221,7 @@ export default function Movimentacoes() {
                 maquinas={maquinas}
                 gavetas={gavetas}
                 value={form.produto_id}
-                onChange={(v) => setForm({ ...form, produto_id: v })}
+                onChange={(v) => setForm({ ...form, produto_id: v, codigo_lote: '', data_validade: '' })}
                 placeholder="Buscar produto por nome, código, referência…"
               />
             </div>
@@ -149,6 +241,26 @@ export default function Movimentacoes() {
                 <Input id="mv-qtd" type="number" min="1" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
               </div>
             </div>
+
+            {controlaValidade && form.tipo === 'entrada' && (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <div className="space-y-1.5">
+                  <Label htmlFor="mv-lote">Lote *</Label>
+                  <Input id="mv-lote" value={form.codigo_lote} onChange={(e) => setForm({ ...form, codigo_lote: e.target.value })} placeholder="Ex.: L1234" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="mv-val">Validade *</Label>
+                  <Input id="mv-val" type="date" value={form.data_validade} onChange={(e) => setForm({ ...form, data_validade: e.target.value })} required />
+                </div>
+              </div>
+            )}
+            {controlaValidade && form.tipo === 'saida' && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-800">
+                <CalendarClock className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Saída consumida automaticamente pelo critério FEFO (primeiro lote a vencer). {lotesDoProduto.length} lote(s) disponível(is).</span>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="mv-obs">Observação</Label>
               <Textarea id="mv-obs" rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
@@ -201,6 +313,7 @@ export default function Movimentacoes() {
                       <TableHead>Tipo</TableHead>
                       <TableHead className="text-right">Qtd.</TableHead>
                       <TableHead>Setor</TableHead>
+                      <TableHead>Validade</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -229,6 +342,7 @@ export default function Movimentacoes() {
                         </TableCell>
                         <TableCell className="text-right font-semibold">{m.quantidade}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
+                        <TableCell><ValidadeBadge dataValidade={m.data_validade} /></TableCell>
                         <TableCell className="text-center">
                           {selectedId === m.id && (
                             <Undo2 className="w-4 h-4 text-destructive mx-auto" />

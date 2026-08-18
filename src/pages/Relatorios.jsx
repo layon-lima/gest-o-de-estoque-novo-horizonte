@@ -23,6 +23,8 @@ import { base44 } from '@/api/base44Client';
 import ProductsTable from '@/components/ProductsTable';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
+import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
+import ValidadeBadge from '@/components/ValidadeBadge';
 
 export default function Relatorios() {
   const [produtos, setProdutos] = useState([]);
@@ -32,17 +34,20 @@ export default function Relatorios() {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
   const [movimentacoes, setMovimentacoes] = useState([]);
+  const [lotes, setLotes] = useState([]);
+  const [filtroValidade, setFiltroValidade] = useState({ setor_id: 'all', faixa: 'all' });
 
   useEffect(() => {
     async function load() {
-      const [p, s, m, g, movs] = await Promise.all([
+      const [p, s, m, g, movs, l] = await Promise.all([
         base44.entities.Produto.list(),
         base44.entities.Setor.list(),
         base44.entities.Maquina.list(),
         base44.entities.Gaveta.list(),
         base44.entities.Movimentacao.list('-data', 200),
+        base44.entities.Lote.list(),
       ]);
-      setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setMovimentacoes(movs);
+      setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setMovimentacoes(movs); setLotes(l);
       setLoading(false);
     }
     load();
@@ -114,6 +119,38 @@ export default function Relatorios() {
     exportCSV('Relatório de Entradas Recentes', cols, buildEntradasRows());
   }
 
+  const lotesValidade = useMemo(() => {
+    const now = new Date();
+    let r = lotes.filter((l) => (l.quantidade || 0) > 0);
+    if (filtroValidade.setor_id !== 'all') r = r.filter((l) => l.setor_id === filtroValidade.setor_id);
+    r = filterLotesByFaixa(r, filtroValidade.faixa, now);
+    return [...r].sort((a, b) => new Date(a.data_validade) - new Date(b.data_validade));
+  }, [lotes, filtroValidade]);
+
+  function buildValidadeRows() {
+    return lotesValidade.map((l) => {
+      const produto = produtos.find((p) => p.id === l.produto_id);
+      return [
+        produto?.nome || '—',
+        l.codigo_lote || '',
+        l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—',
+        statusValidade(l).label,
+        getNome(l.setor_id, setores),
+        getNome(l.maquina_id, maquinas),
+        getNome(l.gaveta_id, gavetas, 'codigo'),
+        l.quantidade || 0,
+        l.unidade || '',
+      ];
+    });
+  }
+
+  function handleValidadePDF() {
+    exportPDF('Relatório de Validade', ['Produto', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Unidade'], buildValidadeRows());
+  }
+  function handleValidadeCSV() {
+    exportCSV('Relatório de Validade', ['Produto', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta', 'Quantidade', 'Unidade'], buildValidadeRows());
+  }
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
       <header>
@@ -125,6 +162,7 @@ export default function Relatorios() {
         <TabsList>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
           <TabsTrigger value="entradas">Entradas Recentes</TabsTrigger>
+          <TabsTrigger value="validade">Validade</TabsTrigger>
         </TabsList>
 
         <TabsContent value="estoque" className="space-y-6 mt-4">
@@ -229,6 +267,80 @@ export default function Relatorios() {
                         <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.observacao || '—'}</TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="validade" className="space-y-6 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-semibold text-muted-foreground">Filtrar:</span>
+              <Select value={filtroValidade.setor_id} onValueChange={(v) => setFiltroValidade({ ...filtroValidade, setor_id: v })}>
+                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Setor" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os setores</SelectItem>
+                  {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filtroValidade.faixa} onValueChange={(v) => setFiltroValidade({ ...filtroValidade, faixa: v })}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Validade" /></SelectTrigger>
+                <SelectContent>
+                  {FAIXAS_VALIDADE.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-muted-foreground">{lotesValidade.length} lote(s)</span>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleValidadePDF} variant="outline" disabled={lotesValidade.length === 0}>
+                <FileDown className="w-4 h-4 mr-2" /> Exportar PDF
+              </Button>
+              <Button onClick={handleValidadeCSV} disabled={lotesValidade.length === 0}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar Excel
+              </Button>
+            </div>
+          </div>
+
+          <Card className="p-5">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : lotesValidade.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Nenhum lote encontrado.</p>
+            ) : (
+              <div className="rounded-lg border overflow-auto scrollbar-thin max-h-[600px]">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-muted">
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Lote</TableHead>
+                      <TableHead>Validade</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Setor</TableHead>
+                      <TableHead>Máquina</TableHead>
+                      <TableHead>Gaveta</TableHead>
+                      <TableHead className="text-right">Qtd.</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lotesValidade.map((l) => {
+                      const produto = produtos.find((p) => p.id === l.produto_id);
+                      return (
+                        <TableRow key={l.id}>
+                          <TableCell className="font-medium text-sm">{produto?.nome || '—'}</TableCell>
+                          <TableCell className="font-mono text-xs">{l.codigo_lote}</TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">{l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—'}</TableCell>
+                          <TableCell><ValidadeBadge dataValidade={l.data_validade} /></TableCell>
+                          <TableCell className="text-sm">{getNome(l.setor_id, setores)}</TableCell>
+                          <TableCell className="text-sm">{getNome(l.maquina_id, maquinas)}</TableCell>
+                          <TableCell className="text-sm">{getNome(l.gaveta_id, gavetas, 'codigo')}</TableCell>
+                          <TableCell className="text-right font-semibold">{l.quantidade} {l.unidade}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

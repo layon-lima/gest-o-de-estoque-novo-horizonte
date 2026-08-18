@@ -4,12 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
+
+const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 
 export default function SetorManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a' });
+  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });
   const [editingId, setEditingId] = useState(null);
 
   async function load() {
@@ -23,7 +27,7 @@ export default function SetorManager() {
     e.preventDefault();
     if (editingId) await base44.entities.Setor.update(editingId, form);
     else await base44.entities.Setor.create(form);
-    setForm({ nome: '', descricao: '', cor: '#16a34a' });
+    setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });
     setEditingId(null);
     load();
   }
@@ -34,7 +38,7 @@ export default function SetorManager() {
   }
 
   function handleEdit(item) {
-    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a' });
+    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', controla_validade: !!item.controla_validade });
     setEditingId(item.id);
   }
 
@@ -58,9 +62,20 @@ export default function SetorManager() {
               <Input value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="flex-1" />
             </div>
           </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="s-val" className="cursor-pointer">Controla validade (lotes)</Label>
+              <p className="text-xs text-muted-foreground">Defensivos, adubos e sementes</p>
+            </div>
+            <Switch
+              id="s-val"
+              checked={!!form.controla_validade}
+              onCheckedChange={(v) => setForm({ ...form, controla_validade: v })}
+            />
+          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a' }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false }); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>
@@ -72,7 +87,12 @@ export default function SetorManager() {
           <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
             <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: item.cor || '#16a34a' }} />
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{item.nome}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium truncate">{item.nome}</p>
+                {item.controla_validade && (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0">Validade</Badge>
+                )}
+              </div>
               {item.descricao && <p className="text-sm text-muted-foreground truncate">{item.descricao}</p>}
             </div>
             <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>

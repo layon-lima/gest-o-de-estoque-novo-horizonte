@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
+import { setorControlaValidade } from '@/lib/lotes';
 
 const empty = {
   codigo: '',
@@ -43,6 +44,8 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
     ? gavetas.filter((g) => g.maquina_id === form.maquina_id)
     : gavetas;
 
+  const controlaValidade = setorControlaValidade(form.setor_id, setores);
+
   const set = (key, val) => setForm((f) => {
     const next = { ...f, [key]: val };
     if (key === 'maquina_id') next.gaveta_id = '';
@@ -53,29 +56,31 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
     e.preventDefault();
     setSaving(true);
     try {
-      const newQtd = Number(form.quantidade) || 0;
+      const newQtd = controlaValidade ? 0 : Number(form.quantidade) || 0;
       const payload = { ...form, quantidade: newQtd, estoque_minimo: Number(form.estoque_minimo) || 0 };
       if (produto) {
         await base44.entities.Produto.update(produto.id, payload);
-        const oldQtd = Number(produto.quantidade) || 0;
-        const diff = newQtd - oldQtd;
-        if (diff !== 0) {
-          await base44.entities.Movimentacao.create({
-            data: new Date().toISOString(),
-            produto_id: produto.id,
-            codigo: form.codigo,
-            nome_produto: form.nome,
-            quantidade: Math.abs(diff),
-            setor_id: form.setor_id,
-            maquina_id: form.maquina_id,
-            gaveta_id: form.gaveta_id,
-            tipo: diff > 0 ? 'entrada' : 'saida',
-            observacao: 'Ajuste via cadastro de produto',
-          });
+        if (!controlaValidade) {
+          const oldQtd = Number(produto.quantidade) || 0;
+          const diff = newQtd - oldQtd;
+          if (diff !== 0) {
+            await base44.entities.Movimentacao.create({
+              data: new Date().toISOString(),
+              produto_id: produto.id,
+              codigo: form.codigo,
+              nome_produto: form.nome,
+              quantidade: Math.abs(diff),
+              setor_id: form.setor_id,
+              maquina_id: form.maquina_id,
+              gaveta_id: form.gaveta_id,
+              tipo: diff > 0 ? 'entrada' : 'saida',
+              observacao: 'Ajuste via cadastro de produto',
+            });
+          }
         }
       } else {
         const created = await base44.entities.Produto.create(payload);
-        if (newQtd > 0) {
+        if (!controlaValidade && newQtd > 0) {
           await base44.entities.Movimentacao.create({
             data: new Date().toISOString(),
             produto_id: created.id,
@@ -157,7 +162,8 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="quantidade">Quantidade</Label>
-              <Input id="quantidade" type="number" min="0" value={form.quantidade} onChange={(e) => set('quantidade', e.target.value)} />
+              <Input id="quantidade" type="number" min="0" value={controlaValidade ? 0 : form.quantidade} onChange={(e) => set('quantidade', e.target.value)} disabled={controlaValidade} />
+              {controlaValidade && <p className="text-xs text-amber-600">Gerenciada por lotes (Entradas e Saídas)</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unidade">Unidade</Label>

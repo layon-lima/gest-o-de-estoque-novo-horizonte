@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
+import { setorControlaValidade } from '@/lib/lotes';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 
 export default function NfeImportButton({ produtos, setores, maquinas, gavetas, onImported }) {
@@ -48,6 +49,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
     try {
       const obs = `NF-e ${preview.nNF}${preview.emitente ? ' — ' + preview.emitente : ''}`;
       const now = new Date().toISOString();
+      const lotesAtuais = await base44.entities.Lote.list();
       let matched = 0;
       let unmatched = 0;
       let criados = 0;
@@ -84,6 +86,36 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           }
         }
 
+        const controla = setorControlaValidade(produto.setor_id, setores);
+        let loteId = '';
+        let dataValidade = '';
+
+        if (controla && item.codigo_lote && item.data_validade) {
+          let lote = lotesAtuais.find(
+            (l) => l.produto_id === produto.id && l.codigo_lote === item.codigo_lote && l.data_validade === item.data_validade
+          );
+          if (lote) {
+            loteId = lote.id;
+            await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + item.qCom });
+            lotesAtuais.find((l) => l.id === lote.id).quantidade = (lote.quantidade || 0) + item.qCom;
+          } else {
+            const created = await base44.entities.Lote.create({
+              produto_id: produto.id,
+              setor_id: produto.setor_id,
+              maquina_id: item.maquina_id || produto.maquina_id || '',
+              gaveta_id: item.gaveta_id || produto.gaveta_id || '',
+              codigo_lote: item.codigo_lote,
+              data_validade: item.data_validade,
+              quantidade: item.qCom,
+              unidade: produto.unidade || 'un',
+            });
+            loteId = created.id;
+            dataValidade = item.data_validade;
+            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: item.qCom, data_validade: item.data_validade });
+          }
+          dataValidade = item.data_validade;
+        }
+
         await base44.entities.Movimentacao.create({
           data: now,
           produto_id: produto.id,
@@ -95,9 +127,22 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           gaveta_id: item.gaveta_id || produto.gaveta_id,
           tipo: 'entrada',
           observacao: obs,
+          lote_id: loteId,
+          data_validade: dataValidade,
         });
 
-        if (!item.create_new) {
+        if (item.create_new) {
+          // quantidade já definida na criação; para validade, reflete o lote criado
+        } else if (controla && loteId) {
+          const lotesProduto = lotesAtuais.filter((l) => l.produto_id === produto.id);
+          const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
+          await base44.entities.Produto.update(produto.id, {
+            quantidade: novaQtd,
+            maquina_id: item.maquina_id || produto.maquina_id,
+            gaveta_id: item.gaveta_id || produto.gaveta_id,
+            codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
+          });
+        } else {
           const novaQtd = (produto.quantidade || 0) + item.qCom;
           await base44.entities.Produto.update(produto.id, {
             quantidade: novaQtd,
