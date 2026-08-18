@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Package, Boxes, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Package, Boxes } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
 import FilterBar from '@/components/FilterBar';
@@ -72,11 +72,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <StatCard icon={Package} title="Produtos" value={filtered.length} colorClass="bg-primary/10 text-primary" />
         <StatCard icon={Boxes} title="Itens em Estoque" value={totalQuantidade} colorClass="bg-blue-100 text-blue-600" />
-        <StatCard icon={AlertTriangle} title="Estoque Baixo" value={baixoCount} subtitle="atenção à reposição" colorClass="bg-amber-100 text-amber-600" />
-        <StatCard icon={AlertCircle} title="Estoque Zerado" value={zeradoCount} subtitle="reposição crítica" colorClass="bg-red-100 text-red-600" />
+
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
