@@ -35,14 +35,17 @@ export default function Dashboard() {
     if (!busca.trim()) return porFiltros;
     const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
     if (termos.length === 0) return porFiltros;
-    return porFiltros.filter((p) =>
-      termos.every((termo) =>
+    return porFiltros.filter((p) => {
+      const maquina = maquinas.find((m) => m.id === p.maquina_id);
+      const nomeMaquina = (maquina?.nome || '').toLowerCase();
+      return termos.every((termo) =>
         (p.nome || '').toLowerCase().includes(termo) ||
         (p.codigo || '').toLowerCase().includes(termo) ||
-        (p.codigo_referencia || '').toLowerCase().includes(termo)
-      )
-    );
-  }, [produtos, filtros, busca]);
+        (p.codigo_referencia || '').toLowerCase().includes(termo) ||
+        nomeMaquina.includes(termo)
+      );
+    });
+  }, [produtos, filtros, busca, maquinas]);
 
 
 

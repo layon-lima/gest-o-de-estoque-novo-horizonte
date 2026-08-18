@@ -3,13 +3,16 @@ import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-function matchTerm(produto, termo) {
+function matchTerm(produto, termo, maquinas) {
   const t = termo.toLowerCase().trim();
   if (!t) return false;
+  const maquina = maquinas?.find((m) => m.id === produto.maquina_id);
+  const nomeMaquina = (maquina?.nome || '').toLowerCase();
   return (
     (produto.nome || '').toLowerCase().includes(t) ||
     (produto.codigo || '').toLowerCase().includes(t) ||
-    (produto.codigo_referencia || '').toLowerCase().includes(t)
+    (produto.codigo_referencia || '').toLowerCase().includes(t) ||
+    nomeMaquina.includes(t)
   );
 }
 
@@ -22,7 +25,7 @@ export default function SearchBar({ value, onChange, produtos, maquinas }) {
 
   const suggestions = useMemo(() => {
     if (termos.length === 0) return [];
-    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo)));
+    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas)));
     return matches.slice(0, 8);
   }, [produtos, value]);
 
