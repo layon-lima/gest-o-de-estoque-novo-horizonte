@@ -8,6 +8,7 @@ import AlertsPanel from '@/components/AlertsPanel';
 import ProductsTable from '@/components/ProductsTable';
 import EstoquePorSetorChart from '@/components/charts/EstoquePorSetorChart';
 import EstoquePorMaquinaChart from '@/components/charts/EstoquePorMaquinaChart';
+import SearchBar from '@/components/SearchBar';
 import { filterProdutos } from '@/lib/estoqueFilters';
 
 export default function Dashboard() {
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [gavetas, setGavetas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -33,7 +35,16 @@ export default function Dashboard() {
     load();
   }, []);
 
-  const filtered = useMemo(() => filterProdutos(produtos, filtros), [produtos, filtros]);
+  const filtered = useMemo(() => {
+    const porFiltros = filterProdutos(produtos, filtros);
+    if (!busca.trim()) return porFiltros;
+    const termo = busca.toLowerCase().trim();
+    return porFiltros.filter(
+      (p) =>
+        (p.nome || '').toLowerCase().includes(termo) ||
+        (p.codigo || '').toLowerCase().includes(termo)
+    );
+  }, [produtos, filtros, busca]);
 
   const nonZeroAll = produtos.filter((p) => (p.quantidade || 0) > 0);
   const avgAll = nonZeroAll.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZeroAll.length || 1);
@@ -56,7 +67,12 @@ export default function Dashboard() {
         <p className="text-sm text-muted-foreground mt-1">Visão geral do estoque agrícola</p>
       </header>
 
-      <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+      <div className="flex items-center gap-3 flex-wrap">
+        <SearchBar value={busca} onChange={setBusca} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Package} title="Produtos" value={filtered.length} colorClass="bg-primary/10 text-primary" />
