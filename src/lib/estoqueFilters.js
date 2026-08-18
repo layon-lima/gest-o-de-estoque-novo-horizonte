@@ -34,10 +34,14 @@ export function matchTerm(produto, termo, maquinas, gavetas) {
   const codigoGaveta = (gaveta?.codigo || '').toLowerCase();
   const descGaveta = (gaveta?.descricao || '').toLowerCase();
 
-  // "gaveta <num>" → busca específica por gaveta
+  // "gaveta <num>" → busca por gaveta; "*" no final = correspondência exata
   if (t.startsWith('gaveta')) {
     const rest = t.replace(/^gaveta\s*/, '').trim();
     if (!rest) return Boolean(codigoGaveta || descGaveta);
+    if (rest.endsWith('*')) {
+      const exato = rest.slice(0, -1).trim();
+      return codigoGaveta === exato || descGaveta === exato;
+    }
     return codigoGaveta.includes(rest) || descGaveta.includes(rest);
   }
 
