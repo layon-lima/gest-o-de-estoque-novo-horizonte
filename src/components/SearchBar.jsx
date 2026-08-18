@@ -2,21 +2,9 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { matchTerm } from '@/lib/estoqueFilters';
 
-function matchTerm(produto, termo, maquinas) {
-  const t = termo.toLowerCase().trim();
-  if (!t) return false;
-  const maquina = maquinas?.find((m) => m.id === produto.maquina_id);
-  const nomeMaquina = (maquina?.nome || '').toLowerCase();
-  return (
-    (produto.nome || '').toLowerCase().includes(t) ||
-    (produto.codigo || '').toLowerCase().includes(t) ||
-    (produto.codigo_referencia || '').toLowerCase().includes(t) ||
-    nomeMaquina.includes(t)
-  );
-}
-
-export default function SearchBar({ value, onChange, produtos, maquinas }) {
+export default function SearchBar({ value, onChange, produtos, maquinas, gavetas }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const containerRef = useRef(null);
@@ -25,7 +13,7 @@ export default function SearchBar({ value, onChange, produtos, maquinas }) {
 
   const suggestions = useMemo(() => {
     if (termos.length === 0) return [];
-    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas)));
+    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas)));
     return matches.slice(0, 8);
   }, [produtos, value]);
 
@@ -46,6 +34,11 @@ export default function SearchBar({ value, onChange, produtos, maquinas }) {
   const getMaquinaNome = (p) => {
     const m = maquinas?.find((m) => m.id === p.maquina_id);
     return m?.nome || '';
+  };
+
+  const getGavetaNome = (p) => {
+    const g = gavetas?.find((g) => g.id === p.gaveta_id);
+    return g?.codigo || '';
   };
 
   const handleSelect = (produto) => {
@@ -107,6 +100,7 @@ export default function SearchBar({ value, onChange, produtos, maquinas }) {
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 {p.codigo_referencia && <span>Ref: {p.codigo_referencia}</span>}
+                {getGavetaNome(p) && <span>Gav: {getGavetaNome(p)}</span>}
                 {getMaquinaNome(p) && <span className="truncate">{getMaquinaNome(p)}</span>}
               </div>
             </button>
