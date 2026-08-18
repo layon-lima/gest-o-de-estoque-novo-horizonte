@@ -40,17 +40,9 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
     else setForm(empty);
   }, [produto, open]);
 
-  const gavetasFiltradas = form.maquina_id
-    ? gavetas.filter((g) => g.maquina_id === form.maquina_id)
-    : gavetas;
-
   const controlaValidade = setorControlaValidade(form.setor_id, setores);
 
-  const set = (key, val) => setForm((f) => {
-    const next = { ...f, [key]: val };
-    if (key === 'maquina_id') next.gaveta_id = '';
-    return next;
-  });
+  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -153,7 +145,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Nenhuma —</SelectItem>
-                  {gavetasFiltradas.map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                  {gavetas.map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

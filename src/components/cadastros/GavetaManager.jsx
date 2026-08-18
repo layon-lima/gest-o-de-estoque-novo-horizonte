@@ -4,35 +4,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import SearchInput from './SearchInput';
 
-export default function GavetaManager({ maquinas }) {
+export default function GavetaManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ codigo: '', descricao: '', maquina_id: '' });
+  const [form, setForm] = useState({ codigo: '', descricao: '' });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
     if (!q) return items;
-    return items.filter((g) => {
-      const maq = maquinas.find((m) => m.id === g.maquina_id);
-      return (
-        (g.codigo || '').toLowerCase().includes(q) ||
-        (g.descricao || '').toLowerCase().includes(q) ||
-        (maq ? `${maq.codigo} ${maq.nome}` : '').toLowerCase().includes(q)
-      );
-    });
-  }, [items, maquinas, busca]);
+    return items.filter((g) =>
+      (g.codigo || '').toLowerCase().includes(q) ||
+      (g.descricao || '').toLowerCase().includes(q)
+    );
+  }, [items, busca]);
 
   async function load() {
     setLoading(true);
@@ -45,7 +34,7 @@ export default function GavetaManager({ maquinas }) {
     e.preventDefault();
     if (editingId) await base44.entities.Gaveta.update(editingId, form);
     else await base44.entities.Gaveta.create(form);
-    setForm({ codigo: '', descricao: '', maquina_id: '' });
+    setForm({ codigo: '', descricao: '' });
     setEditingId(null);
     load();
   }
@@ -56,12 +45,8 @@ export default function GavetaManager({ maquinas }) {
   }
 
   function handleEdit(item) {
-    setForm({ codigo: item.codigo, descricao: item.descricao || '', maquina_id: item.maquina_id || '' });
+    setForm({ codigo: item.codigo, descricao: item.descricao || '' });
     setEditingId(item.id);
-  }
-
-  function getMaquinaNome(id) {
-    return maquinas.find((m) => m.id === id);
   }
 
   return (
@@ -79,7 +64,7 @@ export default function GavetaManager({ maquinas }) {
           </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', descricao: '', maquina_id: '' }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', descricao: '' }); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>
@@ -89,22 +74,18 @@ export default function GavetaManager({ maquinas }) {
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
         {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma gaveta encontrada.</p>}
         <div className="space-y-2">
-          {filteredItems.map((item) => {
-            const maq = getMaquinaNome(item.maquina_id);
-            return (
-              <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
-                    <p className="font-medium truncate">{item.descricao || '—'}</p>
-                  </div>
-                  {maq && <p className="text-sm text-muted-foreground truncate mt-0.5">{maq.codigo} — {maq.nome}</p>}
+          {filteredItems.map((item) => (
+            <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
+                  <p className="font-medium truncate">{item.descricao || '—'}</p>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
-                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
-              </Card>
-            );
-          })}
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
+              <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
+            </Card>
+          ))}
         </div>
       </div>
     </div>
