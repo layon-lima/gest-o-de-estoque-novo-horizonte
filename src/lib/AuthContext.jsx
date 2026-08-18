@@ -2,69 +2,48 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
 const AuthContext = createContext();
-const STORAGE_KEY = 'nh_local_user';
-
-// Codificação simples para não exibir a senha em texto puro na entidade
-export const encodeSenha = (senha) => {
-  try { return btoa(unescape(encodeURIComponent(senha))); }
-  catch { return senha; }
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  useEffect(() => {
-    // Verifica sessão local salva no navegador
+  const checkUserAuth = async () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const u = JSON.parse(stored);
-        setUser(u);
+      const authenticated = await base44.auth.isAuthenticated();
+      if (authenticated) {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
         setIsAuthenticated(true);
+      } else {
+        setAuthError({ type: 'auth_required' });
       }
-    } catch (e) {
-      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      setAuthError({ type: 'auth_required' });
+    } finally {
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
     }
-    setIsLoadingAuth(false);
-    setAuthChecked(true);
+  };
+
+  useEffect(() => {
+    (async () => {
+      setIsLoadingPublicSettings(true);
+      await checkUserAuth();
+      setIsLoadingPublicSettings(false);
+    })();
   }, []);
 
-  const login = async (usuario, senha) => {
-    const encoded = encodeSenha(senha);
-    const matches = await base44.entities.UsuarioLocal.filter({
-      usuario,
-      senha: encoded,
-      ativo: true,
-    });
-    if (!matches || matches.length === 0) {
-      throw new Error('Usuário ou senha incorretos');
-    }
-    const u = matches[0];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-    setUser(u);
-    setIsAuthenticated(true);
-    return u;
+  const navigateToLogin = () => {
+    const returnUrl = window.location.pathname + window.location.search;
+    base44.auth.redirectToLogin(returnUrl);
   };
 
   const logout = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
-    setIsAuthenticated(false);
-    window.location.href = '/login';
-  };
-
-  const navigateToLogin = () => {
-    window.location.href = '/login';
-  };
-
-  const checkUserAuth = () => {
-    setAuthChecked(true);
-    setIsLoadingAuth(false);
+    base44.auth.logout();
   };
 
   const checkAppState = () => {
@@ -79,11 +58,10 @@ export const AuthProvider = ({ children }) => {
       isLoadingPublicSettings,
       authError,
       authChecked,
-      login,
-      logout,
-      navigateToLogin,
       checkUserAuth,
-      checkAppState
+      checkAppState,
+      navigateToLogin,
+      logout,
     }}>
       {children}
     </AuthContext.Provider>
@@ -91,9 +69,7 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 };

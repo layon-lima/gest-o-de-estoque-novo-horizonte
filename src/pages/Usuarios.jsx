@@ -3,17 +3,16 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@/components/ui/table';
 import {
-  Users, UserPlus, Search, Trash2, Loader2, ShieldCheck, UserCircle, KeyRound, Eye, EyeOff,
+  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import CreateUserDialog from '@/components/usuarios/CreateUserDialog';
+import InviteUserDialog from '@/components/usuarios/InviteUserDialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -25,20 +24,16 @@ export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [resetTarget, setResetTarget] = useState(null);
-  const [novaSenha, setNovaSenha] = useState('');
-  const [resetting, setResetting] = useState(false);
-  const [showSenha, setShowSenha] = useState(false);
 
-  const isMaster = currentUser?.role === 'master';
+  const isAdmin = currentUser?.role === 'admin';
 
   const loadUsuarios = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await base44.entities.UsuarioLocal.list('-created_date', 200);
+      const data = await base44.entities.User.list('-created_date', 200);
       setUsuarios(data);
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao carregar usuários', description: err?.message });
@@ -52,26 +47,16 @@ export default function Usuarios() {
   const filtered = usuarios.filter((u) => {
     if (!busca.trim()) return true;
     const t = busca.toLowerCase().trim();
-    return (u.nome || '').toLowerCase().includes(t) || (u.usuario || '').toLowerCase().includes(t);
+    return (u.full_name || '').toLowerCase().includes(t) || (u.email || '').toLowerCase().includes(t);
   });
-
-  const toggleAtivo = async (u) => {
-    try {
-      await base44.entities.UsuarioLocal.update(u.id, { ativo: !u.ativo });
-      setUsuarios((prev) => prev.map((x) => (x.id === u.id ? { ...x, ativo: !u.ativo } : x)));
-      toast({ title: u.ativo ? 'Usuário desativado' : 'Usuário ativado', description: u.nome });
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro', description: err?.message });
-    }
-  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await base44.entities.UsuarioLocal.delete(deleteTarget.id);
+      await base44.entities.User.delete(deleteTarget.id);
       setUsuarios((prev) => prev.filter((u) => u.id !== deleteTarget.id));
-      toast({ title: 'Usuário removido', description: `${deleteTarget.nome} foi excluído do sistema.` });
+      toast({ title: 'Usuário removido', description: `${deleteTarget.full_name || deleteTarget.email} foi removido.` });
       setDeleteTarget(null);
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao remover', description: err?.message });
@@ -80,26 +65,8 @@ export default function Usuarios() {
     }
   };
 
-  const handleResetSenha = async () => {
-    if (!resetTarget || !novaSenha.trim()) return;
-    setResetting(true);
-    try {
-      const { encodeSenha } = await import('@/lib/AuthContext');
-      await base44.entities.UsuarioLocal.update(resetTarget.id, { senha: encodeSenha(novaSenha) });
-      toast({ title: 'Senha redefinida!', description: `Nova senha definida para ${resetTarget.nome}.` });
-      setResetTarget(null);
-      setNovaSenha('');
-      setShowSenha(false);
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao redefinir senha', description: err?.message });
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  const masterCount = usuarios.filter((u) => u.role === 'master').length;
+  const adminCount = usuarios.filter((u) => u.role === 'admin').length;
   const userCount = usuarios.filter((u) => u.role === 'user').length;
-  const ativoCount = usuarios.filter((u) => u.ativo).length;
 
   if (loading)
     return (
@@ -116,12 +83,12 @@ export default function Usuarios() {
             <Users className="w-6 h-6 text-primary" />
             Gestão de Usuários
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Crie usuários locais e defina suas senhas de acesso</p>
+          <p className="text-sm text-muted-foreground mt-1">Convide usuários para acessar o sistema</p>
         </div>
-        {isMaster && (
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+        {isAdmin && (
+          <Button onClick={() => setInviteOpen(true)} className="gap-2">
             <UserPlus className="w-4 h-4" />
-            Criar Usuário
+            Convidar Usuário
           </Button>
         )}
       </header>
@@ -137,15 +104,15 @@ export default function Usuarios() {
         <Card className="p-5 flex items-center gap-4">
           <div className="p-3 rounded-xl bg-blue-100 text-blue-600"><ShieldCheck className="w-6 h-6" /></div>
           <div>
-            <p className="text-2xl font-bold">{masterCount}</p>
-            <p className="text-sm text-muted-foreground">Masters</p>
+            <p className="text-2xl font-bold">{adminCount}</p>
+            <p className="text-sm text-muted-foreground">Administradores</p>
           </div>
         </Card>
         <Card className="p-5 flex items-center gap-4">
           <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600"><UserCircle className="w-6 h-6" /></div>
           <div>
-            <p className="text-2xl font-bold">{ativoCount}</p>
-            <p className="text-sm text-muted-foreground">Ativos</p>
+            <p className="text-2xl font-bold">{userCount}</p>
+            <p className="text-sm text-muted-foreground">Usuários</p>
           </div>
         </Card>
       </div>
@@ -153,7 +120,7 @@ export default function Usuarios() {
       <Card className="p-5">
         <div className="relative flex-1 min-w-[220px] max-w-sm mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou usuário…" className="pl-9" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou e-mail…" className="pl-9" />
         </div>
 
         {filtered.length === 0 ? (
@@ -167,10 +134,9 @@ export default function Usuarios() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Usuário</TableHead>
+                  <TableHead>E-mail</TableHead>
                   <TableHead>Cargo</TableHead>
-                  <TableHead>Status</TableHead>
-                  {isMaster && <TableHead className="text-right">Ações</TableHead>}
+                  {isAdmin && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,38 +147,32 @@ export default function Usuarios() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm shrink-0">
-                            {(u.nome || '?').charAt(0).toUpperCase()}
+                            {(u.full_name || u.email || '?').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium">{u.nome}</p>
+                            <p className="font-medium">{u.full_name || '—'}</p>
                             {isSelf && <span className="text-xs text-muted-foreground">(você)</span>}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground font-mono text-sm">{u.usuario}</TableCell>
-                      <TableCell>
-                        <Badge variant={u.role === 'master' ? 'default' : 'secondary'}>
-                          {u.role === 'master' ? 'Master' : 'Usuário'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                      <TableCell className="text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Switch checked={!!u.ativo} onCheckedChange={() => toggleAtivo(u)} disabled={!isMaster || isSelf} />
-                          <span className="text-sm">{u.ativo ? 'Ativo' : 'Inativo'}</span>
+                          <Mail className="w-3.5 h-3.5" />
+                          {u.email || '—'}
                         </div>
                       </TableCell>
-                      {isMaster && (
+                      <TableCell>
+                        <Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>
+                          {u.role === 'admin' ? 'Administrador' : 'Usuário'}
+                        </Badge>
+                      </TableCell>
+                      {isAdmin && (
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="text-blue-600 hover:bg-blue-50" onClick={() => { setResetTarget(u); setNovaSenha(''); setShowSenha(false); }} title="Redefinir senha">
-                              <KeyRound className="w-4 h-4" />
+                          {!isSelf && (
+                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(u)} title="Remover usuário">
+                              <Trash2 className="w-4 h-4" />
                             </Button>
-                            {!isSelf && (
-                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(u)} title="Remover usuário">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
@@ -224,15 +184,14 @@ export default function Usuarios() {
         )}
       </Card>
 
-      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={loadUsuarios} />
+      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} onInvited={loadUsuarios} />
 
-      {/* Dialog de exclusão */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover usuário?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{deleteTarget?.nome}</strong> ({deleteTarget?.usuario}) do sistema?
+              Tem certeza que deseja remover <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong> do sistema?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -240,39 +199,6 @@ export default function Usuarios() {
             <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Remover'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Dialog de redefinir senha */}
-      <AlertDialog open={!!resetTarget} onOpenChange={(open) => { if (!open) { setResetTarget(null); setNovaSenha(''); setShowSenha(false); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
-            <AlertDialogDescription>
-              Defina uma nova senha para <strong>{resetTarget?.nome}</strong> ({resetTarget?.usuario}).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2">
-            <div className="relative">
-              <Input
-                type={showSenha ? 'text' : 'password'}
-                value={novaSenha}
-                onChange={(e) => setNovaSenha(e.target.value)}
-                placeholder="Nova senha"
-                className="pr-10"
-                autoFocus
-              />
-              <button type="button" onClick={() => setShowSenha(!showSenha)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={resetting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetSenha} disabled={resetting || !novaSenha.trim()}>
-              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Redefinir Senha'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

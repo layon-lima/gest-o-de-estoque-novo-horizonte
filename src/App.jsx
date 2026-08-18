@@ -4,6 +4,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
 import Layout from '@/components/Layout';
@@ -16,9 +17,9 @@ import Relatorios from '@/pages/Relatorios';
 import Usuarios from '@/pages/Usuarios';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, navigateToLogin } = useAuth();
 
-  if (isLoadingAuth) {
+  if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
@@ -26,13 +27,17 @@ const AuthenticatedApp = () => {
     );
   }
 
+  if (authError) {
+    if (authError.type === 'user_not_registered') {
+      return <UserNotRegisteredError />;
+    } else if (authError.type === 'auth_required') {
+      navigateToLogin();
+      return null;
+    }
+  }
+
   if (!isAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Login />} />
-      </Routes>
-    );
+    return <Login />;
   }
 
   return (
