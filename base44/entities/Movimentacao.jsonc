@@ -1,0 +1,59 @@
+{
+  "name": "Movimentacao",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "string",
+      "format": "date",
+      "title": "Data"
+    },
+    "produto_id": {
+      "type": "string",
+      "title": "Produto",
+      "description": "Refer\u00eancia ao Produto"
+    },
+    "codigo": {
+      "type": "string",
+      "title": "C\u00f3digo do Produto"
+    },
+    "nome_produto": {
+      "type": "string",
+      "title": "Nome do Produto"
+    },
+    "quantidade": {
+      "type": "number",
+      "title": "Quantidade"
+    },
+    "setor_id": {
+      "type": "string",
+      "title": "Setor"
+    },
+    "maquina_id": {
+      "type": "string",
+      "title": "M\u00e1quina"
+    },
+    "gaveta_id": {
+      "type": "string",
+      "title": "Gaveta"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "entrada",
+        "saida"
+      ],
+      "title": "Tipo",
+      "default": "entrada"
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "data",
+    "produto_id",
+    "quantidade",
+    "tipo"
+  ]
+}

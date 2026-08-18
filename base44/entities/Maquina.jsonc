@@ -1,0 +1,22 @@
+{
+  "name": "Maquina",
+  "type": "object",
+  "properties": {
+    "codigo": {
+      "type": "string",
+      "title": "C\u00f3digo"
+    },
+    "nome": {
+      "type": "string",
+      "title": "Nome / Descri\u00e7\u00e3o"
+    },
+    "descricao": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "codigo",
+    "nome"
+  ]
+}

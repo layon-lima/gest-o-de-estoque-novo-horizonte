@@ -1,0 +1,49 @@
+{
+  "name": "Produto",
+  "type": "object",
+  "properties": {
+    "codigo": {
+      "type": "string",
+      "title": "C\u00f3digo Interno"
+    },
+    "nome": {
+      "type": "string",
+      "title": "Nome"
+    },
+    "setor_id": {
+      "type": "string",
+      "title": "Setor",
+      "description": "Refer\u00eancia ao Setor"
+    },
+    "maquina_id": {
+      "type": "string",
+      "title": "M\u00e1quina",
+      "description": "Refer\u00eancia \u00e0 Maquina"
+    },
+    "gaveta_id": {
+      "type": "string",
+      "title": "Gaveta",
+      "description": "Refer\u00eancia \u00e0 Gaveta"
+    },
+    "quantidade": {
+      "type": "number",
+      "title": "Quantidade",
+      "default": 0
+    },
+    "unidade": {
+      "type": "string",
+      "title": "Unidade",
+      "default": "un"
+    },
+    "estoque_minimo": {
+      "type": "number",
+      "title": "Estoque M\u00ednimo",
+      "default": 0
+    }
+  },
+  "required": [
+    "codigo",
+    "nome",
+    "setor_id"
+  ]
+}

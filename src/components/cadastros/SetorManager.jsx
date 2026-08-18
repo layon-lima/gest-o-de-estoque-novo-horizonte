@@ -1,0 +1,85 @@
+import { useState, useEffect } from 'react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { base44 } from '@/api/base44Client';
+
+export default function SetorManager() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a' });
+  const [editingId, setEditingId] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    setItems(await base44.entities.Setor.list());
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (editingId) await base44.entities.Setor.update(editingId, form);
+    else await base44.entities.Setor.create(form);
+    setForm({ nome: '', descricao: '', cor: '#16a34a' });
+    setEditingId(null);
+    load();
+  }
+
+  async function handleDelete(id) {
+    await base44.entities.Setor.delete(id);
+    load();
+  }
+
+  function handleEdit(item) {
+    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a' });
+    setEditingId(item.id);
+  }
+
+  return (
+    <div className="grid md:grid-cols-3 gap-6">
+      <Card className="p-5">
+        <h3 className="font-semibold mb-4">{editingId ? 'Editar Setor' : 'Novo Setor'}</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="s-nome">Nome *</Label>
+            <Input id="s-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-desc">Descrição</Label>
+            <Input id="s-desc" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="s-cor">Cor</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" id="s-cor" value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="w-10 h-9 rounded border border-input cursor-pointer" />
+              <Input value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} className="flex-1" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a' }); }}>Cancelar</Button>}
+          </div>
+        </form>
+      </Card>
+
+      <div className="md:col-span-2 space-y-2">
+        {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+        {!loading && items.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor cadastrado.</p>}
+        {items.map((item) => (
+          <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+            <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: item.cor || '#16a34a' }} />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium truncate">{item.nome}</p>
+              {item.descricao && <p className="text-sm text-muted-foreground truncate">{item.descricao}</p>}
+            </div>
+            <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
+            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
