@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
 
-export default function NfePreviewDialog({ open, nfeInfo, items, produtos, maquinas, gavetas, onClose, onConfirm }) {
+export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
 
   useEffect(() => {
@@ -35,9 +36,15 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, maqui
       setEdited(
         items.map((item) => {
           const produto = matchNfeItem(item, produtos);
+          const matched = !!produto;
           return {
             ...item,
             produto_id: produto?.id || '',
+            create_new: !matched,
+            novo_nome: item.xProd || '',
+            novo_codigo: item.cProd || '',
+            novo_setor_id: '',
+            novo_unidade: item.uCom || 'un',
             maquina_id: produto?.maquina_id || '',
             gaveta_id: produto?.gaveta_id || '',
             codigo_referencia: produto?.codigo_referencia || item.cProd || '',
@@ -55,23 +62,44 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, maqui
     });
   }
 
-  function handleProductChange(idx, produtoId) {
+  function handleSelectChange(idx, value) {
     setEdited((prev) => {
       const copy = [...prev];
-      const produto = produtos.find((p) => p.id === produtoId);
-      copy[idx] = {
-        ...copy[idx],
-        produto_id: produtoId,
-        maquina_id: produto?.maquina_id || '',
-        gaveta_id: produto?.gaveta_id || '',
-        codigo_referencia: produto?.codigo_referencia || copy[idx].codigo_referencia || '',
-      };
+      if (value === 'new') {
+        copy[idx] = { ...copy[idx], produto_id: '', create_new: true };
+      } else if (value === 'none') {
+        copy[idx] = { ...copy[idx], produto_id: '', create_new: false };
+      } else {
+        const produto = produtos.find((p) => p.id === value);
+        copy[idx] = {
+          ...copy[idx],
+          produto_id: value,
+          create_new: false,
+          maquina_id: produto?.maquina_id || '',
+          gaveta_id: produto?.gaveta_id || '',
+          codigo_referencia: produto?.codigo_referencia || copy[idx].codigo_referencia || '',
+        };
+      }
       return copy;
     });
   }
 
-  const matchedCount = edited.filter((i) => i.produto_id).length;
-  const canConfirm = edited.some((i) => i.produto_id);
+  function isItemValid(item) {
+    if (item.produto_id) return true;
+    if (item.create_new && item.novo_nome && item.novo_setor_id) return true;
+    return false;
+  }
+
+  const matchedCount = edited.filter(isItemValid).length;
+  const canConfirm = edited.some(isItemValid);
+
+  function selectValue(item) {
+    if (item.create_new) return 'new';
+    if (item.produto_id) return item.produto_id;
+    return 'none';
+  }
+
+  const editable = (item) => item.produto_id || item.create_new;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -87,10 +115,10 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, maqui
 
         <div className="flex items-center gap-4 text-sm">
           <span className="flex items-center gap-1 text-green-600">
-            <CheckCircle2 className="w-4 h-4" /> {matchedCount} correspondente(s)
+            <CheckCircle2 className="w-4 h-4" /> {matchedCount} válido(s)
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
-            <AlertTriangle className="w-4 h-4" /> {edited.length - matchedCount} sem match
+            <AlertTriangle className="w-4 h-4" /> {edited.length - matchedCount} ignorado(s)
           </span>
         </div>
 
@@ -109,81 +137,137 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, maqui
             </TableHeader>
             <TableBody>
               {edited.map((item, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{item.cProd || '—'}</TableCell>
-                  <TableCell className="text-sm font-medium">{item.xProd}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="h-8 w-20"
-                      value={item.qCom}
-                      onChange={(e) => updateRow(idx, 'qCom', parseFloat(e.target.value) || 0)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={item.produto_id || 'none'}
-                      onValueChange={(v) => handleProductChange(idx, v === 'none' ? '' : v)}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Selecionar produto…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nenhum —</SelectItem>
-                        {produtos.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.codigo} — {p.nome}
+                <>
+                  <TableRow key={idx}>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{item.cProd || '—'}</TableCell>
+                    <TableCell className="text-sm font-medium">{item.xProd}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="h-8 w-20"
+                        value={item.qCom}
+                        onChange={(e) => updateRow(idx, 'qCom', parseFloat(e.target.value) || 0)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={selectValue(item)}
+                        onValueChange={(v) => handleSelectChange(idx, v)}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Selecionar produto…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">— Nenhum —</SelectItem>
+                          <SelectItem value="new">
+                            <span className="flex items-center gap-1 text-primary">
+                              <PlusCircle className="w-3.5 h-3.5" /> Criar novo produto
+                            </span>
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={item.maquina_id || 'none'}
-                      onValueChange={(v) => updateRow(idx, 'maquina_id', v === 'none' ? '' : v)}
-                      disabled={!item.produto_id}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Selecionar…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nenhuma —</SelectItem>
-                        {maquinas.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={item.gaveta_id || 'none'}
-                      onValueChange={(v) => updateRow(idx, 'gaveta_id', v === 'none' ? '' : v)}
-                      disabled={!item.produto_id}
-                    >
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder="Selecionar…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nenhuma —</SelectItem>
-                        {gavetas.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      className="h-8"
-                      value={item.codigo_referencia || ''}
-                      onChange={(e) => updateRow(idx, 'codigo_referencia', e.target.value)}
-                      disabled={!item.produto_id}
-                    />
-                  </TableCell>
-                </TableRow>
+                          {produtos.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.codigo} — {p.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={item.maquina_id || 'none'}
+                        onValueChange={(v) => updateRow(idx, 'maquina_id', v === 'none' ? '' : v)}
+                        disabled={!editable(item)}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Selecionar…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">— Nenhuma —</SelectItem>
+                          {maquinas.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={item.gaveta_id || 'none'}
+                        onValueChange={(v) => updateRow(idx, 'gaveta_id', v === 'none' ? '' : v)}
+                        disabled={!editable(item)}
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Selecionar…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">— Nenhuma —</SelectItem>
+                          {gavetas.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        className="h-8"
+                        value={item.codigo_referencia || ''}
+                        onChange={(e) => updateRow(idx, 'codigo_referencia', e.target.value)}
+                        disabled={!editable(item)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                  {item.create_new && (
+                    <TableRow key={`${idx}-new`} className="bg-accent/40">
+                      <TableCell colSpan={7} className="py-3">
+                        <div className="flex items-end gap-3 flex-wrap">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nome *</Label>
+                            <Input
+                              className="h-8 w-[220px]"
+                              value={item.novo_nome || ''}
+                              onChange={(e) => updateRow(idx, 'novo_nome', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Código Interno</Label>
+                            <Input
+                              className="h-8 w-[140px]"
+                              value={item.novo_codigo || ''}
+                              onChange={(e) => updateRow(idx, 'novo_codigo', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Setor *</Label>
+                            <Select
+                              value={item.novo_setor_id || 'none'}
+                              onValueChange={(v) => updateRow(idx, 'novo_setor_id', v === 'none' ? '' : v)}
+                            >
+                              <SelectTrigger className="h-8 w-[180px]">
+                                <SelectValue placeholder="Selecionar…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">— Selecionar —</SelectItem>
+                                {setores.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Unidade</Label>
+                            <Input
+                              className="h-8 w-[80px]"
+                              value={item.novo_unidade || ''}
+                              onChange={(e) => updateRow(idx, 'novo_unidade', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               ))}
             </TableBody>
           </Table>

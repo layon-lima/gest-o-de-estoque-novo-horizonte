@@ -162,7 +162,7 @@ export default function Movimentacoes() {
           {form.tipo === 'entrada' && (
             <div className="border-t pt-4">
               <p className="text-xs text-muted-foreground mb-2">Ou importe uma NF-e:</p>
-              <NfeImportButton produtos={produtos} maquinas={maquinas} gavetas={gavetas} onImported={load} />
+              <NfeImportButton produtos={produtos} setores={setores} maquinas={maquinas} gavetas={gavetas} onImported={load} />
             </div>
           )}
         </Card>

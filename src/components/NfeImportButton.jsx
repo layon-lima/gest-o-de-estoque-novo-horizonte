@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 
-export default function NfeImportButton({ produtos, maquinas, gavetas, onImported }) {
+export default function NfeImportButton({ produtos, setores, maquinas, gavetas, onImported }) {
   const inputRef = useRef(null);
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -50,16 +50,38 @@ export default function NfeImportButton({ produtos, maquinas, gavetas, onImporte
       const now = new Date().toISOString();
       let matched = 0;
       let unmatched = 0;
+      let criados = 0;
 
       for (const item of editedItems) {
-        if (!item.produto_id) {
-          unmatched++;
-          continue;
-        }
-        const produto = produtos.find((p) => p.id === item.produto_id);
-        if (!produto) {
-          unmatched++;
-          continue;
+        let produto;
+
+        if (item.create_new) {
+          if (!item.novo_nome || !item.novo_setor_id) {
+            unmatched++;
+            continue;
+          }
+          produto = await base44.entities.Produto.create({
+            nome: item.novo_nome,
+            codigo: item.novo_codigo || '',
+            setor_id: item.novo_setor_id,
+            maquina_id: item.maquina_id || '',
+            gaveta_id: item.gaveta_id || '',
+            codigo_referencia: item.codigo_referencia || '',
+            unidade: item.novo_unidade || 'un',
+            quantidade: item.qCom,
+            estoque_minimo: 0,
+          });
+          criados++;
+        } else {
+          if (!item.produto_id) {
+            unmatched++;
+            continue;
+          }
+          produto = produtos.find((p) => p.id === item.produto_id);
+          if (!produto) {
+            unmatched++;
+            continue;
+          }
         }
 
         await base44.entities.Movimentacao.create({
@@ -75,19 +97,21 @@ export default function NfeImportButton({ produtos, maquinas, gavetas, onImporte
           observacao: obs,
         });
 
-        const novaQtd = (produto.quantidade || 0) + item.qCom;
-        await base44.entities.Produto.update(produto.id, {
-          quantidade: novaQtd,
-          maquina_id: item.maquina_id || produto.maquina_id,
-          gaveta_id: item.gaveta_id || produto.gaveta_id,
-          codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
-        });
+        if (!item.create_new) {
+          const novaQtd = (produto.quantidade || 0) + item.qCom;
+          await base44.entities.Produto.update(produto.id, {
+            quantidade: novaQtd,
+            maquina_id: item.maquina_id || produto.maquina_id,
+            gaveta_id: item.gaveta_id || produto.gaveta_id,
+            codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
+          });
+        }
         matched++;
       }
 
       toast({
         title: 'Importação concluída',
-        description: `${matched} produto(s) importado(s) como entrada${unmatched > 0 ? `, ${unmatched} sem correspondência` : ''}.`,
+        description: `${matched} entrada(s) registrada(s)${criados > 0 ? `, ${criados} produto(s) criado(s)` : ''}${unmatched > 0 ? `, ${unmatched} ignorado(s)` : ''}.`,
       });
 
       setPreview(null);
@@ -138,6 +162,7 @@ export default function NfeImportButton({ produtos, maquinas, gavetas, onImporte
           nfeInfo={{ nNF: preview.nNF, emitente: preview.emitente }}
           items={preview.items}
           produtos={produtos}
+          setores={setores}
           maquinas={maquinas}
           gavetas={gavetas}
           onClose={() => setPreview(null)}
