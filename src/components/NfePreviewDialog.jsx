@@ -134,7 +134,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[97vw] w-full max-h-[94vh] flex flex-col p-4 sm:p-6 gap-4">
+      <DialogContent className="w-screen h-screen max-w-none max-h-none left-0 top-0 translate-x-0 translate-y-0 rounded-none flex flex-col p-3 sm:p-4 gap-3">
         <DialogHeader>
           <DialogTitle>Confirmar Importação da NF-e</DialogTitle>
           <DialogDescription>
