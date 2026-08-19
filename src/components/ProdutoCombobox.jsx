@@ -125,7 +125,7 @@ export default function ProdutoCombobox({
         >
           <button
             type="button"
-            onClick={() => pick(NONE)}
+            onPointerDown={(e) => { e.preventDefault(); pick(NONE); }}
             className={cn(
               'flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent',
               value === NONE && 'bg-accent'
@@ -137,7 +137,7 @@ export default function ProdutoCombobox({
           </button>
           <button
             type="button"
-            onClick={() => pick(NEW)}
+            onPointerDown={(e) => { e.preventDefault(); pick(NEW); }}
             className={cn(
               'flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent text-primary font-medium',
               value === NEW && 'bg-accent'
@@ -154,7 +154,7 @@ export default function ProdutoCombobox({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => pick(p.id)}
+                onPointerDown={(e) => { e.preventDefault(); pick(p.id); }}
                 className={cn(
                   'flex items-center justify-between w-full px-3 py-1.5 text-xs text-left hover:bg-accent',
                   value === p.id && 'bg-accent'
