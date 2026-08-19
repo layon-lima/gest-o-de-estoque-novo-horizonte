@@ -17,7 +17,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
 } from '@/components/ui/select';
+import { UNIDADES } from '@/lib/units';
 import {
   Table,
   TableHeader,
@@ -313,11 +317,25 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Unidade</Label>
-                            <Input
-                              className="h-8 w-[80px]"
-                              value={item.novo_unidade || ''}
-                              onChange={(e) => updateRow(idx, 'novo_unidade', e.target.value)}
-                            />
+                            <Select
+                              value={item.novo_unidade || 'un'}
+                              onValueChange={(v) => updateRow(idx, 'novo_unidade', v)}
+                            >
+                              <SelectTrigger className="h-8 w-[140px]">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {UNIDADES.map((fam, fi) => (
+                                  <SelectGroup key={fam.familia}>
+                                    {fi > 0 && <SelectSeparator />}
+                                    <SelectLabel>{fam.familia}</SelectLabel>
+                                    {fam.itens.map((u) => (
+                                      <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           {itemControlaValidade(item) && (
                             <>
