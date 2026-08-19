@@ -89,6 +89,8 @@ export default function SearchSelect({
       {open && createPortal(
         <div
           ref={menuRef}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
           className="z-[100] mt-1 max-h-60 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
         >
