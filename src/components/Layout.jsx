@@ -15,7 +15,7 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10">
             <Menu className="w-5 h-5" />
           </button>
-          <Logo className="h-7" />
+          <Logo boxClassName="h-8 w-28" />
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <Outlet />

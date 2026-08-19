@@ -36,7 +36,7 @@ export default function Sidebar({ open, onClose }) {
         }`}
       >
         <div className="flex items-center justify-between px-6 py-5">
-          <Logo onDark className="flex-1" />
+          <Logo onDark />
           <button onClick={onClose} className="lg:hidden p-1 rounded-lg hover:bg-white/10">
             <X className="w-5 h-5" />
           </button>
