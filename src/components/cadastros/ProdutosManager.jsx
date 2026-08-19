@@ -10,7 +10,7 @@ import FilterBar from '@/components/FilterBar';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 import { useToast } from '@/components/ui/use-toast';
 
-export default function Produtos() {
+export default function ProdutosManager() {
   const [produtos, setProdutos] = useState([]);
   const [setores, setSetores] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
@@ -53,10 +53,10 @@ export default function Produtos() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className="space-y-6">
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Produtos</h1>
+          <h2 className="text-2xl font-bold">Produtos</h2>
           <p className="text-sm text-muted-foreground mt-1">Gerencie todos os produtos do estoque</p>
         </div>
         <Button onClick={handleNew}>
