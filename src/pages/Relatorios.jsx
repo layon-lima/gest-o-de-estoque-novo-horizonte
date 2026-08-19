@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileDown, FileSpreadsheet, ArrowDownCircle } from 'lucide-react';
+import { FileDown, FileSpreadsheet, ArrowDownCircle, ArrowUpCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -39,6 +40,7 @@ export default function Relatorios() {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [filtroValidade, setFiltroValidade] = useState({ setor_id: 'all', faixa: 'all' });
+  const [filtroMov, setFiltroMov] = useState({ tipo: 'all', busca: '' });
 
   useEffect(() => {
     async function load() {
@@ -134,19 +136,32 @@ export default function Relatorios() {
   const setorNome = filtro.setor_id !== 'all' ? getNome(filtro.setor_id, setores) : 'Todos';
   const tituloRelatorio = `Estoque — ${setorNome} (${filtered.length} itens)`;
 
-  const entradasRecentes = useMemo(() => {
-    return movimentacoes.filter((m) => m.tipo === 'entrada');
-  }, [movimentacoes]);
+  const movimentacoesFiltradas = useMemo(() => {
+    const termo = filtroMov.busca.trim().toLowerCase();
+    return movimentacoes.filter((m) => {
+      if (filtroMov.tipo !== 'all' && m.tipo !== filtroMov.tipo) return false;
+      if (!termo) return true;
+      const alvo = [m.nome_produto, m.codigo, m.numero_nf, m.fornecedor, m.chave_acesso, m.observacao]
+        .filter(Boolean).join(' ').toLowerCase();
+      return alvo.includes(termo);
+    });
+  }, [movimentacoes, filtroMov]);
 
-  function buildEntradasRows() {
-    return entradasRecentes.map((m) => {
+  const movCols = ['Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+
+  function buildMovRows() {
+    return movimentacoesFiltradas.map((m) => {
       const prod = produtos.find((p) => p.id === m.produto_id);
       return [
         m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
+        m.tipo === 'entrada' ? 'Entrada' : 'Saída',
         m.nome_produto || '',
         formatQtd(m.quantidade || 0),
         prod?.unidade || '',
         m.codigo || '',
+        m.numero_nf || '',
+        m.fornecedor || '',
+        m.chave_acesso || '',
         getNome(m.setor_id, setores),
         getNome(m.maquina_id, maquinas),
         getNome(m.gaveta_id, gavetas, 'codigo'),
@@ -155,14 +170,12 @@ export default function Relatorios() {
     });
   }
 
-  function handleEntradasPDF() {
-    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
-    exportPDF('Relatório de Entradas Recentes', cols, buildEntradasRows());
+  function handleMovPDF() {
+    exportPDF('Relatório de Movimentações', movCols, buildMovRows());
   }
 
-  function handleEntradasCSV() {
-    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
-    exportCSV('Relatório de Entradas Recentes', cols, buildEntradasRows());
+  function handleMovCSV() {
+    exportCSV('Relatório de Movimentações', movCols, buildMovRows());
   }
 
   const lotesValidade = useMemo(() => {
@@ -207,7 +220,7 @@ export default function Relatorios() {
       <Tabs defaultValue="estoque">
         <TabsList>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
-          <TabsTrigger value="entradas">Entradas Recentes</TabsTrigger>
+          <TabsTrigger value="entradas">Entradas e Saídas</TabsTrigger>
           <TabsTrigger value="validade">Validade</TabsTrigger>
         </TabsList>
 
@@ -266,34 +279,59 @@ export default function Relatorios() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h3 className="font-semibold flex items-center gap-2">
               <ArrowDownCircle className="w-5 h-5 text-green-600" />
-              Entradas Recentes ({entradasRecentes.length})
+              Movimentações ({movimentacoesFiltradas.length})
             </h3>
             <div className="flex gap-2">
-              <Button onClick={handleEntradasPDF} variant="outline" disabled={entradasRecentes.length === 0}>
+              <Button onClick={handleMovPDF} variant="outline" disabled={movimentacoesFiltradas.length === 0}>
                 <FileDown className="w-4 h-4 mr-2" /> Exportar PDF
               </Button>
-              <Button onClick={handleEntradasCSV} disabled={entradasRecentes.length === 0}>
+              <Button onClick={handleMovCSV} disabled={movimentacoesFiltradas.length === 0}>
                 <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar Excel
               </Button>
             </div>
           </div>
 
           <Card className="p-5">
+            <div className="flex items-center gap-3 flex-wrap mb-4">
+              <span className="text-sm font-semibold text-muted-foreground">Filtrar:</span>
+              <Select value={filtroMov.tipo} onValueChange={(v) => setFiltroMov({ ...filtroMov, tipo: v })}>
+                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="entrada">Entradas</SelectItem>
+                  <SelectItem value="saida">Saídas</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative flex-1 min-w-[240px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={filtroMov.busca}
+                  onChange={(e) => setFiltroMov({ ...filtroMov, busca: e.target.value })}
+                  placeholder="Buscar por NF, fornecedor, chave, produto…"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
               </div>
-            ) : entradasRecentes.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma entrada registrada.</p>
+            ) : movimentacoesFiltradas.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma movimentação encontrada.</p>
             ) : (
               <div className="rounded-lg border overflow-auto scrollbar-thin max-h-[600px]">
                 <Table>
                   <TableHeader className="sticky top-0 bg-muted">
                     <TableRow>
                        <TableHead>Data/Hora</TableHead>
+                       <TableHead>Tipo</TableHead>
                        <TableHead>Produto</TableHead>
                        <TableHead className="text-right">Quantidade</TableHead>
                        <TableHead>Código</TableHead>
+                       <TableHead>Número NF</TableHead>
+                       <TableHead>Fornecedor</TableHead>
+                       <TableHead>Chave de Acesso</TableHead>
                        <TableHead>Setor</TableHead>
                        <TableHead>Máquina</TableHead>
                        <TableHead>Gaveta</TableHead>
@@ -301,21 +339,35 @@ export default function Relatorios() {
                      </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entradasRecentes.map((m) => (
+                    {movimentacoesFiltradas.map((m) => (
                       <TableRow key={m.id}>
                         <TableCell className="text-sm whitespace-nowrap">
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
+                        <TableCell>
+                          {m.tipo === 'entrada' ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                              <ArrowDownCircle className="w-3 h-3" /> Entrada
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
+                              <ArrowUpCircle className="w-3 h-3" /> Saída
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600 tabular-nums">
+                        <TableCell className={`text-right font-semibold tabular-nums ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
                           {formatQtd(m.quantidade || 0)}{' '}
                           <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</TableCell>
+                        <TableCell className="font-mono text-xs">{m.numero_nf || '—'}</TableCell>
+                        <TableCell className="text-xs max-w-[160px] truncate">{m.fornecedor || '—'}</TableCell>
+                        <TableCell className="font-mono text-xs max-w-[120px] truncate">{m.chave_acesso || '—'}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
                         <TableCell className="text-sm">{getNome(m.maquina_id, maquinas)}</TableCell>
                         <TableCell className="text-sm">{getNome(m.gaveta_id, gavetas, 'codigo')}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.observacao || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{m.observacao || '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

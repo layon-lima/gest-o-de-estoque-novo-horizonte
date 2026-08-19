@@ -29,6 +29,7 @@ import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import NfeImportButton from '@/components/NfeImportButton';
+import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
 
 const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
@@ -391,10 +392,24 @@ export default function Movimentacoes() {
                   </TableBody>
                 </Table>
               </div>
-            )}
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
+              )}
+              </Card>
+
+              {selectedId && (() => {
+              const sel = movimentacoes.find((m) => m.id === selectedId);
+              return sel ? (
+              <MovimentacaoDetalhe
+                mov={sel}
+                produtos={produtos}
+                setores={setores}
+                maquinas={maquinas}
+                gavetas={gavetas}
+                lotes={lotes}
+              />
+              ) : null;
+              })()}
+              </div>
+              </div>
+              </div>
+              );
+              }
