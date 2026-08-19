@@ -61,3 +61,17 @@ export function setorControlaValidade(setorId, setores) {
   const setor = setores?.find((s) => s.id === setorId);
   return !!setor?.controla_validade;
 }
+
+// Gera o próximo código interno de lote, sequencial por produto e único
+// globalmente (prefixa com o código do produto: P0001-L01, P0001-L02...).
+// Os lotes interprodutos não colidem porque o prefixo é o código do produto.
+export function proximoCodigoLote(produto, lotes) {
+  const codProd = String(produto?.codigo || '').trim() || 'P0000';
+  const existentes = (lotes || []).filter((l) => l.produto_id === produto?.id);
+  let max = 0;
+  for (const l of existentes) {
+    const m = String(l.codigo_lote || '').match(/-L(\d+)\s*$/i);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${codProd}-L${String(max + 1).padStart(2, '0')}`;
+}

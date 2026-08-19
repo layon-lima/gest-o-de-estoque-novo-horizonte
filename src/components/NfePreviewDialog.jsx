@@ -119,7 +119,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
   function isItemValid(item) {
     const hasProduto = item.produto_id || (item.create_new && item.novo_nome && item.novo_setor_id);
     if (!hasProduto) return false;
-    if (itemControlaValidade(item)) return !!(item.codigo_lote && item.data_validade);
+    if (itemControlaValidade(item)) return !!item.data_validade;
     const prodUnidade = item.create_new
       ? item.novo_unidade
       : produtos.find((p) => p.id === item.produto_id)?.unidade;
@@ -367,8 +367,10 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                           {itemControlaValidade(item) && (
                             <>
                               <div className="space-y-1">
-                                <Label className="text-xs">Lote *</Label>
-                                <Input className="h-8 w-[140px]" value={item.codigo_lote || ''} onChange={(e) => updateRow(idx, 'codigo_lote', e.target.value)} />
+                                <Label className="text-xs">Lote interno</Label>
+                                <div className="h-8 w-[140px] flex items-center px-2 text-[11px] text-muted-foreground italic border border-dashed rounded-md">
+                                  Automático
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <Label className="text-xs">Validade *</Label>
@@ -385,8 +387,10 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                       <TableCell colSpan={7} className="py-2">
                         <div className="flex items-end gap-3">
                           <div className="space-y-1">
-                            <Label className="text-xs">Lote *</Label>
-                            <Input className="h-8 w-[160px]" value={item.codigo_lote || ''} onChange={(e) => updateRow(idx, 'codigo_lote', e.target.value)} placeholder="Código do lote" />
+                            <Label className="text-xs">Lote interno</Label>
+                            <div className="h-8 w-[160px] flex items-center px-2 text-[11px] text-muted-foreground italic border border-dashed rounded-md">
+                              Gerado automaticamente
+                            </div>
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Validade *</Label>

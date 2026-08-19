@@ -88,7 +88,8 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
       const newQtd = controlaValidade ? 0 : parseQtd(form.quantidade);
       const payload = { ...form, quantidade: newQtd, estoque_minimo: parseQtd(form.estoque_minimo), fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0 };
       if (produto) {
-        await base44.entities.Produto.update(produto.id, payload);
+        const payloadFinal = newQtd <= 0 ? { ...payload, gaveta_id: '' } : payload;
+        await base44.entities.Produto.update(produto.id, payloadFinal);
         if (!controlaValidade) {
           const oldQtd = Number(produto.quantidade) || 0;
           const diff = newQtd - oldQtd;
@@ -101,7 +102,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
               quantidade: Math.abs(diff),
               setor_id: form.setor_id,
               maquina_id: form.maquina_id,
-              gaveta_id: form.gaveta_id,
+              gaveta_id: newQtd <= 0 ? '' : form.gaveta_id,
               tipo: diff > 0 ? 'entrada' : 'saida',
               observacao: 'Ajuste via cadastro de produto',
             });
@@ -204,24 +205,26 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Máquina</Label>
+              <Label>Máquina <span className="text-xs font-normal text-muted-foreground">(etiqueta opcional)</span></Label>
               <Select value={form.maquina_id || 'none'} onValueChange={(v) => set('maquina_id', v === 'none' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Nenhuma —</SelectItem>
                   {maquinas.map((m) => <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Etiqueta de organização. Não define a localização física.</p>
             </div>
             <div className="space-y-1.5">
-              <Label>Gaveta</Label>
+              <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(endereço físico)</span></Label>
               <Select value={form.gaveta_id || 'none'} onValueChange={(v) => set('gaveta_id', v === 'none' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Selecione o endereço" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">— Nenhuma —</SelectItem>
+                  <SelectItem value="none">— Nenhum —</SelectItem>
                   {sortGavetas(gavetas).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Endereço físico onde o produto fica guardado. Liberado quando o estoque zera.</p>
             </div>
           </div>
 

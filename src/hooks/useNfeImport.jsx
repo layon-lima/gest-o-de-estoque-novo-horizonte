@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
-import { setorControlaValidade } from '@/lib/lotes';
+import { setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import { convertQtyForProduto } from '@/lib/units';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
@@ -151,9 +151,12 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
         let loteId = '';
         let dataValidade = '';
 
-        if (controla && item.codigo_lote && item.data_validade) {
+        if (controla && item.data_validade) {
+          // Lote interno: soma a um lote existente do mesmo produto com a mesma
+          // validade; se não houver, cria novo lote com código interno automático
+          // (sequencial por produto, ex.: P0001-L01).
           let lote = lotesAtuais.find(
-            (l) => l.produto_id === produto.id && l.codigo_lote === item.codigo_lote && l.data_validade === item.data_validade
+            (l) => l.produto_id === produto.id && l.data_validade === item.data_validade
           );
           if (lote) {
             loteId = lote.id;
@@ -162,17 +165,17 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           } else {
             const created = await base44.entities.Lote.create({
               produto_id: produto.id,
+              codigo_referencia: produto.codigo_referencia || '',
               setor_id: produto.setor_id,
               maquina_id: item.maquina_id || produto.maquina_id || '',
               gaveta_id: item.gaveta_id || produto.gaveta_id || '',
-              codigo_lote: item.codigo_lote,
+              codigo_lote: proximoCodigoLote(produto, lotesAtuais),
               data_validade: item.data_validade,
               quantidade: qtd,
               unidade: produto.unidade || 'un',
             });
             loteId = created.id;
-            dataValidade = item.data_validade;
-            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: qtd, data_validade: item.data_validade });
+            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: qtd, data_validade: item.data_validade, codigo_lote: created.codigo_lote });
           }
           dataValidade = item.data_validade;
         }

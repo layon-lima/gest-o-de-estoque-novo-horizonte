@@ -7,6 +7,11 @@
       "title": "Produto",
       "description": "Refer\u00eancia ao Produto"
     },
+    "codigo_referencia": {
+      "type": "string",
+      "title": "C\u00f3digo de Refer\u00eancia",
+      "description": "Refer\u00eancia do produto ao qual o lote est\u00e1 atrelado (espelha o codigo_referencia do Produto)."
+    },
     "setor_id": {
       "type": "string",
       "title": "Setor"
@@ -17,11 +22,13 @@
     },
     "gaveta_id": {
       "type": "string",
-      "title": "Gaveta"
+      "title": "Gaveta",
+      "description": "Endere\u00e7o f\u00edsico onde o lote est\u00e1 guardado. \u00c9 limpo automaticamente quando o lote zera."
     },
     "codigo_lote": {
       "type": "string",
-      "title": "C\u00f3digo do Lote"
+      "title": "C\u00f3digo Interno do Lote",
+      "description": "Gerado automaticamente pelo sistema, sequencial por produto (ex.: P0001-L01). Garante unicidade entre produtos."
     },
     "data_validade": {
       "type": "string",
