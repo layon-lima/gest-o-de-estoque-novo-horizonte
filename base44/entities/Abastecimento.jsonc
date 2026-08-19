@@ -1,0 +1,50 @@
+{
+  "name": "Abastecimento",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data e Hora"
+    },
+    "maquina_id": {
+      "type": "string",
+      "title": "M\u00e1quina",
+      "description": "M\u00e1quina abastecida"
+    },
+    "produto_id": {
+      "type": "string",
+      "title": "Combust\u00edvel",
+      "description": "Produto do setor de Combust\u00edveis baixado do estoque"
+    },
+    "quantidade": {
+      "type": "number",
+      "title": "Quantidade"
+    },
+    "unidade": {
+      "type": "string",
+      "title": "Unidade",
+      "default": "un"
+    },
+    "operador": {
+      "type": "string",
+      "title": "Operador",
+      "description": "Nome do usu\u00e1rio que realizou o abastecimento"
+    },
+    "numero_mov": {
+      "type": "string",
+      "title": "Movimenta\u00e7\u00e3o Vinculada",
+      "description": "N\u00famero da movimenta\u00e7\u00e3o de sa\u00edda gerada automaticamente"
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "data",
+    "maquina_id",
+    "produto_id",
+    "quantidade"
+  ]
+}
