@@ -287,7 +287,7 @@ export default function Relatorios() {
                     <TableRow>
                        <TableHead>Data/Hora</TableHead>
                        <TableHead>Produto</TableHead>
-                       <TableHead className="text-right">Qtd.</TableHead>
+                       <TableHead className="text-right">Quantidade</TableHead>
                        <TableHead>Código</TableHead>
                        <TableHead>Setor</TableHead>
                        <TableHead>Máquina</TableHead>
@@ -359,7 +359,7 @@ export default function Relatorios() {
                   <TableHeader className="sticky top-0 bg-muted">
                     <TableRow>
                       <TableHead>Produto</TableHead>
-                      <TableHead className="text-right">Qtd.</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
                       <TableHead>Lote</TableHead>
                       <TableHead>Validade</TableHead>
                       <TableHead>Status</TableHead>

@@ -38,7 +38,7 @@ export default function ProductsTable({
           <TableHeader className="sticky top-0 bg-muted z-10">
             <TableRow>
               <TableHead>Produto</TableHead>
-              <TableHead className="text-right">Qtd.</TableHead>
+              <TableHead className="text-right">Quantidade</TableHead>
               <TableHead>Código</TableHead>
               <TableHead>Ref.</TableHead>
               <TableHead>Setor</TableHead>

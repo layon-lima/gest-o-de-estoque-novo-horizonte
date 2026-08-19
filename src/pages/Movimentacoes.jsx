@@ -309,9 +309,9 @@ export default function Movimentacoes() {
                     <TableRow>
                       <TableHead>Data</TableHead>
                       <TableHead>Produto</TableHead>
+                      <TableHead className="text-right">Quantidade</TableHead>
                       <TableHead>Código</TableHead>
                       <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Qtd.</TableHead>
                       <TableHead>Setor</TableHead>
                       <TableHead>Validade</TableHead>
                       <TableHead></TableHead>
