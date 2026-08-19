@@ -1,4 +1,4 @@
-import { ArrowDownCircle, ArrowUpCircle, Hash, Truck, KeyRound, Layers, CalendarClock, MapPin, NotebookPen } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Undo2, Hash, Truck, KeyRound, Layers, CalendarClock, MapPin, NotebookPen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getNome } from '@/lib/estoqueFilters';
@@ -31,9 +31,13 @@ export default function MovimentacaoDetalhe({ mov, produtos, setores, maquinas, 
           <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
             <ArrowDownCircle className="w-3.5 h-3.5" /> Entrada
           </Badge>
-        ) : (
+        ) : mov.tipo === 'saida' ? (
           <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
             <ArrowUpCircle className="w-3.5 h-3.5" /> Saída
+          </Badge>
+        ) : (
+          <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+            <Undo2 className="w-3.5 h-3.5" /> Estorno
           </Badge>
         )}
       </div>

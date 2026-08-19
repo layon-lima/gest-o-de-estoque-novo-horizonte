@@ -40,7 +40,8 @@
       "type": "string",
       "enum": [
         "entrada",
-        "saida"
+        "saida",
+        "estorno"
       ],
       "title": "Tipo",
       "default": "entrada"

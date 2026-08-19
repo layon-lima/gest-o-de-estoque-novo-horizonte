@@ -105,9 +105,8 @@ export default function Movimentacoes() {
           await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
         }
       }
-      await base44.entities.Movimentacao.delete(mov.id);
-      toast({ title: 'Movimentação desfeita', description: `${mov.nome_produto} — estoque atualizado.` });
-      setSelectedId(null);
+      await base44.entities.Movimentacao.update(mov.id, { tipo: 'estorno' });
+      toast({ title: 'Movimentação estornada', description: `${mov.nome_produto} — estoque atualizado.` });
       load();
     } finally {
       setSaving(false);
@@ -312,19 +311,19 @@ export default function Movimentacoes() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Movimentações Recentes</h3>
               {selectedId && (() => {
-                const sel = movimentacoes.find((m) => m.id === selectedId);
-                return sel ? (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={saving}
-                    onClick={() => handleUndo(sel)}
-                  >
-                    <Undo2 className="w-4 h-4 mr-1" />
-                    {saving ? 'Desfazendo…' : 'Desfazer Movimentação'}
-                  </Button>
-                ) : null;
-              })()}
+                 const sel = movimentacoes.find((m) => m.id === selectedId);
+                 return sel ? (
+                   <Button
+                     variant="destructive"
+                     size="sm"
+                     disabled={saving || sel.tipo === 'estorno'}
+                     onClick={() => handleUndo(sel)}
+                   >
+                     <Undo2 className="w-4 h-4 mr-1" />
+                     {saving ? 'Estornando…' : sel.tipo === 'estorno' ? 'Estornada' : 'Estornar Movimentação'}
+                   </Button>
+                 ) : null;
+               })()}
             </div>
             {loading ? (
               <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -374,9 +373,13 @@ export default function Movimentacoes() {
                             <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
                               <ArrowDownCircle className="w-3 h-3" /> Entrada
                             </Badge>
-                          ) : (
+                          ) : m.tipo === 'saida' ? (
                             <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
                               <ArrowUpCircle className="w-3 h-3" /> Saída
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+                              <Undo2 className="w-3 h-3" /> Estorno
                             </Badge>
                           )}
                         </TableCell>
