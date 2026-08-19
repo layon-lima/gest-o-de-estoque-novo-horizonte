@@ -268,6 +268,19 @@ export default function Movimentacoes() {
                 onChange={(v) => setForm({ ...form, produto_id: v, codigo_lote: '', data_validade: '' })}
                 placeholder="Buscar produto por nome, código, referência…"
               />
+              {produtoSelecionado && (
+                <div className="flex items-center gap-2 mt-1 text-xs">
+                  <span className="text-muted-foreground">Estoque atual:</span>
+                  <span className="font-semibold tabular-nums px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                    {formatQtd(produtoSelecionado.quantidade || 0)} {produtoSelecionado.unidade || ''}
+                  </span>
+                  {(produtoSelecionado.estoque_minimo || 0) > 0 && (
+                    <span className="text-muted-foreground">
+                      (mín.: {formatQtd(produtoSelecionado.estoque_minimo)} {produtoSelecionado.unidade || ''})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
