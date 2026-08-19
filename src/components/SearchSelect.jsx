@@ -16,6 +16,7 @@ export default function SearchSelect({
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const ref = useRef(null);
   const inputRef = useRef(null);
+  const menuRef = useRef(null);
 
   const selected = options.find((o) => o.value === value);
 
@@ -39,7 +40,9 @@ export default function SearchSelect({
 
   useEffect(() => {
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      const inTrigger = ref.current && ref.current.contains(e.target);
+      const inMenu = menuRef.current && menuRef.current.contains(e.target);
+      if (!inTrigger && !inMenu) setOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -95,6 +98,7 @@ export default function SearchSelect({
 
       {open && createPortal(
         <div
+          ref={menuRef}
           style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
           className="z-[100] mt-1 max-h-60 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
         >
