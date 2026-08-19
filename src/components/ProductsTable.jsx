@@ -34,7 +34,8 @@ export default function ProductsTable({
 
   return (
     <div className="rounded-lg border overflow-hidden">
-      <div className="max-h-[420px] overflow-auto scrollbar-thin">
+      {/* Desktop: tabela com rolagem interna controlada */}
+      <div className="hidden sm:block max-h-[420px] overflow-auto scrollbar-thin">
         <Table>
           <TableHeader className="sticky top-0 bg-muted z-10">
             <TableRow>
@@ -89,6 +90,49 @@ export default function ProductsTable({
           </TableBody>
         </Table>
       </div>
+
+      {/* Mobile: cartões empilhados, sem rolagem horizontal */}
+      <div className="sm:hidden divide-y">
+        {produtos.map((p) => {
+          const st = getStatus(p.quantidade || 0);
+          return (
+            <div key={p.id} className="p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-medium text-sm leading-tight">{p.nome}</span>
+                {showStatus && (
+                  <Badge variant="outline" className={`${st.cls} shrink-0`}>{st.label}</Badge>
+                )}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-bold tabular-nums">{formatQtd(p.quantidade || 0)}</span>
+                <span className="text-xs text-muted-foreground">{p.unidade}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <div><span className="font-medium text-foreground/70">Código:</span> <span className="font-mono">{p.codigo}</span></div>
+                <div><span className="font-medium text-foreground/70">Ref.:</span> <span className="font-mono">{p.codigo_referencia || '—'}</span></div>
+                <div className="truncate"><span className="font-medium text-foreground/70">Setor:</span> {getNome(p.setor_id, setores) || '—'}</div>
+                <div className="truncate"><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>
+                <div className="truncate"><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>
+              </div>
+              {hasActions && (
+                <div className="flex justify-end gap-1 pt-1">
+                  {onEdit && (
+                    <Button size="sm" variant="outline" onClick={() => onEdit(p)}>
+                      <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button size="sm" variant="outline" className="text-destructive" onClick={() => onDelete(p)}>
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Excluir
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       {produtos.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-8">
           Nenhum produto encontrado.

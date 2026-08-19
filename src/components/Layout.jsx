@@ -16,7 +16,7 @@ export default function Layout() {
           </button>
           <span className="font-bold text-primary">Gestão Estoque Novo Horizonte</span>
         </header>
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <Outlet />
         </main>
       </div>

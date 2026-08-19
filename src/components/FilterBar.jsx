@@ -12,7 +12,7 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
     setFiltros({ ...filtros, [key]: value === 'all' ? '' : value });
 
   return (
-    <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
       <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground shrink-0">
         <Filter className="w-4 h-4" />
         <span className="hidden sm:inline">Filtros:</span>
@@ -22,7 +22,7 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
         value={filtros.setor_id || 'all'}
         onValueChange={(v) => update('setor_id', v)}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]">
           <SelectValue placeholder="Setor" />
         </SelectTrigger>
         <SelectContent>
@@ -39,7 +39,7 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
         value={filtros.estoque || 'all'}
         onValueChange={(v) => update('estoque', v)}
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px] flex-1 sm:flex-none min-w-[140px]">
           <SelectValue placeholder="Estoque" />
         </SelectTrigger>
         <SelectContent>
@@ -54,7 +54,7 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
         value={filtros.maquina_id || 'all'}
         onValueChange={(v) => update('maquina_id', v)}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]">
           <SelectValue placeholder="Máquina" />
         </SelectTrigger>
         <SelectContent>
@@ -71,7 +71,7 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
         value={filtros.gaveta_id || 'all'}
         onValueChange={(v) => update('gaveta_id', v)}
       >
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px] flex-1 sm:flex-none min-w-[140px]">
           <SelectValue placeholder="Gaveta" />
         </SelectTrigger>
         <SelectContent>
