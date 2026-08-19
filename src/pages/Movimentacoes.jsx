@@ -331,7 +331,7 @@ export default function Movimentacoes() {
                    <Button
                      variant="destructive"
                      size="sm"
-                     disabled={saving || sel.estornada === true}
+                     disabled={saving || sel.estornada === true || sel.tipo === 'estorno'}
                      onClick={() => handleUndo(sel)}
                    >
                      <Undo2 className="w-4 h-4 mr-1" />
