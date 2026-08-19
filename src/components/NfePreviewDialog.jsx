@@ -31,7 +31,6 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
-import SearchSelect from '@/components/SearchSelect';
 import ProdutoCombobox from '@/components/ProdutoCombobox';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
@@ -286,13 +285,20 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Setor *</Label>
-                            <SearchSelect
-                              value={item.novo_setor_id || ''}
-                              onChange={(v) => updateRow(idx, 'novo_setor_id', v === 'all' ? '' : v)}
-                              options={setores.map((s) => ({ value: s.id, label: s.nome }))}
-                              placeholder="Buscar setor…"
-                              className="w-[200px]"
-                            />
+                            <Select
+                              value={item.novo_setor_id || 'none'}
+                              onValueChange={(v) => updateRow(idx, 'novo_setor_id', v === 'none' ? '' : v)}
+                            >
+                              <SelectTrigger className="h-8 w-[200px]">
+                                <SelectValue placeholder="Selecionar…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">— Nenhum —</SelectItem>
+                                {setores.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Unidade</Label>
