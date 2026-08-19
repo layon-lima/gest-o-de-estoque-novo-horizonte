@@ -1,14 +1,12 @@
 import { Image } from '@/components/ui/image';
 
 export const LOGO_URL =
-  'https://media.base44.com/images/public/6a84b445f638bd5605381437/becd9704d_TG.png';
+  'https://media.base44.com/images/public/6a84b445f638bd5605381437/9a602756f_generated_image.png';
 
-export default function Logo({ boxClassName = 'h-14 w-full', onDark = false }) {
+export default function Logo({ boxClassName = 'h-16 w-44', onDark = false }) {
   return (
     <div
-      className={`flex items-center justify-center rounded-xl p-1 ${
-        onDark ? 'bg-white/10' : 'bg-white'
-      } ${boxClassName}`}
+      className={`flex items-center justify-center ${onDark ? 'p-0' : 'p-0'} ${boxClassName}`}
     >
       <Image
         src={LOGO_URL}
