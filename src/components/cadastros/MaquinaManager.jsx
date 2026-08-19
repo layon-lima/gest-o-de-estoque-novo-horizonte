@@ -1,20 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, Trash2, QrCode } from 'lucide-react';
+import { Plus, Pencil, Trash2, QrCode, Fuel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
 import FuelQrCard from '@/components/abastecimento/FuelQrCard';
+
+const emptyForm = { codigo: '', nome: '', descricao: '', permite_abastecimento: false };
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 
 export default function MaquinaManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ codigo: '', nome: '', descricao: '' });
+  const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const [qrMaquina, setQrMaquina] = useState(null);
@@ -48,11 +52,18 @@ export default function MaquinaManager() {
       });
       return;
     }
-    if (editingId) await base44.entities.Maquina.update(editingId, form);
-    else await base44.entities.Maquina.create(form);
-    setForm({ codigo: '', nome: '', descricao: '' });
+    let salva;
+    if (editingId) {
+      salva = await base44.entities.Maquina.update(editingId, form);
+      salva = { ...form, id: editingId, ...salva };
+    } else {
+      salva = await base44.entities.Maquina.create(form);
+    }
+    setForm(emptyForm);
     setEditingId(null);
-    load();
+    await load();
+    // Exibe o QR Code automaticamente após criar/editar, disponível para baixar.
+    setQrMaquina(salva);
   }
 
   async function handleDelete(id) {
@@ -61,7 +72,7 @@ export default function MaquinaManager() {
   }
 
   function handleEdit(item) {
-    setForm({ codigo: item.codigo, nome: item.nome, descricao: item.descricao || '' });
+    setForm({ codigo: item.codigo, nome: item.nome, descricao: item.descricao || '', permite_abastecimento: item.permite_abastecimento === true });
     setEditingId(item.id);
   }
 
@@ -82,6 +93,13 @@ export default function MaquinaManager() {
             <Label htmlFor="m-desc">Descrição</Label>
             <Input id="m-desc" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
           </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="m-abast" className="cursor-pointer">Permite abastecimento</Label>
+              <p className="text-xs text-muted-foreground">Marcada, a máquina aparece na tela de Abastecimento e o QR Code libera o registro de combustível.</p>
+            </div>
+            <Switch id="m-abast" checked={form.permite_abastecimento} onCheckedChange={(v) => setForm({ ...form, permite_abastecimento: v })} />
+          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
             {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', nome: '', descricao: '' }); }}>Cancelar</Button>}
@@ -97,9 +115,12 @@ export default function MaquinaManager() {
           {filteredItems.map((item) => (
             <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
                   <p className="font-medium truncate">{item.nome}</p>
+                  {item.permite_abastecimento === true && (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100"><Fuel className="w-3 h-3 mr-1" />Abastece</Badge>
+                  )}
                 </div>
                 {item.descricao && <p className="text-sm text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
               </div>

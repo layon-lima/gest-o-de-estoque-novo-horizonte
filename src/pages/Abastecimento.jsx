@@ -37,11 +37,13 @@ export default function Abastecimento() {
 
   const maquinasFiltradas = useMemo(() => {
     const q = buscaMaquina.toLowerCase().trim();
-    if (!q) return maquinas;
-    return maquinas.filter((m) =>
-      (m.codigo || '').toLowerCase().includes(q) ||
-      (m.nome || '').toLowerCase().includes(q)
-    );
+    return maquinas
+      .filter((m) => m.permite_abastecimento === true)
+      .filter((m) =>
+        !q ||
+        (m.codigo || '').toLowerCase().includes(q) ||
+        (m.nome || '').toLowerCase().includes(q)
+      );
   }, [maquinas, buscaMaquina]);
 
   async function load() {
@@ -69,6 +71,10 @@ export default function Abastecimento() {
     const maq = maquinas.find((m) => m.id === decoded || m.id === String(decoded).trim());
     if (!maq) {
       toast({ variant: 'destructive', title: 'Máquina não encontrada', description: 'QR Code inválido ou máquina não cadastrada.' });
+      return;
+    }
+    if (maq.permite_abastecimento !== true) {
+      toast({ variant: 'destructive', title: 'Máquina não habilitada', description: 'Esta máquina não permite abastecimento.' });
       return;
     }
     setMaquinaSelecionada(maq);
