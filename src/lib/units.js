@@ -72,6 +72,26 @@ export function convertQty(value, de, para) {
   return base / fatorPara;
 }
 
+// Mapeia códigos comuns da NF-e (uCom) para os códigos canônicos do sistema.
+const MAPA_UNIDADES = {
+  ton: 'ton', t: 'ton', tonelada: 'ton', toneladas: 'ton',
+  kg: 'kg', quilograma: 'kg', quilos: 'kg', quilo: 'kg',
+  g: 'g', grama: 'g', gr: 'g', gramas: 'g',
+  l: 'L', lt: 'L', litro: 'L', litros: 'L',
+  ml: 'mL', mililitro: 'mL',
+  km: 'km', quilometro: 'km',
+  m: 'm', metro: 'm', metros: 'm',
+  cm: 'cm', centimetro: 'cm',
+  mm: 'mm', milimetro: 'mm',
+  un: 'un', unid: 'un', unidade: 'un', unidades: 'un', peca: 'un', pecas: 'un',
+};
+
+export function normalizarUnidade(str) {
+  if (!str) return '';
+  const key = String(str).trim().toLowerCase();
+  return MAPA_UNIDADES[key] || '';
+}
+
 export function getUnidadeLabel(unidade) {
   for (const f of UNIDADES) {
     const item = f.itens.find((i) => i.value === unidade);

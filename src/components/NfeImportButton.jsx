@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
+import { convertQty, normalizarUnidade } from '@/lib/units';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 
 export default function NfeImportButton({ produtos, setores, maquinas, gavetas, onImported }) {
@@ -55,6 +56,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
       let matched = 0;
       let unmatched = 0;
       let criados = 0;
+      let convertidos = 0;
 
       for (const item of editedItems) {
         let produto;
@@ -93,6 +95,17 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           continue;
         }
 
+        // Converte a quantidade da NF para a unidade cadastrada do produto (quando conversível)
+        let qtd = item.qCom;
+        if (!criouNovo && produto.unidade) {
+          const de = normalizarUnidade(item.uCom);
+          const conv = convertQty(item.qCom, de, produto.unidade);
+          if (conv !== null && de && de !== produto.unidade) {
+            qtd = conv;
+            convertidos++;
+          }
+        }
+
         const controla = setorControlaValidade(produto.setor_id, setores);
         let loteId = '';
         let dataValidade = '';
@@ -103,7 +116,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           );
           if (lote) {
             loteId = lote.id;
-            lote.quantidade = (lote.quantidade || 0) + item.qCom;
+            lote.quantidade = (lote.quantidade || 0) + qtd;
             await base44.entities.Lote.update(lote.id, { quantidade: lote.quantidade });
           } else {
             const created = await base44.entities.Lote.create({
@@ -113,12 +126,12 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
               gaveta_id: item.gaveta_id || produto.gaveta_id || '',
               codigo_lote: item.codigo_lote,
               data_validade: item.data_validade,
-              quantidade: item.qCom,
+              quantidade: qtd,
               unidade: produto.unidade || 'un',
             });
             loteId = created.id;
             dataValidade = item.data_validade;
-            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: item.qCom, data_validade: item.data_validade });
+            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: qtd, data_validade: item.data_validade });
           }
           dataValidade = item.data_validade;
         }
@@ -128,7 +141,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           produto_id: produto.id,
           codigo: produto.codigo,
           nome_produto: produto.nome,
-          quantidade: item.qCom,
+          quantidade: qtd,
           setor_id: produto.setor_id,
           maquina_id: item.maquina_id || produto.maquina_id,
           gaveta_id: item.gaveta_id || produto.gaveta_id,
@@ -139,7 +152,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
         });
 
         if (criouNovo && !controla) {
-          produto.quantidade = item.qCom;
+          produto.quantidade = qtd;
         } else if (controla && loteId) {
           const lotesProduto = lotesAtuais.filter((l) => l.produto_id === produto.id);
           const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
@@ -151,7 +164,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           });
           produto.quantidade = novaQtd;
         } else {
-          const novaQtd = (produto.quantidade || 0) + item.qCom;
+          const novaQtd = (produto.quantidade || 0) + qtd;
           await base44.entities.Produto.update(produto.id, {
             quantidade: novaQtd,
             maquina_id: item.maquina_id || produto.maquina_id,
@@ -165,7 +178,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
 
       toast({
         title: 'Importação concluída',
-        description: `${matched} entrada(s) registrada(s)${criados > 0 ? `, ${criados} produto(s) criado(s)` : ''}${unmatched > 0 ? `, ${unmatched} ignorado(s)` : ''}.`,
+        description: `${matched} entrada(s) registrada(s)${criados > 0 ? `, ${criados} produto(s) criado(s)` : ''}${convertidos > 0 ? `, ${convertidos} com conversão de unidade` : ''}${unmatched > 0 ? `, ${unmatched} ignorado(s)` : ''}.`,
       });
 
       setPreview(null);
