@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -8,8 +9,20 @@ import {
   Leaf,
   X,
   LogOut,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 const navItems = [
   { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
@@ -21,6 +34,19 @@ const navItems = [
 
 export default function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeleteOpen(false);
+    toast({
+      title: 'Exclusão de conta solicitada',
+      description:
+        'Entre em contato com o administrador para concluir a exclusão dos seus dados.',
+    });
+    await logout();
+  };
+
   return (
     <>
       {open && (
@@ -70,8 +96,8 @@ export default function Sidebar({ open, onClose }) {
           ))}
         </nav>
 
-        <div className="px-4 py-3 border-t border-white/10 space-y-3">
-          <div className="flex items-center gap-3 px-2">
+        <div className="px-4 py-3 border-t border-white/10 space-y-2">
+          <div className="flex items-center gap-3 px-2 pb-1">
             <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-semibold text-sm shrink-0">
               {(user?.full_name || user?.email || '?').charAt(0).toUpperCase()}
             </div>
@@ -80,12 +106,43 @@ export default function Sidebar({ open, onClose }) {
               <p className="text-xs text-white/60 truncate">{user?.email || ''}</p>
             </div>
           </div>
-          <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors">
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+          >
             <LogOut className="w-4 h-4 shrink-0" />
             Sair
           </button>
+          <button
+            onClick={() => setDeleteOpen(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-200 hover:bg-white/10 hover:text-red-100 transition-colors"
+          >
+            <Trash2 className="w-4 h-4 shrink-0" />
+            Excluir Conta
+          </button>
         </div>
       </aside>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir conta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza? Esta ação removerá seus dados e encerrará sua sessão.
+              Esta operação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteAccount}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

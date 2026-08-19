@@ -95,6 +95,19 @@
   body {
     @apply bg-background text-foreground font-body;
   }
+
+  button,
+  [role="button"],
+  h1, h2, h3, h4, h5, h6 {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  table td,
+  table th {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 @layer utilities {
@@ -107,5 +120,11 @@
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     @apply bg-transparent;
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
