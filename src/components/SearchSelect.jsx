@@ -95,7 +95,7 @@ export default function SearchSelect({
           {allLabel && (
             <button
               type="button"
-              onClick={() => pick('all')}
+              onMouseDown={(e) => { e.preventDefault(); pick('all'); }}
               className={cn(
                 'flex items-center justify-between w-full px-3 py-1.5 text-sm text-left hover:bg-accent',
                 value === 'all' && 'bg-accent'
@@ -112,7 +112,7 @@ export default function SearchSelect({
               <button
                 key={o.value}
                 type="button"
-                onClick={() => pick(o.value)}
+                onMouseDown={(e) => { e.preventDefault(); pick(o.value); }}
                 className={cn(
                   'flex items-center justify-between w-full px-3 py-1.5 text-sm text-left hover:bg-accent',
                   value === o.value && 'bg-accent'
