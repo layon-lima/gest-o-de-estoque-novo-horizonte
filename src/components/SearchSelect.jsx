@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,10 +13,29 @@ export default function SearchSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const ref = useRef(null);
   const inputRef = useRef(null);
 
   const selected = options.find((o) => o.value === value);
+
+  const updateCoords = () => {
+    if (!ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setCoords({ top: r.bottom, left: r.left, width: r.width });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateCoords();
+    const onScroll = () => updateCoords();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [open]);
 
   useEffect(() => {
     function handleClick(e) {
@@ -73,8 +93,11 @@ export default function SearchSelect({
         </div>
       </div>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1">
+      {open && createPortal(
+        <div
+          style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
+          className="z-[100] mt-1 max-h-60 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
+        >
           {allLabel && (
             <button
               type="button"
@@ -106,7 +129,8 @@ export default function SearchSelect({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
