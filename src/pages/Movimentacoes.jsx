@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/table';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { getNome } from '@/lib/estoqueFilters';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
 import { reverterEstoqueMov } from '@/lib/movimentacoes';

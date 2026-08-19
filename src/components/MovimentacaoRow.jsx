@@ -23,8 +23,8 @@ export default function MovimentacaoRow({
   gavetas,
 }) {
   const x = useMotionValue(0);
-  const bgOpacity = useTransform(x, [THRESHOLD, 0], [1, 0]);
-  const iconOpacity = useTransform(x, [THRESHOLD, -20], [1, 0]);
+  const tint = useTransform(x, [THRESHOLD, 0], ['inset 0 0 0 9999px rgba(254, 226, 226, 0.95)', 'inset 0 0 0 0 rgba(0,0,0,0)']);
+  const hintOpacity = useTransform(x, [THRESHOLD, -25], [1, 0]);
   const draggedRef = useRef(false);
 
   function handleClick() {
@@ -35,7 +35,7 @@ export default function MovimentacaoRow({
   return (
     <motion.tr
       drag="x"
-      style={{ x }}
+      style={{ x, boxShadow: tint }}
       dragConstraints={{ left: THRESHOLD, right: 0 }}
       dragElastic={0.06}
       dragSnapToOrigin
@@ -47,37 +47,25 @@ export default function MovimentacaoRow({
         setTimeout(() => { draggedRef.current = false; }, 60);
       }}
       onClick={handleClick}
-      className={`cursor-pointer transition-colors relative ${isSelected ? 'bg-accent' : 'hover:bg-muted/50'}`}
+      className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent' : 'hover:bg-muted/50'}`}
     >
-      <td className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-        <motion.div
-          style={{ opacity: iconOpacity }}
-          className="flex items-center gap-1 text-destructive font-medium text-sm"
-        >
-          <Trash2 className="w-4 h-4" /> Excluir
-        </motion.div>
-      </td>
-      <motion.td
-        style={{ opacity: bgOpacity }}
-        className="absolute inset-0 bg-red-50 dark:bg-red-950/40 pointer-events-none"
-      />
-      <TableCell className="text-sm whitespace-nowrap relative z-10">
+      <TableCell className="text-sm whitespace-nowrap relative">
         {mov.data ? new Date(mov.data).toLocaleString('pt-BR') : '—'}
       </TableCell>
-      <TableCell className="font-medium text-sm relative z-10">{mov.nome_produto || '—'}</TableCell>
-      <TableCell className="text-right font-semibold tabular-nums relative z-10">
+      <TableCell className="font-medium text-sm">{mov.nome_produto || '—'}</TableCell>
+      <TableCell className="text-right font-semibold tabular-nums">
         {formatQtd(mov.quantidade || 0)}{' '}
         <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === mov.produto_id)?.unidade || ''}</span>
       </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground relative z-10">{mov.codigo}</TableCell>
-      <TableCell className="text-xs relative z-10">
+      <TableCell className="font-mono text-xs text-muted-foreground">{mov.codigo}</TableCell>
+      <TableCell className="text-xs">
         {mov.numero_nf ? (
           <span className="font-mono" title={mov.chave_acesso ? `Chave: ${mov.chave_acesso}` : undefined}>NF {mov.numero_nf}</span>
         ) : null}
         {mov.fornecedor ? <span className="block text-muted-foreground truncate max-w-[140px]">{mov.fornecedor}</span> : null}
         {!mov.numero_nf && !mov.fornecedor ? '—' : null}
       </TableCell>
-      <TableCell className="relative z-10">
+      <TableCell>
         <div className="flex flex-col gap-1">
           {mov.tipo === 'entrada' ? (
             <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit">
@@ -97,11 +85,15 @@ export default function MovimentacaoRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="text-sm relative z-10">{getNome(mov.setor_id, setores)}</TableCell>
-      <TableCell className="relative z-10"><ValidadeBadge dataValidade={mov.data_validade} /></TableCell>
-      <TableCell className="text-center relative z-10">
-        {isSelected && (
+      <TableCell className="text-sm">{getNome(mov.setor_id, setores)}</TableCell>
+      <TableCell><ValidadeBadge dataValidade={mov.data_validade} /></TableCell>
+      <TableCell className="text-center relative">
+        {isSelected ? (
           <Undo2 className="w-4 h-4 text-destructive mx-auto" />
+        ) : (
+          <motion.div style={{ opacity: hintOpacity }} className="flex items-center justify-center gap-1 text-destructive text-xs whitespace-nowrap">
+            <Trash2 className="w-3.5 h-3.5" /> arraste ←
+          </motion.div>
         )}
       </TableCell>
     </motion.tr>
