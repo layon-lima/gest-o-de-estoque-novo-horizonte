@@ -60,14 +60,17 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
       const obs = `NF-e ${numeroNf}${fornecedor ? ' — ' + fornecedor : ''}`;
       const now = new Date().toISOString();
 
-      // Bloqueia importação duplicada da mesma NF-e (pela chave de acesso).
+      // Bloqueia apenas se houver uma entrada ATIVA (não estornada) com a
+      // mesma chave de acesso. Entradas estornadas (revertidas) permitem
+      // reimportar a NF-e, restaurando o saldo no estoque.
       const chaveBusca = (chaveAcesso || '').trim();
       if (chaveBusca) {
-        const duplicadas = await base44.entities.Movimentacao.filter({ chave_acesso: chaveBusca });
-        if (duplicadas.length > 0) {
+        const existentes = await base44.entities.Movimentacao.filter({ chave_acesso: chaveBusca });
+        const ativas = existentes.filter((m) => m.tipo === 'entrada' && m.estornada !== true);
+        if (ativas.length > 0) {
           toast({
             title: 'NF-e já importada',
-            description: 'Esta nota fiscal já foi lançada no estoque e não pode ser importada novamente.',
+            description: 'Esta nota fiscal já está ativa no estoque. Estorne a entrada anterior para reimportá-la.',
             variant: 'destructive',
           });
           return;

@@ -150,9 +150,10 @@ export default function Movimentacoes() {
         return;
       }
       if (form.tipo === 'entrada' && form.chave_acesso) {
-        const dup = await base44.entities.Movimentacao.filter({ chave_acesso: form.chave_acesso });
-        if (dup.length > 0) {
-          toast({ title: 'Nota fiscal duplicada', description: 'Esta NF-e (chave de acesso) já foi lançada no estoque.', variant: 'destructive' });
+        const existentes = await base44.entities.Movimentacao.filter({ chave_acesso: form.chave_acesso });
+        const ativas = existentes.filter((m) => m.tipo === 'entrada' && m.estornada !== true);
+        if (ativas.length > 0) {
+          toast({ title: 'Nota fiscal duplicada', description: 'Esta NF-e já está ativa no estoque. Estorne a entrada anterior para lançá-la novamente.', variant: 'destructive' });
           setSaving(false);
           return;
         }
