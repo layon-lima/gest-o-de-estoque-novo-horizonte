@@ -30,7 +30,7 @@ import ValidadeBadge from '@/components/ValidadeBadge';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import NfeImportButton from '@/components/NfeImportButton';
 
-const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '' };
+const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
 export default function Movimentacoes() {
   const [produtos, setProdutos] = useState([]);
@@ -137,6 +137,9 @@ export default function Movimentacoes() {
         gaveta_id: produto.gaveta_id,
         tipo: form.tipo,
         observacao: form.observacao,
+        numero_nf: form.tipo === 'entrada' ? (form.numero_nf || '') : '',
+        fornecedor: form.tipo === 'entrada' ? (form.fornecedor || '') : '',
+        chave_acesso: form.tipo === 'entrada' ? (form.chave_acesso || '') : '',
       };
 
       if (controlaValidade) {
@@ -267,6 +270,24 @@ export default function Movimentacoes() {
               </div>
             )}
 
+            {form.tipo === 'entrada' && (
+              <div className="space-y-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mv-nf">Número da NF</Label>
+                    <Input id="mv-nf" value={form.numero_nf} onChange={(e) => setForm({ ...form, numero_nf: e.target.value })} placeholder="Ex.: 000123456" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mv-forn">Fornecedor</Label>
+                    <Input id="mv-forn" value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} placeholder="Nome / CNPJ" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="mv-chave">Chave de acesso da NF-e</Label>
+                  <Input id="mv-chave" value={form.chave_acesso} onChange={(e) => setForm({ ...form, chave_acesso: e.target.value })} placeholder="44 dígitos" className="font-mono text-xs" />
+                </div>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="mv-obs">Observação</Label>
               <Textarea id="mv-obs" rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
@@ -317,6 +338,7 @@ export default function Movimentacoes() {
                       <TableHead>Produto</TableHead>
                       <TableHead className="text-right">Quantidade</TableHead>
                       <TableHead>Código</TableHead>
+                      <TableHead>NF / Fornecedor</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Setor</TableHead>
                       <TableHead>Validade</TableHead>
@@ -339,6 +361,13 @@ export default function Movimentacoes() {
                           <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo}</TableCell>
+                        <TableCell className="text-xs">
+                          {m.numero_nf ? (
+                            <span className="font-mono" title={m.chave_acesso ? `Chave: ${m.chave_acesso}` : undefined}>NF {m.numero_nf}</span>
+                          ) : null}
+                          {m.fornecedor ? <span className="block text-muted-foreground truncate max-w-[140px]">{m.fornecedor}</span> : null}
+                          {!m.numero_nf && !m.fornecedor ? '—' : null}
+                        </TableCell>
                         <TableCell>
                           {m.tipo === 'entrada' ? (
                             <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
