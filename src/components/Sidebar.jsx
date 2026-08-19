@@ -10,6 +10,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import Logo from '@/components/Logo';
 
 const navItems = [
   { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
@@ -35,15 +36,7 @@ export default function Sidebar({ open, onClose }) {
         }`}
       >
         <div className="flex items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-white/15">
-              <Leaf className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="font-bold text-base leading-tight">Gestão Estoque</h1>
-              <p className="text-xs opacity-70 font-medium">Novo Horizonte</p>
-            </div>
-          </div>
+          <Logo onDark className="flex-1" />
           <button onClick={onClose} className="lg:hidden p-1 rounded-lg hover:bg-white/10">
             <X className="w-5 h-5" />
           </button>
