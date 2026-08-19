@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Plus, Undo2, CalendarClock } from 'lucide-react';
+import { Plus, Undo2, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -26,10 +25,21 @@ import { useToast } from '@/components/ui/use-toast';
 import { getNome } from '@/lib/estoqueFilters';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
-import ValidadeBadge from '@/components/ValidadeBadge';
+import { reverterEstoqueMov } from '@/lib/movimentacoes';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import NfeImportButton from '@/components/NfeImportButton';
 import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
+import MovimentacaoRow from '@/components/MovimentacaoRow';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
@@ -44,6 +54,7 @@ export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [movToDelete, setMovToDelete] = useState(null);
   const { toast } = useToast();
 
   async function load() {
@@ -70,41 +81,9 @@ export default function Movimentacoes() {
     : [];
 
   async function handleUndo(mov) {
-    const produto = produtos.find((p) => p.id === mov.produto_id);
     setSaving(true);
     try {
-      if (mov.lote_id || mov.lotes_consumidos) {
-        if (mov.tipo === 'entrada') {
-          const lote = lotes.find((l) => l.id === mov.lote_id);
-          if (lote) {
-            const novaQtdLote = Math.max(0, (lote.quantidade || 0) - (mov.quantidade || 0));
-            await base44.entities.Lote.update(lote.id, { quantidade: novaQtdLote });
-          }
-        } else {
-          const consumidos = mov.lotes_consumidos
-            ? JSON.parse(mov.lotes_consumidos)
-            : (mov.lote_id ? [{ lote_id: mov.lote_id, quantidade: mov.quantidade }] : []);
-          for (const c of consumidos) {
-            const l = lotes.find((x) => x.id === c.lote_id);
-            if (l) await base44.entities.Lote.update(l.id, { quantidade: (l.quantidade || 0) + c.quantidade });
-          }
-        }
-        if (produto) {
-          const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
-          let total = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
-          total = mov.tipo === 'entrada' ? total - (mov.quantidade || 0) : total + (mov.quantidade || 0);
-          await base44.entities.Produto.update(produto.id, { quantidade: Math.max(0, total) });
-        }
-      } else {
-        if (produto) {
-          const qtdAtual = produto.quantidade || 0;
-          const novaQtd =
-            mov.tipo === 'entrada'
-              ? Math.max(0, qtdAtual - (mov.quantidade || 0))
-              : qtdAtual + (mov.quantidade || 0);
-          await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
-        }
-      }
+      await reverterEstoqueMov(mov, { produtos, lotes });
       await base44.entities.Movimentacao.create({
         data: new Date().toISOString(),
         produto_id: mov.produto_id,
@@ -122,6 +101,20 @@ export default function Movimentacoes() {
       });
       await base44.entities.Movimentacao.update(mov.id, { estornada: true });
       toast({ title: 'Movimentação estornada', description: `${mov.nome_produto} — estoque atualizado e auditoria mantida.` });
+      load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(mov) {
+    setSaving(true);
+    try {
+      await reverterEstoqueMov(mov, { produtos, lotes });
+      await base44.entities.Movimentacao.delete(mov.id);
+      toast({ title: 'Movimentação excluída', description: `${mov.nome_produto} — estoque revertido e registro removido.` });
+      if (selectedId === mov.id) setSelectedId(null);
+      setMovToDelete(null);
       load();
     } finally {
       setSaving(false);
@@ -362,55 +355,17 @@ export default function Movimentacoes() {
                   </TableHeader>
                   <TableBody>
                     {movimentacoes.map((m) => (
-                      <TableRow
+                      <MovimentacaoRow
                         key={m.id}
-                        onClick={() => setSelectedId(selectedId === m.id ? null : m.id)}
-                        className={`cursor-pointer transition-colors ${selectedId === m.id ? 'bg-accent' : 'hover:bg-muted/50'}`}
-                      >
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
-                        </TableCell>
-                        <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
-                          {formatQtd(m.quantidade || 0)}{' '}
-                          <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo}</TableCell>
-                        <TableCell className="text-xs">
-                          {m.numero_nf ? (
-                            <span className="font-mono" title={m.chave_acesso ? `Chave: ${m.chave_acesso}` : undefined}>NF {m.numero_nf}</span>
-                          ) : null}
-                          {m.fornecedor ? <span className="block text-muted-foreground truncate max-w-[140px]">{m.fornecedor}</span> : null}
-                          {!m.numero_nf && !m.fornecedor ? '—' : null}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {m.tipo === 'entrada' ? (
-                              <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit">
-                                <ArrowDownCircle className="w-3 h-3" /> Entrada
-                              </Badge>
-                            ) : m.tipo === 'saida' ? (
-                              <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">
-                                <ArrowUpCircle className="w-3 h-3" /> Saída
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit">
-                                <Undo2 className="w-3 h-3" /> Estorno
-                              </Badge>
-                            )}
-                            {m.estornada === true && (
-                              <span className="text-[10px] text-amber-600 font-medium">estornada</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
-                        <TableCell><ValidadeBadge dataValidade={m.data_validade} /></TableCell>
-                        <TableCell className="text-center">
-                          {selectedId === m.id && (
-                            <Undo2 className="w-4 h-4 text-destructive mx-auto" />
-                          )}
-                        </TableCell>
-                      </TableRow>
+                        mov={m}
+                        isSelected={selectedId === m.id}
+                        onSelect={() => setSelectedId(selectedId === m.id ? null : m.id)}
+                        onSwipeDelete={setMovToDelete}
+                        produtos={produtos}
+                        setores={setores}
+                        maquinas={maquinas}
+                        gavetas={gavetas}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -433,6 +388,27 @@ export default function Movimentacoes() {
               })()}
               </div>
               </div>
+
+              <AlertDialog open={!!movToDelete} onOpenChange={(o) => !o && setMovToDelete(null)}>
+               <AlertDialogContent>
+                 <AlertDialogHeader>
+                   <AlertDialogTitle>Excluir movimentação?</AlertDialogTitle>
+                   <AlertDialogDescription>
+                     {movToDelete ? `Esta ação reverte o estoque de "${movToDelete.nome_produto}" e remove o registro permanentemente. Não dá para desfazer.` : ''}
+                   </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                   <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+                   <AlertDialogAction
+                     disabled={saving}
+                     onClick={() => movToDelete && handleDelete(movToDelete)}
+                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                   >
+                     {saving ? 'Excluindo…' : 'Excluir'}
+                   </AlertDialogAction>
+                 </AlertDialogFooter>
+               </AlertDialogContent>
+              </AlertDialog>
               </div>
               );
               }
