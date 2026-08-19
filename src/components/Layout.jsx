@@ -10,11 +10,11 @@ export default function Layout() {
     <div className="flex h-screen overflow-hidden bg-muted/20">
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b bg-card">
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-muted">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 border-b bg-sidebar text-sidebar-foreground">
+          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-primary">Gestão Estoque Novo Horizonte</span>
+          <span className="font-bold">Gestão Estoque Novo Horizonte</span>
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <Outlet />

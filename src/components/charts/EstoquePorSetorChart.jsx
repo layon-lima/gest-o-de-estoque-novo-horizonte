@@ -8,8 +8,8 @@ import {
 } from 'recharts';
 
 const COLORS = [
-  '#16a34a', '#22c55e', '#84cc16', '#eab308',
-  '#f97316', '#ef4444', '#3b82f6', '#8b5cf6',
+  '#2E7D32', '#4CAF50', '#78C349', '#FFB81C',
+  '#795548', '#a16207', '#65a30d', '#92400e',
 ];
 
 export default function EstoquePorSetorChart({ produtos, setores }) {
