@@ -99,3 +99,47 @@ export function getUnidadeLabel(unidade) {
   }
   return unidade || '';
 }
+
+// Verifica se a unidade da NF-e (uCom) exige conversão customizada,
+// ou seja: não é igual à unidade-base do produto e não é conversível
+// automaticamente (código não mapeado ou de família diferente).
+export function precisaConversaoCustom(uCom, prodUnidade) {
+  if (!uCom || !prodUnidade) return false;
+  if (String(uCom).trim().toLowerCase() === String(prodUnidade).trim().toLowerCase()) return false;
+  const de = normalizarUnidade(uCom);
+  if (!de) return true; // código não mapeado (ex.: CX, GAL, FR)
+  if (de === prodUnidade) return false;
+  const conv = convertQty(1, de, prodUnidade);
+  return conv === null || !isFinite(conv); // famílias diferentes
+}
+
+// Verifica se o produto já possui conversão customizada para a unidade da NF-e.
+export function temConversaoCustom(produto, uCom) {
+  if (!produto?.unidade_alt || !produto?.fator_conversao) return false;
+  if (!uCom) return false;
+  return String(produto.unidade_alt).trim().toLowerCase() === String(uCom).trim().toLowerCase();
+}
+
+// Converte a quantidade da NF-e para a unidade-base do produto.
+// 1) Tenta a conversão automática (unidades mapeadas: kg, L, ton, etc.).
+// 2) Se não for possível, aplica a conversão customizada salva no produto.
+// Retorna { qtd, convertido, origem }.
+export function convertQtyForProduto(value, uCom, produto) {
+  const prodUnidade = produto?.unidade;
+  if (!uCom || !prodUnidade) return { qtd: Number(value) || 0, convertido: false, origem: '' };
+  const de = normalizarUnidade(uCom);
+  if (de) {
+    if (de === prodUnidade) return { qtd: Number(value) || 0, convertido: false, origem: '' };
+    const conv = convertQty(value, de, prodUnidade);
+    if (conv !== null && isFinite(conv)) {
+      return { qtd: conv, convertido: true, origem: 'auto' };
+    }
+  }
+  if (temConversaoCustom(produto, uCom)) {
+    const fator = Number(produto.fator_conversao) || 0;
+    if (fator > 0) {
+      return { qtd: (Number(value) || 0) * fator, convertido: true, origem: 'custom' };
+    }
+  }
+  return { qtd: Number(value) || 0, convertido: false, origem: '' };
+}

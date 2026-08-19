@@ -4,7 +4,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
-import { convertQty, normalizarUnidade } from '@/lib/units';
+import { convertQtyForProduto } from '@/lib/units';
 
 export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported }) {
   const [importing, setImporting] = useState(false);
@@ -78,6 +78,8 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
               gaveta_id: item.gaveta_id || '',
               codigo_referencia: item.codigo_referencia || '',
               unidade: item.novo_unidade || 'un',
+              unidade_alt: Number(item.novo_fator_conversao) > 0 ? (item.uCom || '') : '',
+              fator_conversao: Number(item.novo_fator_conversao) || 0,
               quantidade: 0,
               estoque_minimo: 0,
             });
@@ -91,17 +93,26 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
         }
 
         // Conversão de unidade: NF-e (item.uCom) -> unidade do produto.
-        // Aplica-se a produtos novos E existentes.
-        let qtd = item.qCom;
-        if (produto.unidade) {
-          const de = normalizarUnidade(item.uCom);
-          if (de && de !== produto.unidade) {
-            const conv = convertQty(item.qCom, de, produto.unidade);
-            if (conv !== null && isFinite(conv)) {
-              qtd = conv;
-              convertidos++;
-            }
-          }
+        // Aplica-se a produtos novos E existentes. Considera conversão
+        // automática (unidades mapeadas) e, se necessário, a conversão
+        // customizada salva no produto ou informada na importação.
+        const prodParaConv = { ...produto };
+        if (!criouNovo && Number(item.fator_custom) > 0) {
+          prodParaConv.unidade_alt = item.uCom;
+          prodParaConv.fator_conversao = Number(item.fator_custom);
+        }
+        const convResult = convertQtyForProduto(item.qCom, item.uCom, prodParaConv);
+        let qtd = convResult.qtd;
+        if (convResult.convertido) convertidos++;
+
+        // Persiste fator customizado informado na importação (produto existente).
+        if (!criouNovo && Number(item.fator_custom) > 0) {
+          await base44.entities.Produto.update(produto.id, {
+            unidade_alt: item.uCom,
+            fator_conversao: Number(item.fator_custom),
+          });
+          produto.unidade_alt = item.uCom;
+          produto.fator_conversao = Number(item.fator_custom);
         }
 
         const controla = setorControlaValidade(produto.setor_id, setores);

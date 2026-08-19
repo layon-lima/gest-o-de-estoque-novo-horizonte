@@ -36,6 +36,8 @@ const empty = {
   gaveta_id: '',
   quantidade: 0,
   unidade: 'un',
+  unidade_alt: '',
+  fator_conversao: 0,
   estoque_minimo: 0,
 };
 
@@ -84,7 +86,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
     setSaving(true);
     try {
       const newQtd = controlaValidade ? 0 : parseQtd(form.quantidade);
-      const payload = { ...form, quantidade: newQtd, estoque_minimo: parseQtd(form.estoque_minimo) };
+      const payload = { ...form, quantidade: newQtd, estoque_minimo: parseQtd(form.estoque_minimo), fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0 };
       if (produto) {
         await base44.entities.Produto.update(produto.id, payload);
         if (!controlaValidade) {
@@ -250,6 +252,18 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
               <Label htmlFor="min">Estoque mín.</Label>
               <Input id="min" type="text" inputMode="decimal" placeholder="0,00" value={form.estoque_minimo} onChange={(e) => set('estoque_minimo', e.target.value)} />
             </div>
+          </div>
+
+          <div className="space-y-1.5 rounded-lg border border-dashed p-3">
+            <Label>Conversão customizada (opcional)</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs whitespace-nowrap">1</span>
+              <Input className="h-8 w-24" placeholder="CX" value={form.unidade_alt || ''} onChange={(e) => set('unidade_alt', e.target.value)} />
+              <span className="text-xs whitespace-nowrap">=</span>
+              <Input type="text" inputMode="decimal" className="h-8 w-24" placeholder="0,00" value={form.fator_conversao || ''} onChange={(e) => set('fator_conversao', e.target.value)} />
+              <span className="text-xs whitespace-nowrap">{form.unidade || 'un'}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Para unidades de NF-e não reconhecidas automaticamente (ex.: CX, GAL, FR). Quando a NF-e trouxer esta unidade, a quantidade será multiplicada pelo fator.</p>
           </div>
 
           <DialogFooter>

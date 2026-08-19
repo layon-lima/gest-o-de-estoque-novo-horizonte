@@ -40,6 +40,17 @@
       "title": "Unidade",
       "default": "un"
     },
+    "unidade_alt": {
+      "type": "string",
+      "title": "Unidade Alternativa",
+      "description": "Unidade da NF-e que exige convers\u00e3o customizada (ex.: CX, GAL, FR). Quando a NF-e trouxer esta unidade, a quantidade ser\u00e1 multiplicada pelo fator de convers\u00e3o."
+    },
+    "fator_conversao": {
+      "type": "number",
+      "title": "Fator de Convers\u00e3o",
+      "description": "Quantos da unidade-base equivalem a 1 unidade alternativa (ex.: 1 CX = 50 kg \u2192 fator 50).",
+      "default": 0
+    },
     "estoque_minimo": {
       "type": "number",
       "title": "Estoque M\u00ednimo",

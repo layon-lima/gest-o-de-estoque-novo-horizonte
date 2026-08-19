@@ -32,10 +32,11 @@ import {
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
 import ProdutoCombobox from '@/components/ProdutoCombobox';
+import FatorConversaoField from '@/components/FatorConversaoField';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { parseQtd, formatQtd, formatQtdConvertida } from '@/lib/format';
-import { normalizarUnidade } from '@/lib/units';
+import { normalizarUnidade, precisaConversaoCustom, temConversaoCustom, convertQtyForProduto } from '@/lib/units';
 
 export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
@@ -70,6 +71,8 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
             codigo_referencia: produto?.codigo_referencia || item.cProd || '',
             codigo_lote: '',
             data_validade: '',
+            fator_custom: 0,
+            novo_fator_conversao: 0,
           };
         })
       );
@@ -117,6 +120,15 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
     const hasProduto = item.produto_id || (item.create_new && item.novo_nome && item.novo_setor_id);
     if (!hasProduto) return false;
     if (itemControlaValidade(item)) return !!(item.codigo_lote && item.data_validade);
+    const prodUnidade = item.create_new
+      ? item.novo_unidade
+      : produtos.find((p) => p.id === item.produto_id)?.unidade;
+    if (precisaConversaoCustom(item.uCom, prodUnidade)) {
+      const prod = item.create_new ? null : produtos.find((p) => p.id === item.produto_id);
+      const hasStored = prod ? temConversaoCustom(prod, item.uCom) : false;
+      const fator = item.create_new ? item.novo_fator_conversao : item.fator_custom;
+      if (!hasStored && !(Number(fator) > 0)) return false;
+    }
     return true;
   }
 
@@ -202,14 +214,35 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                         const prod = produtos.find((p) => p.id === item.produto_id);
                         if (!prod?.unidade) return null;
                         const de = normalizarUnidade(item.uCom);
-                        if (!de || de === prod.unidade) return null;
-                        const conv = formatQtdConvertida(item.qCom, item.uCom, prod.unidade);
-                        if (!conv.mudou) return null;
-                        return (
-                          <div className="text-[11px] text-primary font-medium mt-1 whitespace-nowrap">
-                            ≈ {conv.texto}
-                          </div>
-                        );
+                        if (de && de !== prod.unidade) {
+                          const conv = formatQtdConvertida(item.qCom, item.uCom, prod.unidade);
+                          if (conv.mudou) {
+                            return (
+                              <div className="text-[11px] text-primary font-medium mt-1 whitespace-nowrap">
+                                ≈ {conv.texto}
+                              </div>
+                            );
+                          }
+                        }
+                        if (precisaConversaoCustom(item.uCom, prod.unidade)) {
+                          if (temConversaoCustom(prod, item.uCom)) {
+                            const conv = convertQtyForProduto(item.qCom, item.uCom, prod);
+                            return (
+                              <div className="text-[11px] text-primary font-medium mt-1 whitespace-nowrap">
+                                ≈ {formatQtd(conv.qtd)} {prod.unidade}
+                              </div>
+                            );
+                          }
+                          return (
+                            <FatorConversaoField
+                              uCom={item.uCom}
+                              paraUnidade={prod.unidade}
+                              value={item.fator_custom}
+                              onChange={(v) => updateRow(idx, 'fator_custom', v)}
+                            />
+                          );
+                        }
+                        return null;
                       })()}
                     </TableCell>
                     <TableCell>
@@ -322,6 +355,17 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                               </SelectContent>
                             </Select>
                           </div>
+                          {precisaConversaoCustom(item.uCom, item.novo_unidade) && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">1 {item.uCom} = ?</Label>
+                              <FatorConversaoField
+                                uCom={item.uCom}
+                                paraUnidade={item.novo_unidade}
+                                value={item.novo_fator_conversao}
+                                onChange={(v) => updateRow(idx, 'novo_fator_conversao', v)}
+                              />
+                            </div>
+                          )}
                           {itemControlaValidade(item) && (
                             <>
                               <div className="space-y-1">
