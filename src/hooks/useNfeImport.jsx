@@ -6,6 +6,17 @@ import { setorControlaValidade } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import { convertQtyForProduto } from '@/lib/units';
 
+// Gera o próximo código interno sequencial (ex.: P0001, P0002) com base
+// no maior sufixo numérico encontrado entre os produtos existentes.
+function proximoCodigoInterno(produtosList) {
+  let max = 0;
+  for (const p of produtosList) {
+    const m = String(p.codigo || '').match(/(\d+)\s*$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `P${String(max + 1).padStart(4, '0')}`;
+}
+
 export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported }) {
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -72,11 +83,11 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           } else {
             produto = await base44.entities.Produto.create({
               nome: item.novo_nome,
-              codigo: item.novo_codigo || '',
+              codigo: proximoCodigoInterno(produtosWork),
               setor_id: item.novo_setor_id,
               maquina_id: item.maquina_id || '',
               gaveta_id: item.gaveta_id || '',
-              codigo_referencia: item.codigo_referencia || '',
+              codigo_referencia: item.codigo_referencia || item.cProd || '',
               unidade: item.novo_unidade || 'un',
               unidade_alt: Number(item.novo_fator_conversao) > 0 ? (item.uCom || '') : '',
               fator_conversao: Number(item.novo_fator_conversao) || 0,

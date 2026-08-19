@@ -63,7 +63,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
             produto_id: produto?.id || '',
             create_new: !matched,
             novo_nome: item.xProd || '',
-            novo_codigo: item.cProd || '',
+            novo_codigo: '',
             novo_setor_id: '',
             novo_unidade: item.uCom || 'un',
             maquina_id: produto?.maquina_id || '',
@@ -310,11 +310,9 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Código Interno</Label>
-                            <Input
-                              className="h-8 w-[140px]"
-                              value={item.novo_codigo || ''}
-                              onChange={(e) => updateRow(idx, 'novo_codigo', e.target.value)}
-                            />
+                            <div className="h-8 w-[140px] flex items-center text-xs text-muted-foreground italic border border-dashed rounded-md px-3">
+                              Automático
+                            </div>
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Setor *</Label>
