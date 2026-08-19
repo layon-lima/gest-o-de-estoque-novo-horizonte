@@ -68,29 +68,19 @@ export default function SearchSelect({
   return (
     <div ref={ref} className={cn('relative', className)}>
       <div
-        onClick={() => {
-          setOpen((o) => !o);
-          setTimeout(() => inputRef.current?.focus(), 0);
-        }}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-accent/40 transition-colors"
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring"
       >
-        {open ? (
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={selected ? selected.label : placeholder}
-            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-0"
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-            {selected ? selected.label : placeholder}
-          </span>
-        )}
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={selected ? selected.label : placeholder}
+          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-0"
+        />
         <div className="flex items-center gap-1 shrink-0">
           {selected && (
-            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" onClick={clear} />
+            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground cursor-pointer" onClick={clear} />
           )}
           <ChevronDown className="w-4 h-4 opacity-50" />
         </div>
