@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Undo2, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
 import { reverterEstoqueMov } from '@/lib/movimentacoes';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
+import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
 import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
 import MovimentacaoRow from '@/components/MovimentacaoRow';
@@ -74,6 +75,14 @@ export default function Movimentacoes() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  const fornecedores = useMemo(() => {
+    const counts = {};
+    movimentacoes.forEach((m) => {
+      if (m.fornecedor) counts[m.fornecedor] = (counts[m.fornecedor] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([nome]) => nome);
+  }, [movimentacoes]);
 
   const produtoSelecionado = produtos.find((p) => p.id === form.produto_id);
   const controlaValidade = produtoSelecionado
@@ -291,7 +300,13 @@ export default function Movimentacoes() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="mv-forn">Fornecedor</Label>
-                    <Input id="mv-forn" value={form.fornecedor} onChange={(e) => setForm({ ...form, fornecedor: e.target.value })} placeholder="Nome / CNPJ" />
+                    <FornecedorCombobox
+                      id="mv-forn"
+                      value={form.fornecedor}
+                      onChange={(v) => setForm({ ...form, fornecedor: v })}
+                      suggestions={fornecedores}
+                      placeholder="Nome / CNPJ"
+                    />
                   </div>
                 </div>
                 <div className="space-y-1.5">
