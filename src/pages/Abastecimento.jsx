@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ScanLine, List, Fuel, Search, Clock, CheckCircle2 } from 'lucide-react';
+import { List, Fuel, Search, Clock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -12,7 +12,6 @@ import {
   registrarAbastecimentoPendente, confirmarAbastecimento, cancelarAbastecimento,
 } from '@/lib/abastecimento';
 import { formatQtd } from '@/lib/format';
-import QrScanner from '@/components/abastecimento/QrScanner';
 import AbastecimentoForm from '@/components/abastecimento/AbastecimentoForm';
 import AbastecimentoRow from '@/components/abastecimento/AbastecimentoRow';
 import AbastecimentoPendentes from '@/components/abastecimento/AbastecimentoPendentes';
@@ -31,8 +30,7 @@ export default function Abastecimento() {
   const [savingId, setSavingId] = useState(null);
   const [sucesso, setSucesso] = useState(false);
 
-  const [scannerAberto, setScannerAberto] = useState(false);
-  const [selecaoManual, setSelecaoManual] = useState(false);
+  const [selecaoManual, setSelecaoManual] = useState(true);
   const [maquinaSelecionada, setMaquinaSelecionada] = useState(null);
   const [buscaMaquina, setBuscaMaquina] = useState('');
   const [aba, setAba] = useState('abastecer');
@@ -84,21 +82,6 @@ export default function Abastecimento() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
-
-  function handleScan(decoded) {
-    setScannerAberto(false);
-    const maq = maquinas.find((m) => m.id === decoded || m.id === String(decoded).trim());
-    if (!maq) {
-      toast({ variant: 'destructive', title: 'Máquina não encontrada', description: 'QR Code inválido ou máquina não cadastrada.' });
-      return;
-    }
-    if (maq.permite_abastecimento !== true) {
-      toast({ variant: 'destructive', title: 'Máquina não habilitada', description: 'Esta máquina não permite abastecimento.' });
-      return;
-    }
-    setMaquinaSelecionada(maq);
-    setSelecaoManual(false);
-  }
 
   async function handleSubmit({ produto, quantidade, observacao, foto_url }) {
     setSaving(true);
@@ -214,14 +197,10 @@ export default function Abastecimento() {
       {(!podeConfirmar || aba === 'abastecer') && (
         !maquinaSelecionada ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Button size="lg" className="h-20 text-base" onClick={() => setScannerAberto(true)}>
-                <ScanLine className="w-6 h-6 mr-2" />
-                Escanear QR Code
-              </Button>
-              <Button size="lg" variant="outline" className="h-20 text-base" onClick={() => setSelecaoManual((v) => !v)}>
+            <div className="grid grid-cols-1 gap-3">
+              <Button size="lg" className="h-16 text-base" onClick={() => setSelecaoManual((v) => !v)}>
                 <List className="w-6 h-6 mr-2" />
-                Selecionar máquina
+                {selecaoManual ? 'Ocultar lista de máquinas' : 'Selecionar máquina'}
               </Button>
             </div>
 
@@ -306,7 +285,6 @@ export default function Abastecimento() {
         </div>
       )}
 
-      <QrScanner open={scannerAberto} onClose={() => setScannerAberto(false)} onScan={handleScan} />
     </div>
   );
 }

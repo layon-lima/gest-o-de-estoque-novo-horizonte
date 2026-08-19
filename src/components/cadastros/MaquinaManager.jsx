@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, Trash2, QrCode, Fuel } from 'lucide-react';
+import { Plus, Pencil, Trash2, Fuel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
-import FuelQrCard from '@/components/abastecimento/FuelQrCard';
 
 const emptyForm = { codigo: '', nome: '', descricao: '', permite_abastecimento: false };
 
@@ -21,7 +20,6 @@ export default function MaquinaManager() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
-  const [qrMaquina, setQrMaquina] = useState(null);
   const { toast } = useToast();
 
   const filteredItems = useMemo(() => {
@@ -62,8 +60,6 @@ export default function MaquinaManager() {
     setForm(emptyForm);
     setEditingId(null);
     await load();
-    // Exibe o QR Code automaticamente após criar/editar, disponível para baixar.
-    setQrMaquina(salva);
   }
 
   async function handleDelete(id) {
@@ -124,15 +120,12 @@ export default function MaquinaManager() {
                 </div>
                 {item.descricao && <p className="text-sm text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
               </div>
-              <Button size="icon" variant="ghost" title="QR Code" onClick={() => setQrMaquina(item)}><QrCode className="w-4 h-4" /></Button>
               <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
               <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
             </Card>
           ))}
         </div>
       </div>
-
-      <FuelQrCard maquina={qrMaquina} open={!!qrMaquina} onClose={() => setQrMaquina(null)} />
     </div>
   );
 }
