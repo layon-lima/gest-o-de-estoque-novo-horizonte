@@ -13,27 +13,57 @@ export default function QrScanner({ open, onClose, onScan }) {
   useEffect(() => {
     let mounted = true;
     let html5;
+    let timeoutRef;
 
     async function start() {
       try {
         const { Html5Qrcode } = await import('html5-qrcode');
         if (!mounted) return;
-        html5 = new Html5Qrcode(regionId);
+
+        // Timeout de segurança: se a câmera não iniciar em 8s, libera a tela.
+        timeoutRef = setTimeout(() => {
+          if (mounted && starting) {
+            setError('A câmera demorou para responder. Verifique as permissões do navegador ou use a seleção manual.');
+            setStarting(false);
+          }
+        }, 8000);
+
+        // Seleciona uma câmera real explicitamente (evita travar com facingMode).
+        let cameras = [];
+        try {
+          cameras = await Html5Qrcode.getCameras();
+        } catch (_) {
+          cameras = [];
+        }
+        if (!mounted) return;
+
+        html5 = new Html5Qrcode(regionId, { verbose: false });
         scannerRef.current = html5;
+
+        const back = cameras.find((c) => /back|rear|environment|traseira/i.test(c.label || ''));
+        const camId = back?.id || cameras[0]?.id;
+
+        const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+        const facing = camId ? { deviceId: { exact: camId } } : { facingMode: 'environment' };
+
         await html5.start(
-          { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 230, height: 230 } },
+          facing,
+          config,
           (decodedText) => {
             if (!mounted) return;
             html5.stop().catch(() => {}).finally(() => {
-              onScan(decodedText);
+              if (mounted) onScan(decodedText);
             });
           },
           () => {}
         );
-        if (mounted) setStarting(false);
+        if (mounted) {
+          clearTimeout(timeoutRef);
+          setStarting(false);
+        }
       } catch (e) {
         if (mounted) {
+          clearTimeout(timeoutRef);
           setError('Não foi possível acessar a câmera. Verifique as permissões do navegador ou use a seleção manual.');
           setStarting(false);
         }
@@ -43,6 +73,7 @@ export default function QrScanner({ open, onClose, onScan }) {
     if (open) start();
     return () => {
       mounted = false;
+      if (timeoutRef) clearTimeout(timeoutRef);
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => {});
         scannerRef.current.clear().catch(() => {});
@@ -74,13 +105,17 @@ export default function QrScanner({ open, onClose, onScan }) {
           </div>
         ) : (
           <>
-            <div id={regionId} className="w-full max-w-sm overflow-hidden rounded-xl" />
-            {starting && (
-              <div className="mt-4 flex items-center gap-2 text-white/80 text-sm">
-                <Camera className="w-4 h-4 animate-pulse" />
-                Iniciando câmera…
-              </div>
-            )}
+            <div
+              id={regionId}
+              className="w-full max-w-sm h-[60vh] max-h-[420px] overflow-hidden rounded-xl bg-black flex items-center justify-center"
+            >
+              {starting && (
+                <div className="flex flex-col items-center gap-2 text-white/80 text-sm">
+                  <Camera className="w-6 h-6 animate-pulse" />
+                  Iniciando câmera…
+                </div>
+              )}
+            </div>
             {!starting && (
               <p className="mt-4 text-white/70 text-sm text-center max-w-xs">
                 Aponte a câmera para o QR Code colado na máquina.
