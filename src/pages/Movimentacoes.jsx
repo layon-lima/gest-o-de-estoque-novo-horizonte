@@ -24,7 +24,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
-import { reverterEstoqueMov } from '@/lib/movimentacoes';
+import { reverterEstoqueMov, maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
@@ -98,6 +98,7 @@ export default function Movimentacoes() {
       await reverterEstoqueMov(mov, { produtos, lotes });
       await base44.entities.Movimentacao.create({
         data: new Date().toISOString(),
+        numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
         produto_id: mov.produto_id,
         codigo: mov.codigo,
         nome_produto: mov.nome_produto,
@@ -107,6 +108,9 @@ export default function Movimentacoes() {
         gaveta_id: mov.gaveta_id,
         tipo: 'estorno',
         observacao: `Estorno da movimentação de ${mov.tipo} (${mov.data ? new Date(mov.data).toLocaleString('pt-BR') : ''})`,
+        numero_nf: mov.numero_nf || '',
+        fornecedor: mov.fornecedor || '',
+        chave_acesso: mov.chave_acesso || '',
         lote_id: mov.lote_id || '',
         data_validade: mov.data_validade || '',
         lotes_consumidos: mov.lotes_consumidos || '',
@@ -145,9 +149,18 @@ export default function Movimentacoes() {
         setSaving(false);
         return;
       }
+      if (form.tipo === 'entrada' && form.chave_acesso) {
+        const dup = await base44.entities.Movimentacao.filter({ chave_acesso: form.chave_acesso });
+        if (dup.length > 0) {
+          toast({ title: 'Nota fiscal duplicada', description: 'Esta NF-e (chave de acesso) já foi lançada no estoque.', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+      }
       const now = new Date().toISOString();
       const baseMov = {
         data: now,
+        numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
         produto_id: produto.id,
         codigo: produto.codigo,
         nome_produto: produto.nome,

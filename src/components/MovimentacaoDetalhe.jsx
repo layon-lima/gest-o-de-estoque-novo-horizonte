@@ -36,13 +36,14 @@ export default function MovimentacaoDetalhe({ mov, produtos, setores, maquinas, 
             <ArrowUpCircle className="w-3.5 h-3.5" /> Saída
           </Badge>
         ) : (
-          <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+          <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
             <Undo2 className="w-3.5 h-3.5" /> Estorno
           </Badge>
         )}
       </div>
 
       <div className="grid sm:grid-cols-2 gap-x-6">
+        <Row icon={Hash} label="Movimento nº"><span className="font-mono text-xs">{mov.numero || '—'}</span></Row>
         <Row label="Data/Hora">{mov.data ? new Date(mov.data).toLocaleString('pt-BR') : '—'}</Row>
         <Row label="Produto">{mov.nome_produto || prod?.nome || '—'}</Row>
         <Row label="Quantidade">

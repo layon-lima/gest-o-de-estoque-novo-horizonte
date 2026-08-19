@@ -5,6 +5,7 @@ import { parseNfeXml } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import { convertQtyForProduto } from '@/lib/units';
+import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
 
 // Gera o próximo código interno sequencial (ex.: P0001, P0002) com base
 // no maior sufixo numérico encontrado entre os produtos existentes.
@@ -58,7 +59,24 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
       const chaveAcesso = nfData?.chave_acesso ?? preview.chave;
       const obs = `NF-e ${numeroNf}${fornecedor ? ' — ' + fornecedor : ''}`;
       const now = new Date().toISOString();
+
+      // Bloqueia importação duplicada da mesma NF-e (pela chave de acesso).
+      const chaveBusca = (chaveAcesso || '').trim();
+      if (chaveBusca) {
+        const duplicadas = await base44.entities.Movimentacao.filter({ chave_acesso: chaveBusca });
+        if (duplicadas.length > 0) {
+          toast({
+            title: 'NF-e já importada',
+            description: 'Esta nota fiscal já foi lançada no estoque e não pode ser importada novamente.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
       const lotesAtuais = await base44.entities.Lote.list();
+      const movsExistentes = await base44.entities.Movimentacao.list('-created_date', 1000);
+      let proxNum = maxNumeroMovimento(movsExistentes) + 1;
       const produtosWork = produtos.map((p) => ({ ...p }));
       let matched = 0;
       let unmatched = 0;
@@ -158,6 +176,7 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
 
         await base44.entities.Movimentacao.create({
           data: now,
+          numero: formatarNumeroMov(proxNum++),
           produto_id: produto.id,
           codigo: produto.codigo,
           nome_produto: produto.nome,

@@ -26,6 +26,7 @@ export default function MovimentacaoRow({
   const tint = useTransform(x, [THRESHOLD, 0], ['inset 0 0 0 9999px rgba(254, 226, 226, 0.95)', 'inset 0 0 0 0 rgba(0,0,0,0)']);
   const hintOpacity = useTransform(x, [THRESHOLD, -25], [1, 0]);
   const draggedRef = useRef(false);
+  const isNeg = mov.tipo === 'saida' || mov.tipo === 'estorno';
 
   function handleClick() {
     if (draggedRef.current) return;
@@ -47,7 +48,7 @@ export default function MovimentacaoRow({
         setTimeout(() => { draggedRef.current = false; }, 60);
       }}
       onClick={handleClick}
-      className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent' : 'hover:bg-muted/50'}`}
+      className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent' : isNeg ? 'bg-red-50/70 hover:bg-red-100/70 text-red-700' : 'hover:bg-muted/50'}`}
     >
       <TableCell className="text-sm whitespace-nowrap relative">
         {mov.data ? new Date(mov.data).toLocaleString('pt-BR') : '—'}
@@ -76,7 +77,7 @@ export default function MovimentacaoRow({
               <ArrowUpCircle className="w-3 h-3" /> Saída
             </Badge>
           ) : (
-            <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit">
+            <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">
               <Undo2 className="w-3 h-3" /> Estorno
             </Badge>
           )}

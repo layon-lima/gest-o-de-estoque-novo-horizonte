@@ -3,6 +3,22 @@ import { base44 } from '@/api/base44Client';
 // Reverte o efeito de uma movimentação no estoque (produto e lotes),
 // sem criar registro de auditoria. Usado tanto pelo estorno (que depois
 // cria uma movimentação de estorno) quanto pela exclusão (que remove o registro).
+// Retorna o maior número sequencial encontrado entre as movimentações,
+// extraindo o sufixo numérico do campo "numero" (ex.: MOV-000012 -> 12).
+export function maxNumeroMovimento(listaMovs) {
+  let max = 0;
+  for (const m of listaMovs || []) {
+    const match = String(m?.numero || '').match(/(\d+)\s*$/);
+    if (match) max = Math.max(max, parseInt(match[1], 10));
+  }
+  return max;
+}
+
+// Formata um número sequencial como identificador único de movimentação.
+export function formatarNumeroMov(n) {
+  return `MOV-${String(n).padStart(6, '0')}`;
+}
+
 export async function reverterEstoqueMov(mov, { produtos, lotes }) {
   const produto = produtos.find((p) => p.id === mov.produto_id);
 
