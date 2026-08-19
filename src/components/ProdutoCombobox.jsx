@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, PlusCircle, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +17,8 @@ export default function ProdutoCombobox({
   const [query, setQuery] = useState('');
   const ref = useRef(null);
   const inputRef = useRef(null);
+  const menuRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUp: false });
 
   const selectedLabel = useMemo(() => {
     if (value === NEW) return 'Criar novo produto';
@@ -25,12 +28,41 @@ export default function ProdutoCombobox({
   }, [value, produtos]);
 
   useEffect(() => {
+    if (!open) return;
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setOpen(false);
     }
+    function handleScroll() { position(); }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+    document.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (open) position();
+  }, [open, query]);
+
+  function position() {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const menuH = 288;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < menuH + 16 && rect.top > spaceBelow;
+    setCoords({
+      top: openUp ? rect.top - menuH - 4 : rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 220),
+      openUp,
+    });
+  }
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -85,8 +117,12 @@ export default function ProdutoCombobox({
         <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
       </div>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1">
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
+          className="z-[100] max-h-72 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
+        >
           <button
             type="button"
             onClick={() => pick(NONE)}
@@ -129,7 +165,8 @@ export default function ProdutoCombobox({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
