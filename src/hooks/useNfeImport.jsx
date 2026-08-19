@@ -78,7 +78,7 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
               gaveta_id: item.gaveta_id || '',
               codigo_referencia: item.codigo_referencia || '',
               unidade: item.novo_unidade || 'un',
-              quantidade: item.qCom,
+              quantidade: 0,
               estoque_minimo: 0,
             });
             produtosWork.push(produto);
@@ -90,13 +90,17 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           continue;
         }
 
+        // Conversão de unidade: NF-e (item.uCom) -> unidade do produto.
+        // Aplica-se a produtos novos E existentes.
         let qtd = item.qCom;
-        if (!criouNovo && produto.unidade) {
+        if (produto.unidade) {
           const de = normalizarUnidade(item.uCom);
-          const conv = convertQty(item.qCom, de, produto.unidade);
-          if (conv !== null && de && de !== produto.unidade) {
-            qtd = conv;
-            convertidos++;
+          if (de && de !== produto.unidade) {
+            const conv = convertQty(item.qCom, de, produto.unidade);
+            if (conv !== null && isFinite(conv)) {
+              qtd = conv;
+              convertidos++;
+            }
           }
         }
 
@@ -149,6 +153,12 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
         });
 
         if (criouNovo && !controla) {
+          await base44.entities.Produto.update(produto.id, {
+            quantidade: qtd,
+            maquina_id: item.maquina_id || produto.maquina_id,
+            gaveta_id: item.gaveta_id || produto.gaveta_id,
+            codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
+          });
           produto.quantidade = qtd;
         } else if (controla && loteId) {
           const lotesProduto = lotesAtuais.filter((l) => l.produto_id === produto.id);
