@@ -39,8 +39,11 @@ export function parseNfeXml(xmlText) {
   const nNF = ide ? getText(ide, 'nNF') : '';
   const dhEmi = ide ? getText(ide, 'dhEmi') : '';
   const emitente = emit ? getText(emit, 'xNome') : '';
+  const infNFe = getElements(doc, 'infNFe')[0];
+  const idAttr = infNFe?.getAttribute('Id') || '';
+  const chave = idAttr.startsWith('NFe') ? idAttr.slice(3) : idAttr;
 
-  return { nNF, dhEmi, emitente, items };
+  return { nNF, dhEmi, emitente, chave, items };
 }
 
 export function matchNfeItem(item, produtos) {

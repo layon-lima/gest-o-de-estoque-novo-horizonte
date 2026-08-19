@@ -22,7 +22,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
     setImporting(true);
     try {
       const xmlText = await file.text();
-      const { nNF, emitente, items } = parseNfeXml(xmlText);
+      const { nNF, emitente, chave, items } = parseNfeXml(xmlText);
 
       if (items.length === 0) {
         toast({
@@ -33,7 +33,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
         return;
       }
 
-      setPreview({ nNF, emitente, items });
+      setPreview({ nNF, emitente, chave, items });
     } catch (err) {
       toast({
         title: 'Erro ao importar XML',
@@ -46,10 +46,13 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
     }
   }
 
-  async function handleConfirm(editedItems) {
+  async function handleConfirm(editedItems, nfData) {
     setImporting(true);
     try {
-      const obs = `NF-e ${preview.nNF}${preview.emitente ? ' — ' + preview.emitente : ''}`;
+      const numeroNf = nfData?.numero_nf ?? preview.nNF;
+      const fornecedor = nfData?.fornecedor ?? preview.emitente;
+      const chaveAcesso = nfData?.chave_acesso ?? preview.chave;
+      const obs = `NF-e ${numeroNf}${fornecedor ? ' — ' + fornecedor : ''}`;
       const now = new Date().toISOString();
       const lotesAtuais = await base44.entities.Lote.list();
       const produtosWork = produtos.map((p) => ({ ...p }));
@@ -147,6 +150,9 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
           gaveta_id: item.gaveta_id || produto.gaveta_id,
           tipo: 'entrada',
           observacao: obs,
+          numero_nf: numeroNf || '',
+          fornecedor: fornecedor || '',
+          chave_acesso: chaveAcesso || '',
           lote_id: loteId,
           data_validade: dataValidade,
         });
@@ -226,7 +232,7 @@ export default function NfeImportButton({ produtos, setores, maquinas, gavetas, 
       {preview && (
         <NfePreviewDialog
           open
-          nfeInfo={{ nNF: preview.nNF, emitente: preview.emitente }}
+          nfeInfo={{ nNF: preview.nNF, emitente: preview.emitente, chave: preview.chave }}
           items={preview.items}
           produtos={produtos}
           setores={setores}

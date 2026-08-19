@@ -33,6 +33,17 @@ import { parseQtd, formatQtd } from '@/lib/format';
 
 export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
+  const [nfData, setNfData] = useState({ numero_nf: '', fornecedor: '', chave_acesso: '' });
+
+  useEffect(() => {
+    if (nfeInfo) {
+      setNfData({
+        numero_nf: nfeInfo.nNF || '',
+        fornecedor: nfeInfo.emitente || '',
+        chave_acesso: nfeInfo.chave || '',
+      });
+    }
+  }, [nfeInfo]);
 
   useEffect(() => {
     if (items) {
@@ -126,6 +137,21 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-muted/40 border">
+          <div className="space-y-1">
+            <Label className="text-xs">Número da NF</Label>
+            <Input className="h-8" value={nfData.numero_nf} onChange={(e) => setNfData({ ...nfData, numero_nf: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Fornecedor</Label>
+            <Input className="h-8" value={nfData.fornecedor} onChange={(e) => setNfData({ ...nfData, fornecedor: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Chave de acesso</Label>
+            <Input className="h-8 font-mono text-xs" value={nfData.chave_acesso} onChange={(e) => setNfData({ ...nfData, chave_acesso: e.target.value })} />
+          </div>
+        </div>
+
         <div className="flex items-center gap-4 text-sm">
           <span className="flex items-center gap-1 text-green-600">
             <CheckCircle2 className="w-4 h-4" /> {matchedCount} válido(s)
@@ -155,13 +181,16 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                     <TableCell className="font-mono text-xs text-muted-foreground">{item.cProd || '—'}</TableCell>
                     <TableCell className="text-sm font-medium">{item.xProd}</TableCell>
                     <TableCell>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        className="h-8 w-24 tabular-nums"
-                        value={item.qCom}
-                        onChange={(e) => updateRow(idx, 'qCom', parseQtd(e.target.value))}
-                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          className="h-8 w-20 tabular-nums"
+                          value={item.qCom}
+                          onChange={(e) => updateRow(idx, 'qCom', parseQtd(e.target.value))}
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{item.uCom || ''}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Select
@@ -317,7 +346,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button disabled={!canConfirm} onClick={() => onConfirm(edited)}>
+          <Button disabled={!canConfirm} onClick={() => onConfirm(edited, nfData)}>
             Confirmar Entrada ({matchedCount})
           </Button>
         </DialogFooter>
