@@ -6,6 +6,13 @@ export function formatQtd(n) {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Formato para campos de entrada: 2 decimais, sem separador de milhar (ex.: 1500,00).
+export function formatInputQtd(n) {
+  const num = Number(n);
+  if (!isFinite(num)) return '';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+}
+
 // Converte string pt-BR ('1.234,56', '0,5', '1,5') em Number.
 // Também aceita formatos com ponto decimal ('1.5') por robustez.
 export function parseQtd(str) {

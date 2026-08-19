@@ -139,25 +139,29 @@ export default function Relatorios() {
   }, [movimentacoes]);
 
   function buildEntradasRows() {
-    return entradasRecentes.map((m) => [
-      m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
-      m.nome_produto || '',
-      formatQtd(m.quantidade || 0),
-      m.codigo || '',
-      getNome(m.setor_id, setores),
-      getNome(m.maquina_id, maquinas),
-      getNome(m.gaveta_id, gavetas, 'codigo'),
-      m.observacao || '',
-    ]);
+    return entradasRecentes.map((m) => {
+      const prod = produtos.find((p) => p.id === m.produto_id);
+      return [
+        m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
+        m.nome_produto || '',
+        formatQtd(m.quantidade || 0),
+        prod?.unidade || '',
+        m.codigo || '',
+        getNome(m.setor_id, setores),
+        getNome(m.maquina_id, maquinas),
+        getNome(m.gaveta_id, gavetas, 'codigo'),
+        m.observacao || '',
+      ];
+    });
   }
 
   function handleEntradasPDF() {
-    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
     exportPDF('Relatório de Entradas Recentes', cols, buildEntradasRows());
   }
 
   function handleEntradasCSV() {
-    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+    const cols = ['Data/Hora', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
     exportCSV('Relatório de Entradas Recentes', cols, buildEntradasRows());
   }
 
@@ -303,7 +307,10 @@ export default function Relatorios() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600 tabular-nums">{formatQtd(m.quantidade || 0)}</TableCell>
+                        <TableCell className="text-right font-semibold text-green-600 tabular-nums">
+                          {formatQtd(m.quantidade || 0)}{' '}
+                          <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
                         <TableCell className="text-sm">{getNome(m.maquina_id, maquinas)}</TableCell>

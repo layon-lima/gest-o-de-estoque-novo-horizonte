@@ -334,7 +334,10 @@ export default function Movimentacoes() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">{formatQtd(m.quantidade || 0)}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {formatQtd(m.quantidade || 0)}{' '}
+                          <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo}</TableCell>
                         <TableCell>
                           {m.tipo === 'entrada' ? (

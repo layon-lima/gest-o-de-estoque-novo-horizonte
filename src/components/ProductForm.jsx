@@ -15,13 +15,17 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
-import { formatQtd, parseQtd } from '@/lib/format';
+import { formatQtd, parseQtd, formatInputQtd } from '@/lib/format';
+import { UNIDADES, convertQty, isConversivel } from '@/lib/units';
 
 const empty = {
   codigo: '',
@@ -48,6 +52,32 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
   const controlaValidade = setorControlaValidade(form.setor_id, setores);
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+
+  function handleUnidadeChange(novaUnidade) {
+    const unidadeAtual = form.unidade || 'un';
+    if (controlaValidade) {
+      set('unidade', novaUnidade);
+      return;
+    }
+    const qtdAtual = parseQtd(form.quantidade);
+    const minAtual = parseQtd(form.estoque_minimo);
+    if (!isConversivel(unidadeAtual, novaUnidade)) {
+      set('unidade', novaUnidade);
+      return;
+    }
+    const novaQtd = convertQty(qtdAtual, unidadeAtual, novaUnidade);
+    const novoMin = convertQty(minAtual, unidadeAtual, novaUnidade);
+    setForm((f) => ({
+      ...f,
+      unidade: novaUnidade,
+      quantidade: formatInputQtd(novaQtd),
+      estoque_minimo: formatInputQtd(novoMin),
+    }));
+    toast({
+      title: 'Unidade convertida',
+      description: `${formatQtd(qtdAtual)} ${unidadeAtual} → ${formatQtd(novaQtd)} ${novaUnidade}.`,
+    });
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -201,7 +231,20 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unidade">Unidade</Label>
-              <Input id="unidade" value={form.unidade} onChange={(e) => set('unidade', e.target.value)} />
+              <Select value={form.unidade || 'un'} onValueChange={handleUnidadeChange}>
+                <SelectTrigger id="unidade"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {UNIDADES.map((fam, fi) => (
+                    <SelectGroup key={fam.familia}>
+                      {fi > 0 && <SelectSeparator />}
+                      <SelectLabel>{fam.familia}</SelectLabel>
+                      {fam.itens.map((u) => (
+                        <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="min">Estoque mín.</Label>
