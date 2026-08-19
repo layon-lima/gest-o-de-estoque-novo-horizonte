@@ -346,19 +346,24 @@ export default function Relatorios() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell>
-                          {m.tipo === 'entrada' ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
-                              <ArrowDownCircle className="w-3 h-3" /> Entrada
-                            </Badge>
-                          ) : m.tipo === 'saida' ? (
-                            <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
-                              <ArrowUpCircle className="w-3 h-3" /> Saída
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
-                              <Undo2 className="w-3 h-3" /> Estorno
-                            </Badge>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            {m.tipo === 'entrada' ? (
+                              <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit">
+                                <ArrowDownCircle className="w-3 h-3" /> Entrada
+                              </Badge>
+                            ) : m.tipo === 'saida' ? (
+                              <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">
+                                <ArrowUpCircle className="w-3 h-3" /> Saída
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit">
+                                <Undo2 className="w-3 h-3" /> Estorno
+                              </Badge>
+                            )}
+                            {m.estornada === true && (
+                              <span className="text-[10px] text-amber-600 font-medium">estornada</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
                         <TableCell className={`text-right font-semibold tabular-nums ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>

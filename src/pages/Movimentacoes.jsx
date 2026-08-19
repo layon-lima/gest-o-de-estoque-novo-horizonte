@@ -105,8 +105,23 @@ export default function Movimentacoes() {
           await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
         }
       }
-      await base44.entities.Movimentacao.update(mov.id, { tipo: 'estorno' });
-      toast({ title: 'Movimentação estornada', description: `${mov.nome_produto} — estoque atualizado.` });
+      await base44.entities.Movimentacao.create({
+        data: new Date().toISOString(),
+        produto_id: mov.produto_id,
+        codigo: mov.codigo,
+        nome_produto: mov.nome_produto,
+        quantidade: mov.quantidade,
+        setor_id: mov.setor_id,
+        maquina_id: mov.maquina_id,
+        gaveta_id: mov.gaveta_id,
+        tipo: 'estorno',
+        observacao: `Estorno da movimentação de ${mov.tipo} (${mov.data ? new Date(mov.data).toLocaleString('pt-BR') : ''})`,
+        lote_id: mov.lote_id || '',
+        data_validade: mov.data_validade || '',
+        lotes_consumidos: mov.lotes_consumidos || '',
+      });
+      await base44.entities.Movimentacao.update(mov.id, { estornada: true });
+      toast({ title: 'Movimentação estornada', description: `${mov.nome_produto} — estoque atualizado e auditoria mantida.` });
       load();
     } finally {
       setSaving(false);
@@ -316,11 +331,11 @@ export default function Movimentacoes() {
                    <Button
                      variant="destructive"
                      size="sm"
-                     disabled={saving || sel.tipo === 'estorno'}
+                     disabled={saving || sel.estornada === true}
                      onClick={() => handleUndo(sel)}
                    >
                      <Undo2 className="w-4 h-4 mr-1" />
-                     {saving ? 'Estornando…' : sel.tipo === 'estorno' ? 'Estornada' : 'Estornar Movimentação'}
+                     {saving ? 'Estornando…' : sel.estornada === true ? 'Estornada' : 'Estornar Movimentação'}
                    </Button>
                  ) : null;
                })()}
@@ -369,19 +384,24 @@ export default function Movimentacoes() {
                           {!m.numero_nf && !m.fornecedor ? '—' : null}
                         </TableCell>
                         <TableCell>
-                          {m.tipo === 'entrada' ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
-                              <ArrowDownCircle className="w-3 h-3" /> Entrada
-                            </Badge>
-                          ) : m.tipo === 'saida' ? (
-                            <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
-                              <ArrowUpCircle className="w-3 h-3" /> Saída
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
-                              <Undo2 className="w-3 h-3" /> Estorno
-                            </Badge>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            {m.tipo === 'entrada' ? (
+                              <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit">
+                                <ArrowDownCircle className="w-3 h-3" /> Entrada
+                              </Badge>
+                            ) : m.tipo === 'saida' ? (
+                              <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">
+                                <ArrowUpCircle className="w-3 h-3" /> Saída
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit">
+                                <Undo2 className="w-3 h-3" /> Estorno
+                              </Badge>
+                            )}
+                            {m.estornada === true && (
+                              <span className="text-[10px] text-amber-600 font-medium">estornada</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
                         <TableCell><ValidadeBadge dataValidade={m.data_validade} /></TableCell>
