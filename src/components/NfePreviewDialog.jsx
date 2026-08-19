@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, AlertTriangle, PlusCircle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/table';
 import { matchNfeItem } from '@/lib/nfeParser';
 import SearchSelect from '@/components/SearchSelect';
+import ProdutoCombobox from '@/components/ProdutoCombobox';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { parseQtd, formatQtd, formatQtdConvertida } from '@/lib/format';
@@ -213,27 +214,11 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                       })()}
                     </TableCell>
                     <TableCell>
-                      <Select
+                      <ProdutoCombobox
                         value={selectValue(item)}
-                        onValueChange={(v) => handleSelectChange(idx, v)}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue placeholder="Selecionar produto…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">— Nenhum —</SelectItem>
-                          <SelectItem value="new">
-                            <span className="flex items-center gap-1 text-primary">
-                              <PlusCircle className="w-3.5 h-3.5" /> Criar novo produto
-                            </span>
-                          </SelectItem>
-                          {produtos.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.codigo} — {p.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(v) => handleSelectChange(idx, v)}
+                        produtos={produtos}
+                      />
                     </TableCell>
                     <TableCell>
                       <Select
