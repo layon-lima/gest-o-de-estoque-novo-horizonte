@@ -29,6 +29,9 @@ import ProductSearchSelect from '@/components/ProductSearchSelect';
 import NfeImportButton from '@/components/NfeImportButton';
 import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
 import MovimentacaoRow from '@/components/MovimentacaoRow';
+import NfeDropZone from '@/components/NfeDropZone';
+import NfePreviewDialog from '@/components/NfePreviewDialog';
+import { useNfeImport } from '@/hooks/useNfeImport';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +58,7 @@ export default function Movimentacoes() {
   const [form, setForm] = useState(emptyForm);
   const [movToDelete, setMovToDelete] = useState(null);
   const { toast } = useToast();
+  const nfe = useNfeImport({ produtos, setores, maquinas, gavetas, onImported: load });
 
   async function load() {
     setLoading(true);
@@ -220,6 +224,7 @@ export default function Movimentacoes() {
   }
 
   return (
+    <NfeDropZone onDropFile={nfe.processFile} disabled={nfe.importing}>
     <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
       <header>
         <h1 className="text-2xl font-bold">Movimentações</h1>
@@ -308,7 +313,7 @@ export default function Movimentacoes() {
           {form.tipo === 'entrada' && (
             <div className="border-t pt-4">
               <p className="text-xs text-muted-foreground mb-2">Ou importe uma NF-e:</p>
-              <NfeImportButton produtos={produtos} setores={setores} maquinas={maquinas} gavetas={gavetas} onImported={load} />
+              <NfeImportButton importing={nfe.importing} onFile={nfe.processFile} />
             </div>
           )}
         </Card>
@@ -408,6 +413,21 @@ export default function Movimentacoes() {
                  </AlertDialogFooter>
                </AlertDialogContent>
               </AlertDialog>
+
+              {nfe.preview && (
+                <NfePreviewDialog
+                  open
+                  nfeInfo={{ nNF: nfe.preview.nNF, emitente: nfe.preview.emitente, chave: nfe.preview.chave }}
+                  items={nfe.preview.items}
+                  produtos={produtos}
+                  setores={setores}
+                  maquinas={maquinas}
+                  gavetas={gavetas}
+                  onClose={nfe.close}
+                  onConfirm={nfe.confirm}
+                />
+              )}
               </div>
+              </NfeDropZone>
               );
               }
