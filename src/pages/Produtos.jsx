@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
 import ProductForm from '@/components/ProductForm';
 import ProductsTable from '@/components/ProductsTable';
+import SearchBar from '@/components/SearchBar';
+import FilterBar from '@/components/FilterBar';
+import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function Produtos() {
@@ -15,6 +18,8 @@ export default function Produtos() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
+  const [busca, setBusca] = useState('');
   const { toast } = useToast();
 
   async function load() {
@@ -29,6 +34,14 @@ export default function Produtos() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  const filtered = useMemo(() => {
+    const porFiltros = filterProdutos(produtos, filtros);
+    if (!busca.trim()) return porFiltros;
+    const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
+    if (termos.length === 0) return porFiltros;
+    return porFiltros.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas)));
+  }, [produtos, filtros, busca, maquinas, gavetas]);
 
   function handleNew() { setEditing(null); setFormOpen(true); }
   function handleEdit(produto) { setEditing(produto); setFormOpen(true); }
@@ -64,16 +77,25 @@ export default function Produtos() {
           </Button>
         </Card>
       ) : (
-        <Card className="p-5">
-          <ProductsTable
-            produtos={produtos}
-            setores={setores}
-            maquinas={maquinas}
-            gavetas={gavetas}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-        </Card>
+        <>
+          <div className="flex items-center gap-3 flex-wrap">
+            <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+            </div>
+          </div>
+
+          <Card className="p-5">
+            <ProductsTable
+              produtos={filtered}
+              setores={setores}
+              maquinas={maquinas}
+              gavetas={gavetas}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          </Card>
+        </>
       )}
 
       <ProductForm
