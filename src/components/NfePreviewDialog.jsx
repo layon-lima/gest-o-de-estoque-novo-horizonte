@@ -29,7 +29,8 @@ import {
 import { matchNfeItem } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
-import { parseQtd, formatQtd } from '@/lib/format';
+import { parseQtd, formatQtd, formatQtdConvertida } from '@/lib/format';
+import { normalizarUnidade } from '@/lib/units';
 
 export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
@@ -191,6 +192,20 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                         />
                         <span className="text-xs text-muted-foreground whitespace-nowrap">{item.uCom || ''}</span>
                       </div>
+                      {(() => {
+                        if (item.create_new || !item.produto_id) return null;
+                        const prod = produtos.find((p) => p.id === item.produto_id);
+                        if (!prod?.unidade) return null;
+                        const de = normalizarUnidade(item.uCom);
+                        if (!de || de === prod.unidade) return null;
+                        const conv = formatQtdConvertida(item.qCom, item.uCom, prod.unidade);
+                        if (!conv.mudou) return null;
+                        return (
+                          <div className="text-[11px] text-primary font-medium mt-1 whitespace-nowrap">
+                            ≈ {conv.texto}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Select

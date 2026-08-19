@@ -1,5 +1,7 @@
 // Formatação e parse de quantidades no padrão pt-BR (ex.: 1.234,56)
 
+import { convertQty, normalizarUnidade } from '@/lib/units';
+
 export function formatQtd(n) {
   const num = Number(n);
   if (!isFinite(num)) return '0,00';
@@ -28,4 +30,25 @@ export function parseQtd(str) {
   }
   const n = Number(s);
   return isFinite(n) ? n : 0;
+}
+
+// Formata uma quantidade convertendo da unidade de origem para a unidade de destino.
+// Retorna um objeto { texto, mudou } onde `texto` já vem no formato pt-BR + unidade.
+// `mudou` indica se houve conversão real (unidades diferentes e conversíveis).
+// Usado em todos os pontos de exibição onde a quantidade pode entrar em unidade
+// diferente da cadastrada no produto (ex.: NF-e em "ton" para produto em "kg").
+export function formatQtdConvertida(qtd, deUnidade, paraUnidade) {
+  const de = normalizarUnidade(deUnidade);
+  const para = paraUnidade || '';
+  if (!de || !para) {
+    return { texto: `${formatQtd(qtd)} ${deUnidade || ''}`.trim(), mudou: false };
+  }
+  if (de === para) {
+    return { texto: `${formatQtd(qtd)} ${para}`.trim(), mudou: false };
+  }
+  const conv = convertQty(qtd, de, para);
+  if (conv === null || !isFinite(conv)) {
+    return { texto: `${formatQtd(qtd)} ${de}`.trim(), mudou: false };
+  }
+  return { texto: `${formatQtd(conv)} ${para}`, mudou: true, convertido: conv };
 }
