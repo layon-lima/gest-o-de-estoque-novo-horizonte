@@ -29,6 +29,7 @@ import {
 import { matchNfeItem } from '@/lib/nfeParser';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
+import { parseQtd, formatQtd } from '@/lib/format';
 
 export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
@@ -155,12 +156,11 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                     <TableCell className="text-sm font-medium">{item.xProd}</TableCell>
                     <TableCell>
                       <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="h-8 w-20"
+                        type="text"
+                        inputMode="decimal"
+                        className="h-8 w-24 tabular-nums"
                         value={item.qCom}
-                        onChange={(e) => updateRow(idx, 'qCom', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => updateRow(idx, 'qCom', parseQtd(e.target.value))}
                       />
                     </TableCell>
                     <TableCell>

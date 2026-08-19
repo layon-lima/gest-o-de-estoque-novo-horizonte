@@ -24,6 +24,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { getNome } from '@/lib/estoqueFilters';
+import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
@@ -118,7 +119,12 @@ export default function Movimentacoes() {
     if (!produto) return;
     setSaving(true);
     try {
-      const qtd = Number(form.quantidade) || 0;
+      const qtd = parseQtd(form.quantidade);
+      if (!(qtd > 0)) {
+        toast({ title: 'Quantidade inválida', description: 'Informe uma quantidade maior que zero.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
       const now = new Date().toISOString();
       const baseMov = {
         data: now,
@@ -169,7 +175,7 @@ export default function Movimentacoes() {
           if (!suficiente) {
             toast({
               title: 'Saldo insuficiente em lotes válidos',
-              description: `Disponível: ${totalDisponivel} ${produto.unidade || 'un'}.`,
+              description: `Disponível: ${formatQtd(totalDisponivel)} ${produto.unidade || 'un'}.`,
               variant: 'destructive',
             });
             return;
@@ -238,7 +244,7 @@ export default function Movimentacoes() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mv-qtd">Quantidade *</Label>
-                <Input id="mv-qtd" type="number" min="1" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
+                <Input id="mv-qtd" type="text" inputMode="decimal" placeholder="0,00" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
               </div>
             </div>
 
@@ -328,7 +334,7 @@ export default function Movimentacoes() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-right font-semibold">{m.quantidade}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">{formatQtd(m.quantidade || 0)}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo}</TableCell>
                         <TableCell>
                           {m.tipo === 'entrada' ? (

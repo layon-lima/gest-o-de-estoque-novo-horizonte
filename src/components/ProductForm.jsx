@@ -21,6 +21,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
+import { formatQtd, parseQtd } from '@/lib/format';
 
 const empty = {
   codigo: '',
@@ -52,8 +53,8 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
     e.preventDefault();
     setSaving(true);
     try {
-      const newQtd = controlaValidade ? 0 : Number(form.quantidade) || 0;
-      const payload = { ...form, quantidade: newQtd, estoque_minimo: Number(form.estoque_minimo) || 0 };
+      const newQtd = controlaValidade ? 0 : parseQtd(form.quantidade);
+      const payload = { ...form, quantidade: newQtd, estoque_minimo: parseQtd(form.estoque_minimo) };
       if (produto) {
         await base44.entities.Produto.update(produto.id, payload);
         if (!controlaValidade) {
@@ -108,7 +109,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
           }
           toast({
             title: 'Quantidade somada ao produto existente',
-            description: `${duplicado.nome} — adicionadas ${newQtd} ${form.unidade || 'un'}.`,
+            description: `${duplicado.nome} — adicionadas ${formatQtd(newQtd)} ${form.unidade || 'un'}.`,
           });
         } else {
           const created = await base44.entities.Produto.create(payload);
@@ -195,7 +196,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="quantidade">Quantidade</Label>
-              <Input id="quantidade" type="number" min="0" value={controlaValidade ? 0 : form.quantidade} onChange={(e) => set('quantidade', e.target.value)} disabled={controlaValidade} />
+              <Input id="quantidade" type="text" inputMode="decimal" placeholder="0,00" value={controlaValidade ? 0 : form.quantidade} onChange={(e) => set('quantidade', e.target.value)} disabled={controlaValidade} />
               {controlaValidade && <p className="text-xs text-amber-600">Gerenciada por lotes (Entradas e Saídas)</p>}
             </div>
             <div className="space-y-1.5">
@@ -204,7 +205,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="min">Estoque mín.</Label>
-              <Input id="min" type="number" min="0" value={form.estoque_minimo} onChange={(e) => set('estoque_minimo', e.target.value)} />
+              <Input id="min" type="text" inputMode="decimal" placeholder="0,00" value={form.estoque_minimo} onChange={(e) => set('estoque_minimo', e.target.value)} />
             </div>
           </div>
 

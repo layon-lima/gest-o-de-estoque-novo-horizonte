@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getNome } from '@/lib/estoqueFilters';
+import { formatQtd } from '@/lib/format';
 
 export default function ProductsTable({
   produtos,
@@ -54,8 +55,8 @@ export default function ProductsTable({
               return (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell className="text-right font-semibold whitespace-nowrap">
-                    {p.quantidade || 0}
+                  <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
+                    {formatQtd(p.quantidade || 0)}
                     <span className="text-xs text-muted-foreground ml-1">{p.unidade}</span>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>

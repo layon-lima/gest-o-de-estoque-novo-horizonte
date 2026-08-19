@@ -23,6 +23,7 @@ import { base44 } from '@/api/base44Client';
 import ProductsTable from '@/components/ProductsTable';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
+import { formatQtd } from '@/lib/format';
 import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
 import SearchSelect from '@/components/SearchSelect';
@@ -109,7 +110,7 @@ export default function Relatorios() {
       const st = qtd === 0 ? 'Zerado' : 'Normal';
       return [
         p.nome,
-        qtd,
+        formatQtd(qtd),
         p.unidade || '',
         p.codigo,
         getNome(p.setor_id, setores),
@@ -141,7 +142,7 @@ export default function Relatorios() {
     return entradasRecentes.map((m) => [
       m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
       m.nome_produto || '',
-      m.quantidade || 0,
+      formatQtd(m.quantidade || 0),
       m.codigo || '',
       getNome(m.setor_id, setores),
       getNome(m.maquina_id, maquinas),
@@ -173,7 +174,7 @@ export default function Relatorios() {
       const produto = produtos.find((p) => p.id === l.produto_id);
       return [
         produto?.nome || '—',
-        l.quantidade || 0,
+        formatQtd(l.quantidade || 0),
         l.unidade || '',
         l.codigo_lote || '',
         l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—',
@@ -302,7 +303,7 @@ export default function Relatorios() {
                           {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">{m.quantidade}</TableCell>
+                        <TableCell className="text-right font-semibold text-green-600 tabular-nums">{formatQtd(m.quantidade || 0)}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</TableCell>
                         <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
                         <TableCell className="text-sm">{getNome(m.maquina_id, maquinas)}</TableCell>
@@ -374,7 +375,7 @@ export default function Relatorios() {
                       return (
                         <TableRow key={l.id}>
                           <TableCell className="font-medium text-sm">{produto?.nome || '—'}</TableCell>
-                          <TableCell className="text-right font-semibold">{l.quantidade} {l.unidade}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">{formatQtd(l.quantidade || 0)} {l.unidade}</TableCell>
                           <TableCell className="font-mono text-xs">{l.codigo_lote}</TableCell>
                           <TableCell className="text-sm whitespace-nowrap">{l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—'}</TableCell>
                           <TableCell><ValidadeBadge dataValidade={l.data_validade} /></TableCell>
