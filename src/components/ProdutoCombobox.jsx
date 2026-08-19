@@ -1,11 +1,16 @@
-import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useRef, useMemo } from 'react';
 import { ChevronDown, Check, PlusCircle, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 
 const NONE = 'none';
 const NEW = 'new';
 
+// Combobox de produto baseado no Popover nativo do Radix. Ao contrário de um
+// portal customizado no body, o Popover se registra como "ramo" do
+// DismissableLayer do Dialog pai, permitindo que os itens sejam clicados
+// normalmente dentro de um Dialog modal.
 export default function ProdutoCombobox({
   value,
   onChange,
@@ -15,10 +20,7 @@ export default function ProdutoCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const ref = useRef(null);
   const inputRef = useRef(null);
-  const menuRef = useRef(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, openUp: false });
 
   const selectedLabel = useMemo(() => {
     if (value === NEW) return 'Criar novo produto';
@@ -26,43 +28,6 @@ export default function ProdutoCombobox({
     const p = produtos.find((o) => o.id === value);
     return p ? `${p.codigo} — ${p.nome}` : '';
   }, [value, produtos]);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e) {
-      if (ref.current?.contains(e.target)) return;
-      if (menuRef.current?.contains(e.target)) return;
-      setOpen(false);
-    }
-    function handleScroll() { position(); }
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('scroll', handleScroll, true);
-    window.addEventListener('resize', handleScroll);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (open) position();
-  }, [open, query]);
-
-  function position() {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const menuH = 288;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUp = spaceBelow < menuH + 16 && rect.top > spaceBelow;
-    setCoords({
-      top: openUp ? rect.top - menuH - 4 : rect.bottom + 4,
-      left: rect.left,
-      width: Math.max(rect.width, 220),
-      openUp,
-    });
-  }
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -80,27 +45,24 @@ export default function ProdutoCombobox({
   }
 
   return (
-    <div ref={ref} className={cn('relative', className)}>
-      <div
-        onClick={() => {
-          setOpen((o) => !o);
-          setTimeout(() => inputRef.current?.focus(), 0);
-        }}
-        className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2.5 py-1 text-xs shadow-sm cursor-pointer hover:bg-accent/40 transition-colors"
-      >
-        {open ? (
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={selectedLabel || placeholder}
-            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-0 text-xs"
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-2.5 py-1 text-xs shadow-sm cursor-pointer hover:bg-accent/40 transition-colors',
+            className
+          )}
+        >
           <span
             className={cn(
-              'truncate',
+              'truncate text-left',
               value === NEW && 'text-primary font-medium',
               !value && 'text-muted-foreground'
             )}
@@ -113,19 +75,31 @@ export default function ProdutoCombobox({
               selectedLabel || placeholder
             )}
           </span>
-        )}
-        <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
-      </div>
-
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
-          className="z-[100] max-h-72 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
-        >
+          <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
+        <div className="p-2 border-b">
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar produto…"
+            className="h-8 text-xs"
+          />
+        </div>
+        <div className="max-h-60 overflow-auto scrollbar-thin py-1">
           <button
             type="button"
-            onPointerDown={(e) => { e.preventDefault(); pick(NONE); }}
+            onClick={() => pick(NONE)}
             className={cn(
               'flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent',
               value === NONE && 'bg-accent'
@@ -137,7 +111,7 @@ export default function ProdutoCombobox({
           </button>
           <button
             type="button"
-            onPointerDown={(e) => { e.preventDefault(); pick(NEW); }}
+            onClick={() => pick(NEW)}
             className={cn(
               'flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-accent text-primary font-medium',
               value === NEW && 'bg-accent'
@@ -154,7 +128,7 @@ export default function ProdutoCombobox({
               <button
                 key={p.id}
                 type="button"
-                onPointerDown={(e) => { e.preventDefault(); pick(p.id); }}
+                onClick={() => pick(p.id)}
                 className={cn(
                   'flex items-center justify-between w-full px-3 py-1.5 text-xs text-left hover:bg-accent',
                   value === p.id && 'bg-accent'
@@ -165,9 +139,8 @@ export default function ProdutoCombobox({
               </button>
             ))
           )}
-        </div>,
-        document.body
-      )}
-    </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
