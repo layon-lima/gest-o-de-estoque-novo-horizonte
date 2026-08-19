@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
-import Logo from './Logo';
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
@@ -15,7 +14,7 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10">
             <Menu className="w-5 h-5" />
           </button>
-          <Logo boxClassName="h-8 w-28" />
+          <span className="font-bold">Controle de Estoque Novo Horizonte</span>
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <Outlet />
