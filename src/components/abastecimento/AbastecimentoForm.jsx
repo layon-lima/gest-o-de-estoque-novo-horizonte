@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
-import { Fuel, Save, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Fuel, Save, ArrowLeft, AlertTriangle, Camera, Loader2, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { base44 } from '@/api/base44Client';
 import { formatQtd, parseQtd } from '@/lib/format';
 
 export default function AbastecimentoForm({
@@ -19,6 +20,9 @@ export default function AbastecimentoForm({
   const [quantidade, setQuantidade] = useState('');
   const [observacao, setObservacao] = useState('');
   const [erro, setErro] = useState('');
+  const [fotoUrl, setFotoUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
 
   const produto = useMemo(
     () => combustiveis.find((p) => p.id === produtoId),
@@ -26,18 +30,33 @@ export default function AbastecimentoForm({
   );
 
   const qtd = parseQtd(quantidade);
-  const saldoInsuficiente = produto && qtd > (produto.quantidade || 0);
-  const podeSalvar = produto && qtd > 0 && !saldoInsuficiente && !saving;
+  const podeSalvar = produto && qtd > 0 && !saving && !uploading;
+
+  async function handleFoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setErro('');
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setFotoUrl(file_url);
+    } catch (err) {
+      setErro('Falha ao enviar a foto. Tente novamente.');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setErro('');
     if (!produto) { setErro('Selecione o combustível.'); return; }
     if (!(qtd > 0)) { setErro('Informe uma quantidade maior que zero.'); return; }
-    if (saldoInsuficiente) { setErro('Quantidade maior que o estoque disponível.'); return; }
+    if (!fotoUrl) { setErro('Tire a foto do painel do abastecedor para confirmação.'); return; }
     try {
-      await onSubmit({ produto, quantidade: qtd, observacao });
-      setProdutoId(''); setQuantidade(''); setObservacao('');
+      await onSubmit({ produto, quantidade: qtd, observacao, foto_url: fotoUrl });
+      setProdutoId(''); setQuantidade(''); setObservacao(''); setFotoUrl('');
+      if (fileRef.current) fileRef.current.value = '';
     } catch (err) {
       setErro(err.message || 'Erro ao registrar abastecimento.');
     }
@@ -92,15 +111,45 @@ export default function AbastecimentoForm({
             placeholder="0,00"
             value={quantidade}
             onChange={(e) => setQuantidade(e.target.value)}
-            className={saldoInsuficiente ? 'border-destructive' : ''}
             required
           />
-          {saldoInsuficiente && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              Quantidade maior que o estoque disponível ({formatQtd(produto.quantidade || 0)} {produto.unidade || 'un'}).
-            </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Foto do painel do abastecedor *</Label>
+          {fotoUrl ? (
+            <div className="relative rounded-lg overflow-hidden border">
+              <img src={fotoUrl} alt="Painel" className="w-full max-h-56 object-cover" />
+              <button
+                type="button"
+                onClick={() => { setFotoUrl(''); if (fileRef.current) fileRef.current.value = ''; }}
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-2 left-2 flex items-center gap-1 text-xs text-white bg-black/60 px-2 py-0.5 rounded">
+                <CheckCircle2 className="w-3 h-3" /> Foto capturada
+              </div>
+            </div>
+          ) : (
+            <label htmlFor="ab-foto" className="flex flex-col items-center justify-center gap-2 h-28 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent transition-colors text-muted-foreground">
+              {uploading ? (
+                <><Loader2 className="w-6 h-6 animate-spin" /><span className="text-xs">Enviando foto…</span></>
+              ) : (
+                <><Camera className="w-6 h-6" /><span className="text-xs">Tirar foto do painel</span></>
+              )}
+            </label>
           )}
+          <input
+            ref={fileRef}
+            id="ab-foto"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFoto}
+          />
+          <p className="text-xs text-muted-foreground">A foto fica anexa ao registro até um usuário autorizado confirmar a baixa.</p>
         </div>
 
         <div className="space-y-1.5">
@@ -118,7 +167,7 @@ export default function AbastecimentoForm({
           {saving ? <><Save className="w-4 h-4 mr-2 animate-pulse" /> Registrando…</> : <><Fuel className="w-4 h-4 mr-2" /> Registrar Abastecimento</>}
         </Button>
         <p className="text-xs text-muted-foreground text-center">
-          Ao salvar, o estoque do combustível é baixado automaticamente e uma saída é registrada no histórico.
+          O estoque não é baixado agora. Um usuário autorizado confirmará a baixa após conferir a foto.
         </p>
       </form>
     </Card>

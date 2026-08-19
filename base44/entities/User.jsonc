@@ -7,6 +7,12 @@
         "admin",
         "user"
       ]
+    },
+    "pode_confirmar_abastecimento": {
+      "type": "boolean",
+      "title": "Pode Confirmar Abastecimento",
+      "description": "Permite confirmar a baixa de abastecimentos pendentes. Administradores sempre podem confirmar.",
+      "default": false
     }
   },
   "required": [

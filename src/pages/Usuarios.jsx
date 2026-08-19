@@ -7,8 +7,9 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@/components/ui/table';
 import {
-  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2,
+  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2, Fuel,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -27,6 +28,7 @@ export default function Usuarios() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -67,6 +69,20 @@ export default function Usuarios() {
 
   const adminCount = usuarios.filter((u) => u.role === 'admin').length;
   const userCount = usuarios.filter((u) => u.role === 'user').length;
+  const confirmCount = usuarios.filter((u) => u.role === 'admin' || u.pode_confirmar_abastecimento === true).length;
+
+  const handleToggleConfirmar = async (u, value) => {
+    setTogglingId(u.id);
+    try {
+      await base44.entities.User.update(u.id, { pode_confirmar_abastecimento: value });
+      setUsuarios((prev) => prev.map((x) => (x.id === u.id ? { ...x, pode_confirmar_abastecimento: value } : x)));
+      toast({ title: value ? 'Permissão concedida' : 'Permissão removida', description: `${u.full_name || u.email} ${value ? 'pode confirmar abastecimentos' : 'não confirma mais abastecimentos'}.` });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: err?.message });
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   if (loading)
     return (
@@ -115,6 +131,13 @@ export default function Usuarios() {
             <p className="text-sm text-muted-foreground">Usuários</p>
           </div>
         </Card>
+        <Card className="p-5 flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-amber-100 text-amber-600"><Fuel className="w-6 h-6" /></div>
+          <div>
+            <p className="text-2xl font-bold">{confirmCount}</p>
+            <p className="text-sm text-muted-foreground">Confirmam Abastec.</p>
+          </div>
+        </Card>
       </div>
 
       <Card className="p-5">
@@ -136,6 +159,7 @@ export default function Usuarios() {
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Cargo</TableHead>
+                  {isAdmin && <TableHead>Confirma Abastec.</TableHead>}
                   {isAdmin && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -166,6 +190,19 @@ export default function Usuarios() {
                           {u.role === 'admin' ? 'Administrador' : 'Usuário'}
                         </Badge>
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          {u.role === 'admin' ? (
+                            <span className="text-xs text-muted-foreground">Sempre (admin)</span>
+                          ) : (
+                            <Switch
+                              checked={u.pode_confirmar_abastecimento === true}
+                              disabled={togglingId === u.id}
+                              onCheckedChange={(v) => handleToggleConfirmar(u, v)}
+                            />
+                          )}
+                        </TableCell>
+                      )}
                       {isAdmin && (
                         <TableCell className="text-right">
                           {!isSelf && (

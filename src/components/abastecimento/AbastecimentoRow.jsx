@@ -9,6 +9,14 @@ export default function AbastecimentoRow({ abast, maquinas, produtos }) {
   const produto = produtos.find((p) => p.id === abast.produto_id);
   const data = abast.data ? moment(abast.data).format('DD/MM/YYYY HH:mm') : '—';
 
+  const status = abast.status || 'pendente';
+  const badge =
+    status === 'confirmado'
+      ? { label: 'Confirmado', cls: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100' }
+      : status === 'cancelado'
+      ? { label: 'Cancelado', cls: 'bg-red-100 text-red-800 hover:bg-red-100' }
+      : { label: 'Pendente', cls: 'bg-amber-100 text-amber-800 hover:bg-amber-100' };
+
   return (
     <Card className="p-3 flex items-center gap-3">
       <div className="shrink-0 w-9 h-9 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex items-center justify-center">
@@ -18,6 +26,7 @@ export default function AbastecimentoRow({ abast, maquinas, produtos }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium truncate">{maquina?.nome || 'Máquina removida'}</span>
           {maquina && <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{maquina.codigo}</span>}
+          <Badge variant="secondary" className={badge.cls}>{badge.label}</Badge>
         </div>
         <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
           <Droplet className="w-3 h-3" />
@@ -29,7 +38,7 @@ export default function AbastecimentoRow({ abast, maquinas, produtos }) {
       </div>
       <div className="text-right shrink-0">
         <div className="text-xs text-muted-foreground">{data}</div>
-        {abast.operador && <div className="text-[11px] text-muted-foreground truncate max-w-[120px]">{abast.operador}</div>}
+        {abast.confirmado_por && <div className="text-[11px] text-muted-foreground truncate max-w-[120px]">por {abast.confirmado_por}</div>}
         {abast.numero_mov && <Badge variant="outline" className="mt-0.5 text-[10px] font-mono">{abast.numero_mov}</Badge>}
       </div>
     </Card>

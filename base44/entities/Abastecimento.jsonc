@@ -34,11 +34,37 @@
     "numero_mov": {
       "type": "string",
       "title": "Movimenta\u00e7\u00e3o Vinculada",
-      "description": "N\u00famero da movimenta\u00e7\u00e3o de sa\u00edda gerada automaticamente"
+      "description": "N\u00famero da movimenta\u00e7\u00e3o de sa\u00edda gerada na confirma\u00e7\u00e3o da baixa"
     },
     "observacao": {
       "type": "string",
       "title": "Observa\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "confirmado",
+        "cancelado"
+      ],
+      "title": "Status",
+      "description": "Pendente = aguardando confirma\u00e7\u00e3o da baixa por usu\u00e1rio autorizado.",
+      "default": "pendente"
+    },
+    "foto_url": {
+      "type": "string",
+      "title": "Foto do Painel",
+      "description": "Foto do painel do abastecedor tirada pelo operador, usada na confirma\u00e7\u00e3o da baixa."
+    },
+    "confirmado_por": {
+      "type": "string",
+      "title": "Confirmado Por",
+      "description": "Nome do usu\u00e1rio que confirmou a baixa"
+    },
+    "data_confirmacao": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data da Confirma\u00e7\u00e3o"
     }
   },
   "required": [

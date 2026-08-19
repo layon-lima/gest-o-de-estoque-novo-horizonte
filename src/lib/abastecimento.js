@@ -14,21 +14,48 @@ export function produtosCombustivel(produtos, setorId) {
   return (produtos || []).filter((p) => p.setor_id === setorId);
 }
 
-// Registra um abastecimento: decrementa o estoque do combustível, cria uma
-// movimentação de saída vinculada à máquina e grava o registro de abastecimento.
-// Retorna o Abastecimento criado.
-export async function registrarAbastecimento({
+// Registra um abastecimento PENDENTE. Não baixa o estoque.
+// A baixa só ocorre quando um usuário autorizado confirma (confirmarAbastecimento).
+export async function registrarAbastecimentoPendente({
   maquina,
   produto,
   quantidade,
   observacao,
   operador,
+  foto_url,
+}) {
+  const qtd = Number(quantidade);
+  if (!(qtd > 0)) throw new Error('Informe uma quantidade maior que zero.');
+
+  const abast = await base44.entities.Abastecimento.create({
+    data: new Date().toISOString(),
+    maquina_id: maquina.id,
+    produto_id: produto.id,
+    quantidade: qtd,
+    unidade: produto.unidade || 'un',
+    operador: operador || '',
+    observacao: observacao || '',
+    foto_url: foto_url || '',
+    status: 'pendente',
+  });
+  return abast;
+}
+
+// Confirma a baixa de um abastecimento pendente: decrementa o estoque do
+// combustível, cria a movimentação de saída vinculada à máquina e marca o
+// abastecimento como confirmado.
+export async function confirmarAbastecimento({
+  abast,
+  maquina,
+  produto,
+  confirmado_por,
   setores,
   lotes,
   movimentacoes,
 }) {
-  const qtd = Number(quantidade);
-  if (!(qtd > 0)) throw new Error('Informe uma quantidade maior que zero.');
+  const qtd = Number(abast.quantidade);
+  if (!(qtd > 0)) throw new Error('Quantidade inválida.');
+  if (abast.status !== 'pendente') throw new Error('Este abastecimento já foi processado.');
 
   const controla = setorControlaValidade(produto.setor_id, setores);
   const now = new Date().toISOString();
@@ -43,7 +70,7 @@ export async function registrarAbastecimento({
     maquina_id: maquina.id,
     gaveta_id: produto.gaveta_id || '',
     tipo: 'saida',
-    observacao: observacao || `Abastecimento — ${maquina.nome || maquina.codigo}`,
+    observacao: abast.observacao || `Abastecimento — ${maquina.nome || maquina.codigo}`,
   };
 
   let mov;
@@ -85,15 +112,16 @@ export async function registrarAbastecimento({
     });
   }
 
-  const abast = await base44.entities.Abastecimento.create({
-    data: now,
-    maquina_id: maquina.id,
-    produto_id: produto.id,
-    quantidade: qtd,
-    unidade: produto.unidade || 'un',
-    operador: operador || '',
+  await base44.entities.Abastecimento.update(abast.id, {
+    status: 'confirmado',
+    confirmado_por: confirmado_por || '',
+    data_confirmacao: now,
     numero_mov: mov.numero || '',
-    observacao: observacao || '',
   });
-  return { abast, mov };
+  return mov;
+}
+
+// Cancela um abastecimento pendente (sem baixar estoque).
+export async function cancelarAbastecimento(abastId) {
+  await base44.entities.Abastecimento.update(abastId, { status: 'cancelado' });
 }
