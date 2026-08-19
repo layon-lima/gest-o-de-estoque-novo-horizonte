@@ -240,7 +240,7 @@ export default function Movimentacoes() {
         <p className="text-sm text-muted-foreground mt-1">Registre entradas e saídas de estoque</p>
       </header>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
         <Card className="p-5">
           <h3 className="font-semibold mb-4">Nova Movimentação</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -292,8 +292,8 @@ export default function Movimentacoes() {
             )}
 
             {form.tipo === 'entrada' && (
-              <div className="space-y-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="mv-nf">Número da NF</Label>
                     <Input id="mv-nf" value={form.numero_nf} onChange={(e) => setForm({ ...form, numero_nf: e.target.value })} placeholder="Ex.: 000123456" />
@@ -308,10 +308,10 @@ export default function Movimentacoes() {
                       placeholder="Nome / CNPJ"
                     />
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="mv-chave">Chave de acesso da NF-e</Label>
-                  <Input id="mv-chave" value={form.chave_acesso} onChange={(e) => setForm({ ...form, chave_acesso: e.target.value })} placeholder="44 dígitos" className="font-mono text-xs" />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mv-chave">Chave de acesso da NF-e</Label>
+                    <Input id="mv-chave" value={form.chave_acesso} onChange={(e) => setForm({ ...form, chave_acesso: e.target.value })} placeholder="44 dígitos" className="font-mono text-xs" />
+                  </div>
                 </div>
               </div>
             )}
@@ -333,7 +333,7 @@ export default function Movimentacoes() {
           )}
         </Card>
 
-        <div className="lg:col-span-2">
+        <div>
           <Card className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Movimentações Recentes</h3>
