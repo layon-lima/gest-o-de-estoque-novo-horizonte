@@ -12,6 +12,7 @@ import { parseQtd, formatQtd } from '@/lib/format';
 import { normalizePlaca, formatPlaca, nextTicketNumber, formatKg } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
+import TicketDetalheDialog from './TicketDetalheDialog';
 
 const empty = { motorista: '', placa: '', peso_tara: '', observacao: '' };
 
@@ -22,6 +23,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [detalheTicket, setDetalheTicket] = useState(null);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -202,7 +204,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
           ) : filtrados.map((t) => {
             const ped = pedidoDoTicket(t.pedido_id);
             return (
-              <Card key={t.id} className="p-3">
+              <Card key={t.id} className="p-3 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setDetalheTicket(t)}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-semibold text-xs">{t.numero}</span>
                   <Badge variant="secondary" className="gap-1 text-[10px]"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
@@ -247,7 +249,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                 {filtrados.map((t) => {
                   const ped = pedidoDoTicket(t.pedido_id);
                   return (
-                    <tr key={t.id} className="border-t hover:bg-muted/40">
+                    <tr key={t.id} className="border-t hover:bg-muted/40 cursor-pointer" onClick={() => setDetalheTicket(t)}>
                       <td className="p-2 font-mono text-xs">{t.numero}</td>
                       <td className="p-2 text-xs whitespace-nowrap">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '—'}</td>
                       <td className="p-2 text-xs whitespace-nowrap">{t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—'}</td>
@@ -280,6 +282,14 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
           onClosed={() => { setFecharTicket(null); onReload(); }}
         />
       )}
+
+      <TicketDetalheDialog
+        ticket={detalheTicket}
+        pedidos={pedidos}
+        pessoas={pessoas}
+        produtos={produtos}
+        onClose={() => setDetalheTicket(null)}
+      />
     </div>
   );
 }
