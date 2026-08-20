@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X } from 'lucide-react';
+import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,8 @@ import FechamentoTicketDialog from './FechamentoTicketDialog';
 
 const empty = { motorista: '', placa: '', peso_tara: '', observacao: '' };
 
-export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload }) {
+export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload, mode = 'ativos' }) {
+  const historico = mode === 'historico';
   const [form, setForm] = useState(empty);
   const [busca, setBusca] = useState('');
   const [fecharTicket, setFecharTicket] = useState(null);
@@ -34,15 +35,15 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
 
   const filtrados = useMemo(() => {
     const q = busca.toLowerCase().trim();
-    return tickets
-      .filter((t) => t.status !== 'aberto')
-      .filter((t) => {
-        if (!q) return true;
-        const ped = pedidoDoTicket(t.pedido_id);
-        return [t.numero, t.motorista, t.placa, ped ? clienteNome(ped.cliente_id) : ''].filter(Boolean).join(' ').toLowerCase().includes(q);
-      })
-      .sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
-  }, [tickets, busca]);
+    const base = tickets.filter((t) => t.status !== 'aberto');
+    const match = (t) => {
+      if (!q) return true;
+      const ped = pedidoDoTicket(t.pedido_id);
+      return [t.numero, t.motorista, t.placa, ped ? clienteNome(ped.cliente_id) : ''].filter(Boolean).join(' ').toLowerCase().includes(q);
+    };
+    if (!historico && !q) return [];
+    return base.filter(match).sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
+  }, [tickets, busca, historico]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -107,51 +108,55 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', expCols, buildRows()); }
   function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', expCols, buildRows()); }
 
+  const semBusca = !busca.trim();
+
   return (
     <div className="space-y-4">
       {/* Botão/Form de abertura */}
-      <Card className="overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setFormAberto((v) => !v)}
-          className="w-full flex items-center justify-between p-4 hover:bg-accent/40 transition-colors"
-        >
-          <span className="flex items-center gap-2 font-semibold text-sm sm:text-base"><Plus className="w-4 h-4 text-primary" /> Abrir Novo Ticket</span>
-          <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${formAberto ? 'rotate-180' : ''}`} />
-        </button>
-        {formAberto && (
-          <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t">
-            <div className="grid grid-cols-2 gap-2 pt-3">
-              <div className="space-y-1 col-span-2">
-                <Label className="text-xs">Motorista *</Label>
-                <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
+      {!historico && (
+        <Card className="overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setFormAberto((v) => !v)}
+            className="w-full flex items-center justify-between p-4 hover:bg-accent/40 transition-colors"
+          >
+            <span className="flex items-center gap-2 font-semibold text-sm sm:text-base"><Plus className="w-4 h-4 text-primary" /> Abrir Novo Ticket</span>
+            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${formAberto ? 'rotate-180' : ''}`} />
+          </button>
+          {formAberto && (
+            <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t">
+              <div className="grid grid-cols-2 gap-2 pt-3">
+                <div className="space-y-1 col-span-2">
+                  <Label className="text-xs">Motorista *</Label>
+                  <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Placa *</Label>
+                  <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Tara (kg) *</Label>
+                  <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label className="text-xs">Observação</Label>
+                  <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Placa *</Label>
-                <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
+                <Button type="button" variant="outline" onClick={() => { setFormAberto(false); setForm(empty); }}><X className="w-4 h-4" /></Button>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Tara (kg) *</Label>
-                <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
-              </div>
-              <div className="space-y-1 col-span-2">
-                <Label className="text-xs">Observação</Label>
-                <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
-              <Button type="button" variant="outline" onClick={() => { setFormAberto(false); setForm(empty); }}><X className="w-4 h-4" /></Button>
-            </div>
-          </form>
-        )}
-      </Card>
+            </form>
+          )}
+        </Card>
+      )}
 
       {/* Tickets abertos em destaque */}
-      {abertos.length > 0 && (
+      {!historico && abertos.length > 0 && (
         <div>
           <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><CircleDot className="w-4 h-4 text-amber-500" /> Abertos ({abertos.length})</h3>
-          <div className="space-y-2 max-h-[32vh] overflow-auto scrollbar-thin pr-1">
+          <div className="space-y-2 max-h-[40vh] overflow-auto scrollbar-thin pr-1">
             {abertos.map((t) => (
               <Card key={t.id} className="p-3 border-amber-300 bg-amber-50/60">
                 <div className="flex items-center gap-3">
@@ -174,30 +179,33 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         </div>
       )}
 
-      {/* Histórico */}
+      {/* Busca / Histórico */}
       <div className="space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar ticket, motorista, placa ou cliente..." className="pl-9 h-9" />
         </div>
 
-        <div className="hidden sm:flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1 h-8" onClick={handleExportPDF} disabled={filtrados.length === 0}><FileDown className="w-3.5 h-3.5 mr-1.5" /> PDF</Button>
-          <Button size="sm" className="flex-1 h-8" onClick={handleExportCSV} disabled={filtrados.length === 0}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel</Button>
-        </div>
+        {historico && (
+          <div className="hidden sm:flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 h-8" onClick={handleExportPDF} disabled={filtrados.length === 0}><FileDown className="w-3.5 h-3.5 mr-1.5" /> PDF</Button>
+            <Button size="sm" className="flex-1 h-8" onClick={handleExportCSV} disabled={filtrados.length === 0}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel</Button>
+          </div>
+        )}
 
         {/* Mobile: cards */}
-        <div className="sm:hidden max-h-[34vh] overflow-auto scrollbar-thin space-y-2 pr-1">
+        <div className="sm:hidden max-h-[44vh] overflow-auto scrollbar-thin space-y-2 pr-1">
           {filtrados.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">Nenhum ticket.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
+            </p>
           ) : filtrados.map((t) => {
             const ped = pedidoDoTicket(t.pedido_id);
-            const aberto = t.status === 'aberto';
             return (
-              <Card key={t.id} className={`p-3 ${aberto ? 'border-amber-300' : ''}`}>
+              <Card key={t.id} className="p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-semibold text-xs">{t.numero}</span>
-                  {aberto ? <Badge className="bg-amber-500 hover:bg-amber-500 text-[10px]">Aberto</Badge> : <Badge variant="secondary" className="gap-1 text-[10px]"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>}
+                  <Badge variant="secondary" className="gap-1 text-[10px]"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-sm">
                   <span className="font-medium truncate">{t.motorista}</span>
@@ -208,7 +216,6 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                   {t.peso_liquido ? <span>Líq. <b className="text-foreground">{formatKg(t.peso_liquido)}</b></span> : null}
                   <span className="truncate">{ped ? clienteNome(ped.cliente_id) : ''}</span>
                 </div>
-                {aberto && <Button size="sm" className="w-full mt-2 h-8" onClick={() => setFecharTicket(t)}>Fechar Pesagem</Button>}
               </Card>
             );
           })}
@@ -216,14 +223,17 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
 
         {/* Desktop: tabela */}
         {filtrados.length === 0 ? (
-          <p className="hidden sm:block text-sm text-muted-foreground text-center py-6">Nenhum ticket encontrado.</p>
+          <p className="hidden sm:block text-sm text-muted-foreground text-center py-6">
+            {historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
+          </p>
         ) : (
-          <div className="hidden sm:block rounded-lg border overflow-auto scrollbar-thin max-h-[40vh]">
+          <div className="hidden sm:block rounded-lg border overflow-auto scrollbar-thin max-h-[50vh]">
             <table className="w-full text-sm">
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="text-left p-2 font-medium">Ticket</th>
                   <th className="text-left p-2 font-medium">Abertura</th>
+                  <th className="text-left p-2 font-medium">Fechamento</th>
                   <th className="text-left p-2 font-medium">Motorista</th>
                   <th className="text-left p-2 font-medium">Placa</th>
                   <th className="text-right p-2 font-medium">Tara</th>
@@ -240,6 +250,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                     <tr key={t.id} className="border-t hover:bg-muted/40">
                       <td className="p-2 font-mono text-xs">{t.numero}</td>
                       <td className="p-2 text-xs whitespace-nowrap">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '—'}</td>
+                      <td className="p-2 text-xs whitespace-nowrap">{t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—'}</td>
                       <td className="p-2">{t.motorista}</td>
                       <td className="p-2 font-mono">{formatPlaca(t.placa)}</td>
                       <td className="p-2 text-right">{formatQtd(t.peso_tara || 0)}</td>
@@ -247,7 +258,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                       <td className="p-2 text-right font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</td>
                       <td className="p-2 text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</td>
                       <td className="p-2 text-center">
-                        {t.status === 'aberto' ? <Badge className="bg-amber-500 hover:bg-amber-500">Aberto</Badge> : <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>}
+                        <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
                       </td>
                     </tr>
                   );
@@ -258,15 +269,17 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         )}
       </div>
 
-      <FechamentoTicketDialog
-        ticket={fecharTicket}
-        pedidos={pedidos}
-        pessoas={pessoas}
-        produtos={produtos}
-        open={!!fecharTicket}
-        onClose={() => setFecharTicket(null)}
-        onClosed={() => { setFecharTicket(null); onReload(); }}
-      />
+      {!historico && (
+        <FechamentoTicketDialog
+          ticket={fecharTicket}
+          pedidos={pedidos}
+          pessoas={pessoas}
+          produtos={produtos}
+          open={!!fecharTicket}
+          onClose={() => setFecharTicket(null)}
+          onClosed={() => { setFecharTicket(null); onReload(); }}
+        />
+      )}
     </div>
   );
 }

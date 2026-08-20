@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, ClipboardList, Scale } from 'lucide-react';
+import { Users, ClipboardList, Scale, History } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { base44 } from '@/api/base44Client';
 import PedidosManager from '@/components/pesagem/PedidosManager';
@@ -45,6 +45,7 @@ export default function Pesagem() {
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="tickets" className="gap-1.5"><Scale className="w-4 h-4" /> Tickets {abertosCount > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">{abertosCount}</span>}</TabsTrigger>
             <TabsTrigger value="pedidos" className="gap-1.5"><ClipboardList className="w-4 h-4" /> Pedidos</TabsTrigger>
+            <TabsTrigger value="historico" className="gap-1.5"><History className="w-4 h-4" /> Histórico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tickets" className="mt-4">
@@ -52,6 +53,9 @@ export default function Pesagem() {
           </TabsContent>
           <TabsContent value="pedidos" className="mt-4">
             <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} />
+          </TabsContent>
+          <TabsContent value="historico" className="mt-4">
+            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} mode="historico" />
           </TabsContent>
         </Tabs>
       )}
