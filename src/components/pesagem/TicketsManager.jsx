@@ -18,7 +18,6 @@ const empty = { motorista: '', placa: '', peso_tara: '', observacao: '' };
 export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload }) {
   const [form, setForm] = useState(empty);
   const [busca, setBusca] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('all');
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,14 +35,14 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   const filtrados = useMemo(() => {
     const q = busca.toLowerCase().trim();
     return tickets
-      .filter((t) => filtroStatus === 'all' || t.status === filtroStatus)
+      .filter((t) => t.status !== 'aberto')
       .filter((t) => {
         if (!q) return true;
         const ped = pedidoDoTicket(t.pedido_id);
         return [t.numero, t.motorista, t.placa, ped ? clienteNome(ped.cliente_id) : ''].filter(Boolean).join(' ').toLowerCase().includes(q);
       })
       .sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
-  }, [tickets, busca, filtroStatus]);
+  }, [tickets, busca]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -177,27 +176,9 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
 
       {/* Histórico */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar..." className="pl-9 h-9" />
-          </div>
-          <div className="hidden sm:flex rounded-lg border overflow-hidden shrink-0">
-            {[
-              { v: 'all', l: 'Todos' },
-              { v: 'aberto', l: 'Abertos' },
-              { v: 'fechado', l: 'Fechados' },
-            ].map((opt) => (
-              <button
-                key={opt.v}
-                type="button"
-                onClick={() => setFiltroStatus(opt.v)}
-                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${filtroStatus === opt.v ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
-              >
-                {opt.l}
-              </button>
-            ))}
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar ticket, motorista, placa ou cliente..." className="pl-9 h-9" />
         </div>
 
         <div className="hidden sm:flex gap-2">

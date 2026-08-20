@@ -105,7 +105,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
           <DialogDescription>Registre o peso bruto e vincule um pedido para concluir a pesagem.</DialogDescription>
@@ -148,7 +148,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             {pedidosAbertos.length === 0 ? (
               <p className="text-sm text-destructive">Nenhum pedido aberto disponível. Cadastre um pedido antes de fechar.</p>
             ) : (
-              <div className="space-y-2 max-h-52 overflow-auto scrollbar-thin">
+              <div className="space-y-2">
                 {pedidosAbertos.map((p) => {
                   const selected = p.id === pedidoId;
                   const consumoExcede = liquido > (p.saldo_kg || 0);
