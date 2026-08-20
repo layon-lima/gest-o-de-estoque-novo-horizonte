@@ -4,19 +4,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseNfeXml } from '@/lib/nfeParser';
 import { setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
+import { proximoCodigoInterno } from '@/lib/produtoCodigo';
 import { convertQtyForProduto } from '@/lib/units';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
-
-// Gera o próximo código interno sequencial (ex.: P0001, P0002) com base
-// no maior sufixo numérico encontrado entre os produtos existentes.
-function proximoCodigoInterno(produtosList) {
-  let max = 0;
-  for (const p of produtosList) {
-    const m = String(p.codigo || '').match(/(\d+)\s*$/);
-    if (m) max = Math.max(max, parseInt(m[1], 10));
-  }
-  return `P${String(max + 1).padStart(4, '0')}`;
-}
 
 export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported }) {
   const [importing, setImporting] = useState(false);

@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
+import { proximoCodigoInterno } from '@/lib/produtoCodigo';
 import { formatQtd, parseQtd, formatInputQtd } from '@/lib/format';
 import { UNIDADES, convertQty, isConversivel } from '@/lib/units';
 
@@ -43,7 +44,7 @@ const empty = {
   venda: false,
 };
 
-export default function ProductForm({ open, onOpenChange, produto, setores, maquinas, gavetas, onSaved }) {
+export default function ProductForm({ open, onOpenChange, produto, setores, maquinas, gavetas, onSaved, produtos = [] }) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -147,7 +148,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
             description: `${duplicado.nome} — adicionadas ${formatQtd(newQtd)} ${form.unidade || 'un'}.`,
           });
         } else {
-          const created = await base44.entities.Produto.create(payload);
+          const created = await base44.entities.Produto.create({ ...payload, codigo: proximoCodigoInterno(allProdutos) });
           if (!controlaValidade && newQtd > 0) {
             await base44.entities.Movimentacao.create({
               data: new Date().toISOString(),
@@ -180,8 +181,10 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="codigo">Código Interno *</Label>
-              <Input id="codigo" value={form.codigo} onChange={(e) => set('codigo', e.target.value)} required />
+              <Label>Código Interno</Label>
+              <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm text-muted-foreground">
+                {produto?.codigo || 'Gerado automaticamente'}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="nome">Nome *</Label>

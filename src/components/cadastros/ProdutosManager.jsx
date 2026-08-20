@@ -106,6 +106,7 @@ export default function ProdutosManager() {
         maquinas={maquinas}
         gavetas={gavetas}
         onSaved={load}
+        produtos={produtos}
       />
     </div>
   );
