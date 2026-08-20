@@ -6,12 +6,14 @@ import {
   FileBarChart,
   Users,
   Fuel,
+  Scale,
 } from 'lucide-react';
 
 const items = [
   { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
   { to: '/movimentacoes', label: 'Mov.', icon: ArrowLeftRight, end: false },
   { to: '/abastecimento', label: 'Abast.', icon: Fuel, end: false },
+  { to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
   { to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
   { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
 ];

@@ -1,0 +1,70 @@
+{
+  "name": "PedidoPesagem",
+  "type": "object",
+  "properties": {
+    "cliente_id": {
+      "type": "string",
+      "title": "Cliente",
+      "description": "Refer\u00eancia ao Cliente"
+    },
+    "produto_id": {
+      "type": "string",
+      "title": "Produto",
+      "description": "Refer\u00eancia ao Produto comercializado"
+    },
+    "peso_saca_kg": {
+      "type": "number",
+      "title": "Peso de 1 Saca (kg)",
+      "description": "Peso unit\u00e1rio de uma saca em quilogramas.",
+      "default": 0
+    },
+    "valor_saca": {
+      "type": "number",
+      "title": "Valor da Saca (R$)",
+      "default": 0
+    },
+    "qtd_sacas": {
+      "type": "number",
+      "title": "Quantidade de Sacas",
+      "default": 0
+    },
+    "total_kg": {
+      "type": "number",
+      "title": "Total (kg)",
+      "description": "Calculado: qtd_sacas * peso_saca_kg.",
+      "default": 0
+    },
+    "valor_total": {
+      "type": "number",
+      "title": "Valor Total (R$)",
+      "description": "Calculado: qtd_sacas * valor_saca.",
+      "default": 0
+    },
+    "saldo_kg": {
+      "type": "number",
+      "title": "Saldo (kg)",
+      "description": "Saldo restante em kg. Decrementado a cada ticket fechado.",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aberto",
+        "concluido",
+        "cancelado"
+      ],
+      "title": "Status",
+      "default": "aberto"
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "cliente_id",
+    "produto_id",
+    "qtd_sacas",
+    "peso_saca_kg"
+  ]
+}

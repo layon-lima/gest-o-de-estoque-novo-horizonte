@@ -14,6 +14,7 @@ import Dashboard from '@/pages/Dashboard';
 import Cadastros from '@/pages/Cadastros';
 import Movimentacoes from '@/pages/Movimentacoes';
 import Abastecimento from '@/pages/Abastecimento';
+import Pesagem from '@/pages/Pesagem';
 import Relatorios from '@/pages/Relatorios';
 import Usuarios from '@/pages/Usuarios';
 
@@ -49,6 +50,7 @@ const AuthenticatedApp = () => {
         <Route path="/cadastros" element={<Cadastros />} />
         <Route path="/movimentacoes" element={<Movimentacoes />} />
         <Route path="/abastecimento" element={<Abastecimento />} />
+        <Route path="/pesagem" element={<Pesagem />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/usuarios" element={<Usuarios />} />
       </Route>

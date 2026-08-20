@@ -1,0 +1,71 @@
+{
+  "name": "TicketPesagem",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string",
+      "title": "N\u00famero do Ticket",
+      "description": "Identificador \u00fanico sequencial (ex.: PES-000001). Gerado automaticamente."
+    },
+    "data_abertura": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data/Hora de Abertura"
+    },
+    "data_fechamento": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data/Hora de Fechamento"
+    },
+    "motorista": {
+      "type": "string",
+      "title": "Motorista"
+    },
+    "placa": {
+      "type": "string",
+      "title": "Placa"
+    },
+    "peso_tara": {
+      "type": "number",
+      "title": "Peso Tara (kg)",
+      "default": 0
+    },
+    "peso_bruto": {
+      "type": "number",
+      "title": "Peso Bruto (kg)",
+      "default": 0
+    },
+    "peso_liquido": {
+      "type": "number",
+      "title": "Peso L\u00edquido (kg)",
+      "description": "Calculado: peso_bruto - peso_tara.",
+      "default": 0
+    },
+    "pedido_id": {
+      "type": "string",
+      "title": "Pedido",
+      "description": "Refer\u00eancia ao PedidoPesagem vinculado no fechamento."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aberto",
+        "fechado"
+      ],
+      "title": "Status",
+      "default": "aberto"
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "numero",
+    "data_abertura",
+    "motorista",
+    "placa",
+    "peso_tara",
+    "status"
+  ]
+}
