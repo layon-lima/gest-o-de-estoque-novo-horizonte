@@ -182,7 +182,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar..." className="pl-9 h-9" />
           </div>
-          <div className="flex rounded-lg border overflow-hidden shrink-0">
+          <div className="hidden sm:flex rounded-lg border overflow-hidden shrink-0">
             {[
               { v: 'all', l: 'Todos' },
               { v: 'aberto', l: 'Abertos' },
@@ -200,7 +200,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="hidden sm:flex gap-2">
           <Button variant="outline" size="sm" className="flex-1 h-8" onClick={handleExportPDF} disabled={filtrados.length === 0}><FileDown className="w-3.5 h-3.5 mr-1.5" /> PDF</Button>
           <Button size="sm" className="flex-1 h-8" onClick={handleExportCSV} disabled={filtrados.length === 0}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel</Button>
         </div>

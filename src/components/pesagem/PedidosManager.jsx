@@ -142,7 +142,7 @@ export default function PedidosManager({ pedidos, pessoas, produtos, onReload })
       <div className="lg:col-span-2 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-semibold">Pedidos ({pedidos.length})</h3>
-          <div className="flex gap-2">
+          <div className="hidden sm:flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={pedidos.length === 0}><FileDown className="w-4 h-4 mr-2" /> PDF</Button>
             <Button size="sm" onClick={handleExportCSV} disabled={pedidos.length === 0}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
           </div>
