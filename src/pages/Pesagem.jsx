@@ -32,10 +32,9 @@ export default function Pesagem() {
   const abertosCount = tickets.filter((t) => t.status === 'aberto').length;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
-      <header>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Scale className="w-6 h-6 text-primary" /> Pesagem Rodoviária</h1>
-        <p className="text-sm text-muted-foreground mt-1">Controle de tickets, pedidos e clientes</p>
+    <div className="p-3 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
+      <header className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2"><Scale className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> Pesagem Rodoviária</h1>
       </header>
 
       {loading ? (

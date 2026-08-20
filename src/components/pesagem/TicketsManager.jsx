@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2 } from 'lucide-react';
+import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,7 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
   const [fecharTicket, setFecharTicket] = useState(null);
+  const [formAberto, setFormAberto] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -57,7 +58,7 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
     const placaNorm = normalizePlaca(form.placa);
     const duplicado = abertos.some((t) => normalizePlaca(t.placa) === placaNorm);
     if (duplicado) {
-      toast({ variant: 'destructive', title: 'Ticket aberto para esta placa', description: 'Já existe um ticket aberto (sem peso bruto) para esta placa. Feche-o antes de abrir outro.' });
+      toast({ variant: 'destructive', title: 'Ticket aberto para esta placa', description: 'Já existe um ticket aberto para esta placa. Feche-o antes de abrir outro.' });
       return;
     }
     setSaving(true);
@@ -76,6 +77,7 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
       });
       toast({ title: 'Ticket aberto', description: numero });
       setForm(empty);
+      setFormAberto(false);
       onReload();
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao abrir ticket', description: String(err?.message || err) });
@@ -84,9 +86,8 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
     }
   }
 
-  function handleExportPDF() {
-    const cols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Cliente', 'Produto', 'Status'];
-    const rows = filtrados.map((t) => {
+  function buildRows() {
+    return filtrados.map((t) => {
       const ped = pedidoDoTicket(t.pedido_id);
       return [
         t.numero,
@@ -102,118 +103,141 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
         t.status,
       ];
     });
-    exportPDF('Relatório de Tickets de Pesagem', cols, rows);
   }
-  function handleExportCSV() {
-    const cols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Cliente', 'Produto', 'Status'];
-    const rows = filtrados.map((t) => {
-      const ped = pedidoDoTicket(t.pedido_id);
-      return [
-        t.numero,
-        t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '',
-        t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '',
-        t.motorista || '',
-        formatPlaca(t.placa),
-        formatQtd(t.peso_tara || 0),
-        formatQtd(t.peso_bruto || 0),
-        formatQtd(t.peso_liquido || 0),
-        ped ? clienteNome(ped.cliente_id) : '',
-        ped ? produtoNome(ped.produto_id) : '',
-        t.status,
-      ];
-    });
-    exportCSV('Relatório de Tickets de Pesagem', cols, rows);
-  }
+  const expCols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Cliente', 'Produto', 'Status'];
+  function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', expCols, buildRows()); }
+  function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', expCols, buildRows()); }
 
   return (
-    <div className="space-y-6">
-      {/* Form de abertura rápida */}
-      <Card className="p-5">
-        <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="w-4 h-4" /> Abrir Ticket (1ª Pesagem)</h3>
-        <form onSubmit={handleSubmit} className="grid sm:grid-cols-4 gap-3">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Motorista *</Label>
-            <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Placa *</Label>
-            <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC-1234" required />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Peso Tara (kg) *</Label>
-            <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
-          </div>
-          <div className="space-y-1.5 sm:col-span-4">
-            <Label>Observação</Label>
-            <Textarea rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
-          </div>
-          <div className="sm:col-span-4">
-            <Button type="submit" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
-          </div>
-        </form>
+    <div className="space-y-4">
+      {/* Botão/Form de abertura */}
+      <Card className="overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setFormAberto((v) => !v)}
+          className="w-full flex items-center justify-between p-4 hover:bg-accent/40 transition-colors"
+        >
+          <span className="flex items-center gap-2 font-semibold text-sm sm:text-base"><Plus className="w-4 h-4 text-primary" /> Abrir Novo Ticket</span>
+          <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${formAberto ? 'rotate-180' : ''}`} />
+        </button>
+        {formAberto && (
+          <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t">
+            <div className="grid grid-cols-2 gap-2 pt-3">
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">Motorista *</Label>
+                <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Placa *</Label>
+                <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tara (kg) *</Label>
+                <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label className="text-xs">Observação</Label>
+                <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
+              <Button type="button" variant="outline" onClick={() => { setFormAberto(false); setForm(empty); }}><X className="w-4 h-4" /></Button>
+            </div>
+          </form>
+        )}
       </Card>
 
       {/* Tickets abertos em destaque */}
       {abertos.length > 0 && (
         <div>
-          <h3 className="font-semibold mb-3 flex items-center gap-2"><CircleDot className="w-4 h-4 text-amber-500" /> Tickets Abertos ({abertos.length})</h3>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><CircleDot className="w-4 h-4 text-amber-500" /> Abertos ({abertos.length})</h3>
+          <div className="space-y-2 max-h-[32vh] overflow-auto scrollbar-thin pr-1">
             {abertos.map((t) => (
-              <Card key={t.id} className="p-4 border-amber-300 bg-amber-50/50">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-mono font-semibold text-sm">{t.numero}</p>
-                    <p className="text-sm font-medium truncate">{t.motorista}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{formatPlaca(t.placa)}</p>
+              <Card key={t.id} className="p-3 border-amber-300 bg-amber-50/60">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-semibold text-xs">{t.numero}</span>
+                      <span className="font-medium text-sm truncate">{t.motorista}</span>
+                      <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white border">{formatPlaca(t.placa)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-muted-foreground">Tara: <span className="font-semibold text-foreground">{formatKg(t.peso_tara)}</span></span>
+                      <span className="text-[10px] text-muted-foreground">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : ''}</span>
+                    </div>
                   </div>
-                  <Badge className="bg-amber-500 hover:bg-amber-500">Aberto</Badge>
+                  <Button size="sm" className="shrink-0" onClick={() => setFecharTicket(t)}>Fechar</Button>
                 </div>
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Tara: <span className="font-semibold text-foreground">{formatKg(t.peso_tara)}</span></span>
-                  <span className="text-xs text-muted-foreground">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : ''}</span>
-                </div>
-                <Button className="w-full mt-3" onClick={() => setFecharTicket(t)}>Fechar Pesagem</Button>
               </Card>
             ))}
           </div>
         </div>
       )}
 
-      {/* Todos os tickets */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-sm">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por ticket, placa, motorista..." className="pl-9" />
-            </div>
+      {/* Histórico */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar..." className="pl-9 h-9" />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border overflow-hidden">
-              {[
-                { v: 'all', l: 'Todos' },
-                { v: 'aberto', l: 'Abertos' },
-                { v: 'fechado', l: 'Fechados' },
-              ].map((opt) => (
-                <button
-                  key={opt.v}
-                  type="button"
-                  onClick={() => setFiltroStatus(opt.v)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroStatus === opt.v ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
-                >
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filtrados.length === 0}><FileDown className="w-4 h-4 mr-2" /> PDF</Button>
-            <Button size="sm" onClick={handleExportCSV} disabled={filtrados.length === 0}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
+          <div className="flex rounded-lg border overflow-hidden shrink-0">
+            {[
+              { v: 'all', l: 'Todos' },
+              { v: 'aberto', l: 'Abertos' },
+              { v: 'fechado', l: 'Fechados' },
+            ].map((opt) => (
+              <button
+                key={opt.v}
+                type="button"
+                onClick={() => setFiltroStatus(opt.v)}
+                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${filtroStatus === opt.v ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
+              >
+                {opt.l}
+              </button>
+            ))}
           </div>
         </div>
 
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1 h-8" onClick={handleExportPDF} disabled={filtrados.length === 0}><FileDown className="w-3.5 h-3.5 mr-1.5" /> PDF</Button>
+          <Button size="sm" className="flex-1 h-8" onClick={handleExportCSV} disabled={filtrados.length === 0}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel</Button>
+        </div>
+
+        {/* Mobile: cards */}
+        <div className="sm:hidden max-h-[34vh] overflow-auto scrollbar-thin space-y-2 pr-1">
+          {filtrados.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Nenhum ticket.</p>
+          ) : filtrados.map((t) => {
+            const ped = pedidoDoTicket(t.pedido_id);
+            const aberto = t.status === 'aberto';
+            return (
+              <Card key={t.id} className={`p-3 ${aberto ? 'border-amber-300' : ''}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-semibold text-xs">{t.numero}</span>
+                  {aberto ? <Badge className="bg-amber-500 hover:bg-amber-500 text-[10px]">Aberto</Badge> : <Badge variant="secondary" className="gap-1 text-[10px]"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>}
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-sm">
+                  <span className="font-medium truncate">{t.motorista}</span>
+                  <span className="text-xs font-mono text-muted-foreground">{formatPlaca(t.placa)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Tara <b className="text-foreground">{formatKg(t.peso_tara)}</b></span>
+                  {t.peso_liquido ? <span>Líq. <b className="text-foreground">{formatKg(t.peso_liquido)}</b></span> : null}
+                  <span className="truncate">{ped ? clienteNome(ped.cliente_id) : ''}</span>
+                </div>
+                {aberto && <Button size="sm" className="w-full mt-2 h-8" onClick={() => setFecharTicket(t)}>Fechar Pesagem</Button>}
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Desktop: tabela */}
         {filtrados.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Nenhum ticket encontrado.</p>
+          <p className="hidden sm:block text-sm text-muted-foreground text-center py-6">Nenhum ticket encontrado.</p>
         ) : (
-          <div className="rounded-lg border overflow-auto scrollbar-thin">
+          <div className="hidden sm:block rounded-lg border overflow-auto scrollbar-thin max-h-[40vh]">
             <table className="w-full text-sm">
               <thead className="bg-muted sticky top-0">
                 <tr>
@@ -242,11 +266,7 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
                       <td className="p-2 text-right font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</td>
                       <td className="p-2 text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</td>
                       <td className="p-2 text-center">
-                        {t.status === 'aberto' ? (
-                          <Badge className="bg-amber-500 hover:bg-amber-500">Aberto</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
-                        )}
+                        {t.status === 'aberto' ? <Badge className="bg-amber-500 hover:bg-amber-500">Aberto</Badge> : <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>}
                       </td>
                     </tr>
                   );
