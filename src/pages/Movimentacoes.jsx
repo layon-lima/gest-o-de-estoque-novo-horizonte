@@ -53,6 +53,7 @@ export default function Movimentacoes() {
   const [gavetas, setGavetas] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
+  const [pessoas, setPessoas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -63,26 +64,26 @@ export default function Movimentacoes() {
 
   async function load() {
     setLoading(true);
-    const [p, s, m, g, l, movs] = await Promise.all([
+    const [p, s, m, g, l, movs, ps] = await Promise.all([
       base44.entities.Produto.list(),
       base44.entities.Setor.list(),
       base44.entities.Maquina.list(),
       base44.entities.Gaveta.list(),
       base44.entities.Lote.list(),
       base44.entities.Movimentacao.list('-data', 50),
+      base44.entities.Pessoa.list('-created_date', 500),
     ]);
-    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs);
+    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
 
   const fornecedores = useMemo(() => {
-    const counts = {};
-    movimentacoes.forEach((m) => {
-      if (m.fornecedor) counts[m.fornecedor] = (counts[m.fornecedor] || 0) + 1;
-    });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([nome]) => nome);
-  }, [movimentacoes]);
+    const nomes = new Set();
+    pessoas.filter((p) => p.is_fornecedor).forEach((p) => p.nome && nomes.add(p.nome));
+    movimentacoes.forEach((m) => { if (m.fornecedor) nomes.add(m.fornecedor); });
+    return Array.from(nomes).sort((a, b) => a.localeCompare(b));
+  }, [pessoas, movimentacoes]);
 
   const produtoSelecionado = produtos.find((p) => p.id === form.produto_id);
   const controlaValidade = produtoSelecionado

@@ -15,11 +15,12 @@ import { exportPDF, exportCSV } from '@/lib/exports';
 
 const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', observacao: '' };
 
-export default function PedidosManager({ pedidos, clientes, produtos, onReload }) {
+export default function PedidosManager({ pedidos, pessoas, produtos, onReload }) {
   const [form, setForm] = useState(empty);
   const { toast } = useToast();
 
-  const clienteNome = (id) => clientes.find((c) => c.id === id)?.nome || '—';
+  const clientes = pessoas.filter((p) => p.is_cliente);
+  const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
 
   const totalKg = useMemo(() => calcTotalKg(form.qtd_sacas, form.peso_saca_kg), [form.qtd_sacas, form.peso_saca_kg]);
@@ -99,7 +100,7 @@ export default function PedidosManager({ pedidos, clientes, produtos, onReload }
             <SearchSelect
               value={form.cliente_id}
               onChange={(v) => setForm({ ...form, cliente_id: v })}
-              options={clientes.map((c) => ({ value: c.id, label: `${c.nome}${c.cnpj ? ' — ' + c.cnpj : ''}` }))}
+              options={clientes.map((c) => ({ value: c.id, label: `${c.nome}${c.documento ? ' — ' + c.documento : ''}` }))}
               placeholder="Buscar cliente..."
             />
           </div>

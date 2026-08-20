@@ -15,7 +15,7 @@ import FechamentoTicketDialog from './FechamentoTicketDialog';
 
 const empty = { motorista: '', placa: '', peso_tara: '', observacao: '' };
 
-export default function TicketsManager({ tickets, pedidos, clientes, produtos, onReload }) {
+export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload }) {
   const [form, setForm] = useState(empty);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
@@ -24,7 +24,7 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const clienteNome = (id) => clientes.find((c) => c.id === id)?.nome || '—';
+  const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedidoDoTicket = (id) => pedidos.find((p) => p.id === id);
 
@@ -280,7 +280,7 @@ export default function TicketsManager({ tickets, pedidos, clientes, produtos, o
       <FechamentoTicketDialog
         ticket={fecharTicket}
         pedidos={pedidos}
-        clientes={clientes}
+        pessoas={pessoas}
         produtos={produtos}
         open={!!fecharTicket}
         onClose={() => setFecharTicket(null)}

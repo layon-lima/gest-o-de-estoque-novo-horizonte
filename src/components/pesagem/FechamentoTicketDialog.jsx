@@ -27,7 +27,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 
-export default function FechamentoTicketDialog({ ticket, pedidos, clientes, produtos, open, onClose, onClosed }) {
+export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, open, onClose, onClosed }) {
   const [pesoBruto, setPesoBruto] = useState('');
   const [pedidoId, setPedidoId] = useState('');
   const [observacao, setObservacao] = useState('');
@@ -45,7 +45,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, clientes, prod
   const pedidoSel = pedidos.find((p) => p.id === pedidoId);
   const saldo = pedidoSel?.saldo_kg || 0;
   const excede = pedidoSel && liquido > saldo;
-  const clienteNome = (id) => clientes.find((c) => c.id === id)?.nome || '—';
+  const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
 
   function reset() {

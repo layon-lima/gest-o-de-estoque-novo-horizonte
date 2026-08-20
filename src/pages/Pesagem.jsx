@@ -2,25 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { Users, ClipboardList, Scale } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { base44 } from '@/api/base44Client';
-import ClientesManager from '@/components/pesagem/ClientesManager';
 import PedidosManager from '@/components/pesagem/PedidosManager';
 import TicketsManager from '@/components/pesagem/TicketsManager';
 
 export default function Pesagem() {
-  const [clientes, setClientes] = useState([]);
+  const [pessoas, setPessoas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [c, p, ped, t] = await Promise.all([
-      base44.entities.Cliente.list(),
+    const [ps, p, ped, t] = await Promise.all([
+      base44.entities.Pessoa.list('-created_date', 500),
       base44.entities.Produto.list(),
       base44.entities.PedidoPesagem.list('-created_date', 500),
       base44.entities.TicketPesagem.list('-data_abertura', 500),
     ]);
-    setClientes(c);
+    setPessoas(ps);
     setProdutos(p);
     setPedidos(ped);
     setTickets(t);
@@ -46,17 +45,13 @@ export default function Pesagem() {
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="tickets" className="gap-1.5"><Scale className="w-4 h-4" /> Tickets {abertosCount > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">{abertosCount}</span>}</TabsTrigger>
             <TabsTrigger value="pedidos" className="gap-1.5"><ClipboardList className="w-4 h-4" /> Pedidos</TabsTrigger>
-            <TabsTrigger value="clientes" className="gap-1.5"><Users className="w-4 h-4" /> Clientes</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tickets" className="mt-4">
-            <TicketsManager tickets={tickets} pedidos={pedidos} clientes={clientes} produtos={produtos} onReload={load} />
+            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} />
           </TabsContent>
           <TabsContent value="pedidos" className="mt-4">
-            <PedidosManager pedidos={pedidos} clientes={clientes} produtos={produtos} onReload={load} />
-          </TabsContent>
-          <TabsContent value="clientes" className="mt-4">
-            <ClientesManager clientes={clientes} onReload={load} />
+            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} />
           </TabsContent>
         </Tabs>
       )}

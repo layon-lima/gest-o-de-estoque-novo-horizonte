@@ -1,0 +1,42 @@
+{
+  "name": "Pessoa",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome / Raz\u00e3o Social"
+    },
+    "documento": {
+      "type": "string",
+      "title": "CNPJ / CPF",
+      "description": "Documento de identifica\u00e7\u00e3o da empresa ou pessoa."
+    },
+    "telefone": {
+      "type": "string",
+      "title": "Telefone"
+    },
+    "cidade": {
+      "type": "string",
+      "title": "Cidade"
+    },
+    "is_cliente": {
+      "type": "boolean",
+      "title": "Cliente",
+      "description": "Marca esta pessoa como cliente (comprador).",
+      "default": false
+    },
+    "is_fornecedor": {
+      "type": "boolean",
+      "title": "Fornecedor",
+      "description": "Marca esta pessoa como fornecedor.",
+      "default": false
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}
