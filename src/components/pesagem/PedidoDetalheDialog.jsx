@@ -18,6 +18,8 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
     .sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
 
   const pct = pedido && pedido.total_kg > 0 ? Math.max(0, Math.min(100, ((pedido.saldo_kg || 0) / pedido.total_kg) * 100)) : 0;
+  const carregadoKg = pedido ? Math.max(0, (pedido.total_kg || 0) - (pedido.saldo_kg || 0)) : 0;
+  const carregadoPct = pedido && pedido.total_kg > 0 ? (carregadoKg / pedido.total_kg) * 100 : 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.(); }}>
@@ -33,6 +35,21 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
               <div className="flex items-center justify-between gap-2">
                 <Badge variant={pedido.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{pedido.status}</Badge>
                 <span className="text-xs text-muted-foreground">Saldo: <b className="text-foreground">{formatKg(pedido.saldo_kg || 0)}</b> de {formatKg(pedido.total_kg || 0)}</span>
+              </div>
+
+              <div className="rounded-lg border bg-primary/5 p-3 space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Carregado</span>
+                  <span className="font-bold text-primary">{formatKg(carregadoKg)} ({carregadoPct.toFixed(1)}%)</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Total do pedido</span>
+                  <span>{formatKg(pedido.total_kg || 0)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Restante</span>
+                  <span>{formatKg(pedido.saldo_kg || 0)}</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
