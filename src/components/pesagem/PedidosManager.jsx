@@ -109,8 +109,8 @@ export default function PedidosManager({ pedidos, pessoas, produtos, onReload })
             <SearchSelect
               value={form.produto_id}
               onChange={(v) => setForm({ ...form, produto_id: v })}
-              options={produtos.map((p) => ({ value: p.id, label: `${p.codigo ? p.codigo + ' — ' : ''}${p.nome}` }))}
-              placeholder="Buscar produto..."
+              options={produtos.filter((p) => p.venda).map((p) => ({ value: p.id, label: `${p.codigo ? p.codigo + ' — ' : ''}${p.nome}` }))}
+              placeholder="Buscar produto de venda..."
             />
           </div>
           <div className="grid grid-cols-2 gap-3">

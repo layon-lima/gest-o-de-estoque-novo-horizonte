@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ const empty = {
   unidade_alt: '',
   fator_conversao: 0,
   estoque_minimo: 0,
+  venda: false,
 };
 
 export default function ProductForm({ open, onOpenChange, produto, setores, maquinas, gavetas, onSaved }) {
@@ -256,6 +258,11 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
               <Input id="min" type="text" inputMode="decimal" placeholder="0,00" value={form.estoque_minimo} onChange={(e) => set('estoque_minimo', e.target.value)} />
             </div>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox checked={!!form.venda} onCheckedChange={(v) => set('venda', !!v)} />
+            <span className="text-sm">Produto de venda <span className="text-xs text-muted-foreground">(comercializado na pesagem/balança)</span></span>
+          </label>
 
           <div className="space-y-1.5 rounded-lg border border-dashed p-3">
             <Label>Conversão customizada (opcional)</Label>

@@ -55,6 +55,12 @@
       "type": "number",
       "title": "Estoque M\u00ednimo",
       "default": 0
+    },
+    "venda": {
+      "type": "boolean",
+      "title": "Produto de Venda",
+      "description": "Indica que o produto \u00e9 comercializado e aparece na pesquisa da Pesagem Rodovi\u00e1ria (pedidos e tickets).",
+      "default": false
     }
   },
   "required": [
