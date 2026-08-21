@@ -13,6 +13,14 @@
       "title": "Pode Confirmar Abastecimento",
       "description": "Permite confirmar a baixa de abastecimentos pendentes. Administradores sempre podem confirmar.",
       "default": false
+    },
+    "paginas_permitidas": {
+      "type": "array",
+      "title": "P\u00e1ginas Permitidas",
+      "description": "Lista das chaves de p\u00e1ginas que o usu\u00e1rio pode acessar. Administradores t\u00eam acesso total; para usu\u00e1rios comuns, vazio ou ausente significa sem acesso \u00e0s abas.",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

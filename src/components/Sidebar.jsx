@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { allowedPagesForUser, canAccessUsuarios } from '@/lib/permissions';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -26,20 +27,25 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 
-const navItems = [
-  { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
-  { to: '/movimentacoes', label: 'Entradas e Saídas', icon: ArrowLeftRight, end: false },
-  { to: '/abastecimento', label: 'Abastecimento', icon: Fuel, end: false },
-  { to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
-  { to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
-  { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
-  { to: '/usuarios', label: 'Usuários', icon: Users, end: false },
+const allNavItems = [
+  { key: 'dashboard', to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
+  { key: 'movimentacoes', to: '/movimentacoes', label: 'Entradas e Saídas', icon: ArrowLeftRight, end: false },
+  { key: 'abastecimento', to: '/abastecimento', label: 'Abastecimento', icon: Fuel, end: false },
+  { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
+  { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
+  { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
+  { key: 'usuarios', to: '/usuarios', label: 'Usuários', icon: Users, end: false },
 ];
 
 export default function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const allowedKeys = new Set(allowedPagesForUser(user).map((p) => p.key));
+  const navItems = allNavItems.filter((it) =>
+    it.key === 'usuarios' ? canAccessUsuarios(user) : allowedKeys.has(it.key)
+  );
 
   const handleDeleteAccount = async () => {
     setDeleteOpen(false);

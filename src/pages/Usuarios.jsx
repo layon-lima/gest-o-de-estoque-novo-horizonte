@@ -7,13 +7,14 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@/components/ui/table';
 import {
-  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2, Fuel,
+  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2, Fuel, Lock,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import InviteUserDialog from '@/components/usuarios/InviteUserDialog';
+import PermissoesDialog from '@/components/usuarios/PermissoesDialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +30,7 @@ export default function Usuarios() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
+  const [permTarget, setPermTarget] = useState(null);
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -160,6 +162,7 @@ export default function Usuarios() {
                   <TableHead>E-mail</TableHead>
                   <TableHead>Cargo</TableHead>
                   {isAdmin && <TableHead>Confirma Abastec.</TableHead>}
+                  {isAdmin && <TableHead>Permissões</TableHead>}
                   {isAdmin && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -204,6 +207,17 @@ export default function Usuarios() {
                         </TableCell>
                       )}
                       {isAdmin && (
+                        <TableCell>
+                          {u.role === 'admin' ? (
+                            <span className="text-xs text-muted-foreground">Total</span>
+                          ) : (
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => setPermTarget(u)} title="Definições de acesso">
+                              <Lock className="w-3.5 h-3.5" /> Abas
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                      {isAdmin && (
                         <TableCell className="text-right">
                           {!isSelf && (
                             <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(u)} title="Remover usuário">
@@ -222,6 +236,8 @@ export default function Usuarios() {
       </Card>
 
       <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} onInvited={loadUsuarios} />
+
+      <PermissoesDialog user={permTarget} onClose={() => setPermTarget(null)} onSaved={loadUsuarios} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

@@ -4,21 +4,28 @@ import {
   Settings,
   ArrowLeftRight,
   FileBarChart,
-  Users,
   Fuel,
   Scale,
 } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
+import { allowedPagesForUser } from '@/lib/permissions';
 
-const items = [
-  { to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
-  { to: '/movimentacoes', label: 'Mov.', icon: ArrowLeftRight, end: false },
-  { to: '/abastecimento', label: 'Abast.', icon: Fuel, end: false },
-  { to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
-  { to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
-  { to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
+const allItems = [
+  { key: 'dashboard', to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
+  { key: 'movimentacoes', to: '/movimentacoes', label: 'Mov.', icon: ArrowLeftRight, end: false },
+  { key: 'abastecimento', to: '/abastecimento', label: 'Abast.', icon: Fuel, end: false },
+  { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
+  { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
+  { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
 ];
 
 export default function BottomTabBar() {
+  const { user } = useAuth();
+  const allowedKeys = new Set(allowedPagesForUser(user).map((p) => p.key));
+  const items = allItems.filter((it) => allowedKeys.has(it.key));
+
+  if (items.length === 0) return null;
+
   return (
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar text-sidebar-foreground border-t border-white/10 flex items-stretch justify-around"

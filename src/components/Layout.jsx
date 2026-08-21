@@ -1,11 +1,47 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, ShieldX } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BottomTabBar from './BottomTabBar';
+import { useAuth } from '@/lib/AuthContext';
+import {
+  allowedPagesForUser,
+  canAccessUsuarios,
+  pageKeyForPath,
+  userCanAccess,
+} from '@/lib/permissions';
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const pageKey = pageKeyForPath(location.pathname);
+  const isUsuarios = location.pathname === '/usuarios';
+  const isUsuariosAllowed = canAccessUsuarios(user);
+  const canAccess = isUsuarios ? isUsuariosAllowed : userCanAccess(user, pageKey);
+  const allowed = allowedPagesForUser(user);
+
+  useEffect(() => {
+    if (!user) return;
+    if (canAccess) return;
+    if (allowed.length > 0) {
+      navigate(allowed[0].path, { replace: true });
+    }
+  }, [user, canAccess, allowed, navigate]);
+
+  if (user && !canAccess && allowed.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center px-6">
+        <div className="p-4 rounded-2xl bg-destructive/10 text-destructive mb-4">
+          <ShieldX className="w-10 h-10" />
+        </div>
+        <h1 className="text-xl font-bold">Sem acesso</h1>
+        <p className="text-sm text-muted-foreground mt-1">Você não tem permissão para acessar nenhuma página. Contate um administrador.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20">
@@ -21,7 +57,13 @@ export default function Layout() {
           <span className="font-bold">Controle de Estoque Novo Horizonte</span>
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-y-none scrollbar-thin pb-16 md:pb-0">
-          <Outlet />
+          {user && !canAccess ? (
+            <div className="flex items-center justify-center h-full py-20">
+              <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
         <BottomTabBar />
       </div>
