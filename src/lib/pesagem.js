@@ -49,12 +49,9 @@ export function round3(n) {
   return Math.round((Number(n) || 0) * 1000) / 1000;
 }
 
-// Formata kg para exibição, abreviando para toneladas quando >= 1000.
+// Formata kg para exibição — sempre em kg (sem converter para toneladas).
 export function formatKg(n) {
   const num = Number(n) || 0;
-  if (Math.abs(num) >= 1000) {
-    return `${(num / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} t`;
-  }
   return `${num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} kg`;
 }
 
