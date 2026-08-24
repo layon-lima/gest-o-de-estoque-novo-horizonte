@@ -187,18 +187,11 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           {pedidoSel && (() => {
             const ps = pedidoSel.peso_saca_kg || 0;
             const saldoSacas = ps > 0 ? saldo / ps : 0;
-            const aposSacas = ps > 0 ? (saldo - liquido) / ps : 0;
             return (
               <div className="rounded-lg border p-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-md bg-primary/5 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo restante</p>
-                    <p className="text-lg font-bold text-primary leading-tight">{formatQtd(saldoSacas)} <span className="text-xs font-semibold">sacas</span></p>
-                  </div>
-                  <div className="rounded-md bg-muted/50 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Após este ticket</p>
-                    <p className={`text-lg font-bold leading-tight ${excede ? 'text-destructive' : 'text-foreground'}`}>{formatQtd(aposSacas)} <span className="text-xs font-semibold">sacas</span></p>
-                  </div>
+                <div className="rounded-md bg-primary/5 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo restante</p>
+                  <p className="text-lg font-bold text-primary leading-tight">{formatQtd(saldoSacas)} <span className="text-xs font-semibold">sacas</span></p>
                 </div>
                 <div className="flex justify-between items-center pt-1 text-sm">
                   <span className="text-muted-foreground">Valor da saca</span>
