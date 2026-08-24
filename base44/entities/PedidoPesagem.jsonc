@@ -2,6 +2,11 @@
   "name": "PedidoPesagem",
   "type": "object",
   "properties": {
+    "numero": {
+      "type": "string",
+      "title": "N\u00famero do Pedido",
+      "description": "Identificador \u00fanico sequencial (ex.: PED-000001). Gerado automaticamente."
+    },
     "cliente_id": {
       "type": "string",
       "title": "Cliente",

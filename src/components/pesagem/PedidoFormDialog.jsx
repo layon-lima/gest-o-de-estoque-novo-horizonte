@@ -15,11 +15,11 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
-import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, statusPorSaldo, round3 } from '@/lib/pesagem';
+import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, statusPorSaldo, round3, nextPedidoNumber } from '@/lib/pesagem';
 
 const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', observacao: '' };
 
-export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, pedido, tickets }) {
+export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, pedido, tickets, pedidos }) {
   const isEdit = !!pedido;
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
@@ -90,6 +90,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
       } else {
         payload.saldo_kg = totalKg;
         payload.status = 'aberto';
+        payload.numero = nextPedidoNumber(pedidos);
         await base44.entities.PedidoPesagem.create(payload);
         toast({ title: 'Pedido cadastrado' });
       }

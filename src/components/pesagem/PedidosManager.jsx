@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { formatKg, formatMoeda } from '@/lib/pesagem';
+import { formatKg, formatMoeda, nextPedidoNumber } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
@@ -87,20 +87,26 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, on
         <div className="space-y-3">
           {filtrados.map((p) => {
             const pct = p.total_kg > 0 ? Math.max(0, Math.min(100, ((p.saldo_kg || 0) / p.total_kg) * 100)) : 0;
+            const pesoSaca = p.peso_saca_kg || 0;
+            const restanteSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
+            const totalSacas = pesoSaca > 0 ? (p.total_kg || 0) / pesoSaca : 0;
+            const carregadoPct = p.total_kg > 0 ? Math.max(0, 100 - pct) : 0;
             return (
               <button key={p.id} type="button" onClick={() => setSelecionado(p)} className="w-full text-left">
                 <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {p.numero && <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{p.numero}</span>}
                         <p className="font-semibold truncate">{clienteNome(p.cliente_id)}</p>
                         <Badge variant={p.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{p.status}</Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{produtoNome(p.produto_id)} · {formatQtd(p.qtd_sacas || 0)} sacas · {formatMoeda(p.valor_saca)}/saca</p>
+                      <p className="text-sm text-muted-foreground">{produtoNome(p.produto_id)} · {formatQtd(p.qtd_sacas || 0)} sacas</p>
                     </div>
-                    <div className="text-right text-sm">
-                      <p className="font-semibold">{formatKg(p.saldo_kg || 0)} <span className="text-muted-foreground font-normal">de {formatKg(p.total_kg || 0)}</span></p>
-                      <p className="text-xs text-muted-foreground">{formatMoeda(p.valor_total)}</p>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Restante</p>
+                      <p className="text-xl font-bold text-primary leading-tight">{formatQtd(restanteSacas)} <span className="text-xs font-semibold">sacas</span></p>
+                      <p className="text-xs text-muted-foreground">Carregado {carregadoPct.toFixed(1)}% · {formatQtd(totalSacas)} sacas</p>
                     </div>
                   </div>
                   <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
@@ -119,6 +125,7 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, on
         onSaved={onReload}
         pessoas={pessoas}
         produtos={produtos}
+        pedidos={pedidos}
       />
       <PedidoFormDialog
         open={!!editando}

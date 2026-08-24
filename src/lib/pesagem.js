@@ -30,6 +30,19 @@ export function nextTicketNumber(tickets = []) {
   return `PES-${String(max + 1).padStart(6, '0')}`;
 }
 
+// Gera o próximo número sequencial de pedido (PED-000001) com base na lista existente.
+export function nextPedidoNumber(pedidos = []) {
+  let max = 0;
+  pedidos.forEach((p) => {
+    const m = String(p.numero || '').match(/PED-(\d+)/i);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
+  });
+  return `PED-${String(max + 1).padStart(6, '0')}`;
+}
+
 // Calcula total em kg: qtd_sacas * peso_saca_kg.
 export function calcTotalKg(qtdSacas, pesoSacaKg) {
   return round3(parseQtd(qtdSacas) * parseQtd(pesoSacaKg));
