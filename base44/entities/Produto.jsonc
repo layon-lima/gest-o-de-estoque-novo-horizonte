@@ -20,6 +20,11 @@
       "title": "Setor",
       "description": "Refer\u00eancia ao Setor"
     },
+    "deposito_id": {
+      "type": "string",
+      "title": "Dep\u00f3sito",
+      "description": "Refer\u00eancia ao Dep\u00f3sito (agrupamento dentro do setor) ao qual o produto pertence."
+    },
     "maquina_id": {
       "type": "string",
       "title": "M\u00e1quina",

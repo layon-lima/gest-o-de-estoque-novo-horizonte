@@ -34,6 +34,7 @@ const empty = {
   codigo_referencia: '',
   nome: '',
   setor_id: '',
+  deposito_id: '',
   maquina_id: '',
   gaveta_id: '',
   quantidade: 0,
@@ -44,7 +45,7 @@ const empty = {
   venda: false,
 };
 
-export default function ProductForm({ open, onOpenChange, produto, setores, maquinas, gavetas, onSaved, produtos = [] }) {
+export default function ProductForm({ open, onOpenChange, produto, setores, depositos = [], maquinas, gavetas, onSaved, produtos = [] }) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -204,6 +205,21 @@ export default function ProductForm({ open, onOpenChange, produto, setores, maqu
               <SelectContent>
                 <SelectItem value="none">— Nenhum —</SelectItem>
                 {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+            <Select value={form.deposito_id || 'none'} onValueChange={(v) => set('deposito_id', v === 'none' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {depositos
+                  .filter((d) => !form.setor_id || d.setor_id === form.setor_id)
+                  .map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

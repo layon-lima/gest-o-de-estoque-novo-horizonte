@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/use-toast';
 export default function ProdutosManager() {
   const [produtos, setProdutos] = useState([]);
   const [setores, setSetores] = useState([]);
+  const [depositos, setDepositos] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [gavetas, setGavetas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,13 +25,14 @@ export default function ProdutosManager() {
 
   async function load() {
     setLoading(true);
-    const [p, s, m, g] = await Promise.all([
+    const [p, s, dep, m, g] = await Promise.all([
       base44.entities.Produto.list(),
       base44.entities.Setor.list(),
+      base44.entities.Deposito.list(),
       base44.entities.Maquina.list(),
       base44.entities.Gaveta.list(),
     ]);
-    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g);
+    setProdutos(p); setSetores(s); setDepositos(dep); setMaquinas(m); setGavetas(g);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -103,6 +105,7 @@ export default function ProdutosManager() {
         onOpenChange={setFormOpen}
         produto={editing}
         setores={setores}
+        depositos={depositos}
         maquinas={maquinas}
         gavetas={gavetas}
         onSaved={load}

@@ -5,6 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
@@ -61,8 +68,9 @@ export default function GavetaManager() {
   const [items, setItems] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [lotes, setLotes] = useState([]);
+  const [depositos, setDepositos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ codigo: '', descricao: '' });
+  const [form, setForm] = useState({ codigo: '', descricao: '', deposito_id: '' });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
@@ -84,14 +92,16 @@ export default function GavetaManager() {
 
   async function load() {
     setLoading(true);
-    const [g, p, l] = await Promise.all([
+    const [g, p, l, d] = await Promise.all([
       base44.entities.Gaveta.list(),
       base44.entities.Produto.list(),
       base44.entities.Lote.list(),
+      base44.entities.Deposito.list(),
     ]);
     setItems(g);
     setProdutos(p);
     setLotes(l);
+    setDepositos(d);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -109,7 +119,7 @@ export default function GavetaManager() {
     }
     if (editingId) await base44.entities.Gaveta.update(editingId, form);
     else await base44.entities.Gaveta.create(form);
-    setForm({ codigo: '', descricao: '' });
+    setForm({ codigo: '', descricao: '', deposito_id: '' });
     setEditingId(null);
     load();
   }
@@ -129,7 +139,7 @@ export default function GavetaManager() {
   }
 
   function handleEdit(item) {
-    setForm({ codigo: item.codigo, descricao: item.descricao || '' });
+    setForm({ codigo: item.codigo, descricao: item.descricao || '', deposito_id: item.deposito_id || '' });
     setEditingId(item.id);
   }
 
@@ -147,9 +157,21 @@ export default function GavetaManager() {
             <Label htmlFor="g-desc">Descrição</Label>
             <Input id="g-desc" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
           </div>
+          <div className="space-y-1.5">
+            <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+            <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {depositos.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', descricao: '' }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', descricao: '', deposito_id: '' }); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>

@@ -14,6 +14,11 @@
       "type": "string",
       "title": "Descri\u00e7\u00e3o"
     },
+    "deposito_id": {
+      "type": "string",
+      "title": "Dep\u00f3sito",
+      "description": "Refer\u00eancia ao Dep\u00f3sito ao qual a m\u00e1quina pertence."
+    },
     "permite_abastecimento": {
       "type": "boolean",
       "title": "Permite Abastecimento",

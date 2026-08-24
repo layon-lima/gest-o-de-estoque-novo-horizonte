@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SetorManager from '@/components/cadastros/SetorManager';
+import DepositoManager from '@/components/cadastros/DepositoManager';
 import MaquinaManager from '@/components/cadastros/MaquinaManager';
 import GavetaManager from '@/components/cadastros/GavetaManager';
 import ProdutosManager from '@/components/cadastros/ProdutosManager';
@@ -23,6 +24,7 @@ export default function Cadastros() {
           <TabsTrigger value="pessoas">Pessoas</TabsTrigger>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="setores">Setores</TabsTrigger>
+          <TabsTrigger value="depositos">Depósitos</TabsTrigger>
           <TabsTrigger value="maquinas">Máquinas</TabsTrigger>
           <TabsTrigger value="gavetas">Gavetas</TabsTrigger>
           {showUsuarios && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
@@ -35,6 +37,9 @@ export default function Cadastros() {
         </TabsContent>
         <TabsContent value="setores">
           <SetorManager />
+        </TabsContent>
+        <TabsContent value="depositos">
+          <DepositoManager />
         </TabsContent>
         <TabsContent value="maquinas">
           <MaquinaManager />

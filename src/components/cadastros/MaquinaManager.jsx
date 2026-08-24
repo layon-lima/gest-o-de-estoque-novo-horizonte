@@ -6,21 +6,34 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
 
-const emptyForm = { codigo: '', nome: '', descricao: '', permite_abastecimento: false };
+const emptyForm = { codigo: '', nome: '', descricao: '', deposito_id: '', permite_abastecimento: false };
 
 const norm = (v) => String(v || '').trim().toLowerCase();
 
 export default function MaquinaManager() {
   const [items, setItems] = useState([]);
+  const [depositos, setDepositos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
+
+  const depositoLabel = (id) => {
+    const d = depositos.find((x) => x.id === id);
+    return d ? (d.nome ? `${d.numero} · ${d.nome}` : d.numero) : null;
+  };
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -34,7 +47,12 @@ export default function MaquinaManager() {
 
   async function load() {
     setLoading(true);
-    setItems(await base44.entities.Maquina.list());
+    const [m, d] = await Promise.all([
+      base44.entities.Maquina.list(),
+      base44.entities.Deposito.list(),
+    ]);
+    setItems(m);
+    setDepositos(d);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -68,7 +86,7 @@ export default function MaquinaManager() {
   }
 
   function handleEdit(item) {
-    setForm({ codigo: item.codigo, nome: item.nome, descricao: item.descricao || '', permite_abastecimento: item.permite_abastecimento === true });
+    setForm({ codigo: item.codigo, nome: item.nome, descricao: item.descricao || '', deposito_id: item.deposito_id || '', permite_abastecimento: item.permite_abastecimento === true });
     setEditingId(item.id);
   }
 
@@ -89,6 +107,18 @@ export default function MaquinaManager() {
             <Label htmlFor="m-desc">Descrição</Label>
             <Input id="m-desc" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
           </div>
+          <div className="space-y-1.5">
+            <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+            <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {depositos.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="m-abast" className="cursor-pointer">Permite abastecimento</Label>
@@ -98,7 +128,7 @@ export default function MaquinaManager() {
           </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ codigo: '', nome: '', descricao: '' }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>
@@ -116,6 +146,9 @@ export default function MaquinaManager() {
                   <p className="font-medium truncate">{item.nome}</p>
                   {item.permite_abastecimento === true && (
                     <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100"><Fuel className="w-3 h-3 mr-1" />Abastece</Badge>
+                  )}
+                  {depositoLabel(item.deposito_id) && (
+                    <Badge variant="outline" className="font-mono">{depositoLabel(item.deposito_id)}</Badge>
                   )}
                 </div>
                 {item.descricao && <p className="text-sm text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
