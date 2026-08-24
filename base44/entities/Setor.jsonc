@@ -15,6 +15,12 @@
       "title": "Cor",
       "default": "#16a34a"
     },
+    "icon": {
+      "type": "string",
+      "title": "\u00cdcone",
+      "description": "\u00cdcone que representa o setor na barra mobile. Se vazio, o sistema infere pelo nome (ex.: combust\u00edvel \u2192 bomba, m\u00e1quinas \u2192 trator).",
+      "default": ""
+    },
     "controla_validade": {
       "type": "boolean",
       "title": "Controla Validade (Lotes)",

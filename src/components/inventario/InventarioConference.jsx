@@ -68,8 +68,6 @@ export default function InventarioConference({
     [produtos, setor, criterios, lotes]
   );
 
-  const criteriosPreenchidos = Object.values(criterios).some((v) => v);
-
   function reset() {
     setStep('criterios');
     setCriterios(emptyCriterios);
@@ -83,14 +81,6 @@ export default function InventarioConference({
   }
 
   function iniciar() {
-    if (!criteriosPreenchidos) {
-      toast({
-        variant: 'destructive',
-        title: 'Critério obrigatório',
-        description: 'Selecione ao menos um critério (depósito, gaveta ou máquina).',
-      });
-      return;
-    }
     setContagem({});
     setStep('conferencia');
   }
@@ -170,7 +160,7 @@ export default function InventarioConference({
         {step === 'criterios' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Selecione ao menos <strong>um critério</strong> para definir quais produtos serão conferidos.
+              Selecione critérios para filtrar quais produtos serão conferidos (opcional). Sem critérios, todos os produtos do setor serão listados.
               A conferência é tete-a-tete: você conta cada item e compara com o saldo do sistema.
             </p>
             <div className="space-y-3">

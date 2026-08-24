@@ -7,11 +7,11 @@ import {
   FileBarChart,
   Fuel,
   Scale,
-  Layers,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { allowedPagesForUser } from '@/lib/permissions';
+import SetorIcon from '@/components/setorIcon';
 
 const allItems = [
   { key: 'dashboard', to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
@@ -82,7 +82,7 @@ export default function BottomTabBar() {
             }`
           }
         >
-          <Layers className="w-5 h-5 shrink-0" style={{ color: s.cor || undefined }} />
+          <SetorIcon setor={s} className="w-5 h-5 shrink-0" />
           <span className="leading-none truncate max-w-full">{abreviar(s.nome)}</span>
         </NavLink>
       ))}
