@@ -65,8 +65,8 @@ export default function PermissoesDialog({ user, onClose, onSaved }) {
         </div>
         {setores.length > 0 && (
           <div className="space-y-2 pt-2">
-            <p className="text-sm font-semibold">Setores liberados (aba mobile)</p>
-            <p className="text-xs text-muted-foreground -mt-1">Quais setores este usuário vê na aba "Setores" do mobile.</p>
+            <p className="text-sm font-semibold">Setores liberados (mobile)</p>
+            <p className="text-xs text-muted-foreground -mt-1">Quais setores este usuário pode usar — cada um vira um ícone na barra inferior.</p>
             {setores.map((s) => (
               <label key={s.id} className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
                 <Checkbox checked={setoresSel.includes(s.id)} onCheckedChange={() => toggleSetor(s.id)} />
