@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { parseQtd } from '@/lib/format';
+import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 
 export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, open, onClose, onClosed }) {
@@ -152,6 +152,9 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                 {pedidosAbertos.map((p) => {
                   const selected = p.id === pedidoId;
                   const consumoExcede = liquido > (p.saldo_kg || 0);
+                  const pesoSaca = p.peso_saca_kg || 0;
+                  const saldoSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
+                  const liquidoSacas = pesoSaca > 0 ? liquido / pesoSaca : 0;
                   return (
                     <button
                       key={p.id}
@@ -162,7 +165,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                       <div className="flex justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                          <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatKg(p.saldo_kg)} disponível</p>
+                          <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
                         </div>
                         {selected && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
                       </div>
@@ -171,7 +174,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                           <Badge variant={consumoExcede ? 'destructive' : 'secondary'} className={consumoExcede ? '' : 'bg-green-100 text-green-700'}>
                             {consumoExcede ? <><AlertTriangle className="w-3 h-3 mr-1" /> Excede saldo</> : 'Dentro do saldo'}
                           </Badge>
-                          <span className="text-muted-foreground">Consumirá {formatKg(liquido)}</span>
+                          <span className="text-muted-foreground">Consumirá {formatQtd(liquidoSacas)} sacas</span>
                         </div>
                       )}
                     </button>
@@ -181,13 +184,29 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             )}
           </div>
 
-          {pedidoSel && (
-            <div className="rounded-lg border p-3 text-sm space-y-1">
-              <div className="flex justify-between"><span className="text-muted-foreground">Saldo atual:</span><span className="font-semibold">{formatKg(saldo)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Após este ticket:</span><span className={`font-semibold ${excede ? 'text-destructive' : ''}`}>{formatKg(saldo - liquido)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Valor total pedido:</span><span>{formatMoeda(pedidoSel.valor_total)}</span></div>
-            </div>
-          )}
+          {pedidoSel && (() => {
+            const ps = pedidoSel.peso_saca_kg || 0;
+            const saldoSacas = ps > 0 ? saldo / ps : 0;
+            const aposSacas = ps > 0 ? (saldo - liquido) / ps : 0;
+            return (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md bg-primary/5 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo restante</p>
+                    <p className="text-lg font-bold text-primary leading-tight">{formatQtd(saldoSacas)} <span className="text-xs font-semibold">sacas</span></p>
+                  </div>
+                  <div className="rounded-md bg-muted/50 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Após este ticket</p>
+                    <p className={`text-lg font-bold leading-tight ${excede ? 'text-destructive' : 'text-foreground'}`}>{formatQtd(aposSacas)} <span className="text-xs font-semibold">sacas</span></p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-1 text-sm">
+                  <span className="text-muted-foreground">Valor da saca</span>
+                  <span className="font-semibold">{formatMoeda(pedidoSel.valor_saca)}</span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="space-y-1.5">
             <Label>Observação</Label>
