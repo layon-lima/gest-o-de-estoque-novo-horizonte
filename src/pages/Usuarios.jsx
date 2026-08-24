@@ -7,7 +7,7 @@ import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from '@/components/ui/table';
 import {
-  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2, Fuel, Lock,
+  Users, UserPlus, Search, Loader2, ShieldCheck, UserCircle, Mail, Trash2, Fuel, Settings,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { base44 } from '@/api/base44Client';
@@ -211,8 +211,8 @@ export default function Usuarios() {
                           {u.role === 'admin' ? (
                             <span className="text-xs text-muted-foreground">Total</span>
                           ) : (
-                            <Button variant="outline" size="sm" className="gap-1" onClick={() => setPermTarget(u)} title="Definições de acesso">
-                              <Lock className="w-3.5 h-3.5" /> Abas
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => setPermTarget(u)} title="Definir permissões e setores">
+                              <Settings className="w-3.5 h-3.5" /> Permissões
                             </Button>
                           )}
                         </TableCell>
