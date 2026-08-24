@@ -5,7 +5,6 @@ import {
   Settings,
   ArrowLeftRight,
   FileBarChart,
-  Users,
   Leaf,
   Fuel,
   Scale,
@@ -15,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { allowedPagesForUser, canAccessUsuarios } from '@/lib/permissions';
+import { allowedPagesForUser } from '@/lib/permissions';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -34,7 +33,6 @@ const allNavItems = [
   { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
   { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
   { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
-  { key: 'usuarios', to: '/usuarios', label: 'Usuários', icon: Users, end: false },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -43,9 +41,7 @@ export default function Sidebar({ open, onClose }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const allowedKeys = new Set(allowedPagesForUser(user).map((p) => p.key));
-  const navItems = allNavItems.filter((it) =>
-    it.key === 'usuarios' ? canAccessUsuarios(user) : allowedKeys.has(it.key)
-  );
+  const navItems = allNavItems.filter((it) => allowedKeys.has(it.key));
 
   const handleDeleteAccount = async () => {
     setDeleteOpen(false);
