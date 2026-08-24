@@ -29,8 +29,8 @@ const emptyForm = {
   chave_acesso: '',
 };
 
-export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavetas, lotes, movimentacoes, pessoas, onSaved }) {
-  const [form, setForm] = useState(emptyForm);
+export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavetas, lotes, movimentacoes, pessoas, onSaved, onClose, tipoForcado }) {
+  const [form, setForm] = useState(() => (tipoForcado ? { ...emptyForm, tipo: tipoForcado } : emptyForm));
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -52,8 +52,9 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
     try {
       await registrarMovimentacao({ form, produto: produtoSelecionado, lotes, movimentacoes, controlaValidade });
       toast({ title: 'Movimentação registrada com sucesso' });
-      setForm(emptyForm);
+      setForm(tipoForcado ? { ...emptyForm, tipo: tipoForcado } : emptyForm);
       onSaved?.();
+      onClose?.();
     } catch (err) {
       const msg = err?.message || '';
       if (msg.startsWith('NF_DUPLICADA')) {
@@ -97,17 +98,19 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
           )}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Tipo *</Label>
-            <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="entrada">Entrada</SelectItem>
-                <SelectItem value="saida">Saída</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
+          {!tipoForcado && (
+            <div className="space-y-1.5">
+              <Label>Tipo *</Label>
+              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entrada">Entrada</SelectItem>
+                  <SelectItem value="saida">Saída</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className={tipoForcado ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
             <Label htmlFor="sf-qtd">Quantidade *</Label>
             <Input id="sf-qtd" type="text" inputMode="decimal" placeholder="0,00" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
           </div>

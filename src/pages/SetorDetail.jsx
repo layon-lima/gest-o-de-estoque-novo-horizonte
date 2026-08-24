@@ -1,9 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, Package } from 'lucide-react';
+import { Search, Package, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatQtd } from '@/lib/format';
@@ -21,6 +28,7 @@ export default function SetorDetail() {
   const [pessoas, setPessoas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
+  const [modalTipo, setModalTipo] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -75,32 +83,44 @@ export default function SetorDetail() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto pb-24">
+    <div className="p-4 sm:p-6 space-y-4 max-w-3xl mx-auto pb-40">
       <header className="flex items-center gap-2">
         <div className="w-3 h-8 rounded-full" style={{ backgroundColor: setor.cor || '#16a34a' }} />
-        <div>
-          <h1 className="text-xl font-bold leading-tight">{setor.nome}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold leading-tight truncate">{setor.nome}</h1>
           {setor.controla_validade && (
             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">Controla validade</Badge>
           )}
         </div>
       </header>
 
-      <Card className="p-4 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Buscar produto do setor…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-        </div>
-        <div className="space-y-2 max-h-[40vh] overflow-y-auto scrollbar-thin">
+      {/* Busca em destaque */}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <Input
+          autoFocus
+          className="pl-11 h-12 text-base rounded-xl shadow-sm"
+          placeholder="Buscar produto por nome ou código…"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
+      </div>
+
+      <Card className="p-2 sm:p-3">
+        <div className="space-y-1 max-h-[55vh] overflow-y-auto scrollbar-thin">
           {produtosSetor.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">Nenhum produto encontrado.</p>
+            <p className="text-sm text-muted-foreground text-center py-10">Nenhum produto encontrado.</p>
           ) : (
             produtosSetor.map((p) => {
               const gav = gavetas.find((g) => g.id === p.gaveta_id);
               const maq = maquinas.find((m) => m.id === p.maquina_id);
               const baixo = (p.estoque_minimo || 0) > 0 && (p.quantidade || 0) <= (p.estoque_minimo || 0);
               return (
-                <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                <button
+                  key={p.id}
+                  onClick={() => setModalTipo('saida')}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/60 text-left transition-colors"
+                >
                   <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <Package className="w-4 h-4" />
                   </div>
@@ -110,27 +130,54 @@ export default function SetorDetail() {
                       {p.codigo}{gav ? ` · Gav ${gav.codigo}` : ''}{maq ? ` · ${maq.nome}` : ''}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className={`font-semibold tabular-nums text-sm ${baixo ? 'text-destructive' : ''}`}>{formatQtd(p.quantidade || 0)}</p>
                     <p className="text-[10px] text-muted-foreground">{p.unidade || ''}</p>
                   </div>
-                </div>
+                </button>
               );
             })
           )}
         </div>
       </Card>
 
-      <SetorMovimentacaoForm
-        setor={setor}
-        produtos={produtos}
-        maquinas={maquinas}
-        gavetas={gavetas}
-        lotes={lotes}
-        movimentacoes={movimentacoes}
-        pessoas={pessoas}
-        onSaved={load}
-      />
+      {/* Barra de ações fixa: Entrada / Saída */}
+      <div className="fixed bottom-0 inset-x-0 z-20 md:hidden pb-safe" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 4.25rem)' }}>
+        <div className="mx-auto max-w-3xl px-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Button size="lg" className="h-12 rounded-xl text-base" onClick={() => setModalTipo('entrada')}>
+              <ArrowDownToLine className="w-5 h-5 mr-2" />
+              Entrada
+            </Button>
+            <Button size="lg" variant="destructive" className="h-12 rounded-xl text-base" onClick={() => setModalTipo('saida')}>
+              <ArrowUpFromLine className="w-5 h-5 mr-2" />
+              Saída
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={!!modalTipo} onOpenChange={(o) => !o && setModalTipo(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {modalTipo === 'entrada' ? 'Entrada de estoque' : 'Saída de estoque'}
+            </DialogTitle>
+          </DialogHeader>
+          <SetorMovimentacaoForm
+            setor={setor}
+            produtos={produtos}
+            maquinas={maquinas}
+            gavetas={gavetas}
+            lotes={lotes}
+            movimentacoes={movimentacoes}
+            pessoas={pessoas}
+            onSaved={load}
+            onClose={() => setModalTipo(null)}
+            tipoForcado={modalTipo}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
