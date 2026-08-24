@@ -32,34 +32,57 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, on
     );
   }, [pedidos, busca]);
 
+  function buildReport() {
+    const cols = ['Descrição', 'Número', 'Data', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Sacas', 'Kg'];
+    const rows = [];
+    pedidos.forEach((p) => {
+      const ps = p.peso_saca_kg || 0;
+      const toSacas = (kg) => (ps > 0 ? kg / ps : 0);
+      const fmtData = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+      // Linha do pedido (valor contratado)
+      rows.push([
+        `PEDIDO — ${clienteNome(p.cliente_id)} · ${produtoNome(p.produto_id)}`,
+        p.numero || '—',
+        p.created_date ? fmtData(p.created_date) : '—',
+        '', '', '', '', '',
+        formatQtd(p.qtd_sacas || 0),
+        formatQtd(p.total_kg || 0),
+      ]);
+      // Tickets vinculados fechados
+      const tks = tickets
+        .filter((t) => t.pedido_id === p.id && t.status === 'fechado')
+        .sort((a, b) => new Date(a.data_fechamento || 0) - new Date(b.data_fechamento || 0));
+      tks.forEach((t) => {
+        rows.push([
+          'Ticket',
+          t.numero || '—',
+          fmtData(t.data_fechamento),
+          t.motorista || '—',
+          t.placa || '—',
+          formatQtd(t.peso_tara || 0),
+          formatQtd(t.peso_bruto || 0),
+          formatQtd(t.peso_liquido || 0),
+          formatQtd(toSacas(t.peso_liquido || 0)),
+          formatQtd(t.peso_liquido || 0),
+        ]);
+      });
+      // Linha de saldo restante
+      rows.push([
+        'SALDO RESTANTE',
+        '', '', '', '', '', '', '',
+        formatQtd(toSacas(p.saldo_kg || 0)),
+        formatQtd(p.saldo_kg || 0),
+      ]);
+    });
+    return { cols, rows };
+  }
+
   function handleExportPDF() {
-    const cols = ['Cliente', 'Produto', 'Sacas', 'Peso/Saca (kg)', 'Total (kg)', 'Saldo (kg)', 'Valor Saca', 'Valor Total', 'Status'];
-    const rows = pedidos.map((p) => [
-      clienteNome(p.cliente_id),
-      produtoNome(p.produto_id),
-      formatQtd(p.qtd_sacas || 0),
-      formatQtd(p.peso_saca_kg || 0),
-      formatQtd(p.total_kg || 0),
-      formatQtd(p.saldo_kg || 0),
-      formatMoeda(p.valor_saca),
-      formatMoeda(p.valor_total),
-      p.status,
-    ]);
+    const { cols, rows } = buildReport();
     exportPDF('Relatório de Pedidos de Pesagem', cols, rows);
   }
   function handleExportCSV() {
-    const cols = ['Cliente', 'Produto', 'Sacas', 'Peso/Saca (kg)', 'Total (kg)', 'Saldo (kg)', 'Valor Saca', 'Valor Total', 'Status'];
-    const rows = pedidos.map((p) => [
-      clienteNome(p.cliente_id),
-      produtoNome(p.produto_id),
-      formatQtd(p.qtd_sacas || 0),
-      formatQtd(p.peso_saca_kg || 0),
-      formatQtd(p.total_kg || 0),
-      formatQtd(p.saldo_kg || 0),
-      formatMoeda(p.valor_saca),
-      formatMoeda(p.valor_total),
-      p.status,
-    ]);
+    const { cols, rows } = buildReport();
     exportCSV('Relatório de Pedidos de Pesagem', cols, rows);
   }
 
