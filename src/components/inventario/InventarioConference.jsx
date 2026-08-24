@@ -26,9 +26,10 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
-import { ClipboardList, CheckCircle2, AlertTriangle, Save } from 'lucide-react';
+import { ClipboardList, CheckCircle2, AlertTriangle, Save, Search, Package, ChevronRight, Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { Progress } from '@/components/ui/progress';
 import { formatQtd, parseQtd } from '@/lib/format';
 import {
   nextInventarioNumber,
@@ -57,6 +58,9 @@ export default function InventarioConference({
   const [contagem, setContagem] = useState({});
   const [resultado, setResultado] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [ativoId, setAtivoId] = useState(null);
+  const [qtdInput, setQtdInput] = useState('');
 
   const depositosSetor = useMemo(
     () => (depositos || []).filter((d) => d.setor_id === setor?.id),
@@ -68,11 +72,37 @@ export default function InventarioConference({
     [produtos, setor, criterios, lotes]
   );
 
+  const conferidosCount = alvo.filter((p) => contagem[p.id] !== undefined).length;
+  const total = alvo.length;
+  const pct = total ? Math.round((conferidosCount / total) * 100) : 0;
+  const pendentes = alvo.filter((p) => contagem[p.id] === undefined);
+
+  const produtoAtivo = useMemo(() => {
+    if (ativoId) {
+      const f = alvo.find((p) => p.id === ativoId);
+      if (f) return f;
+    }
+    return pendentes[0] || null;
+  }, [ativoId, alvo, pendentes]);
+
+  const resultadosBusca = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (!q) return [];
+    return pendentes.filter((p) =>
+      (p.nome || '').toLowerCase().includes(q) ||
+      (p.codigo || '').toLowerCase().includes(q) ||
+      (p.codigo_referencia || '').toLowerCase().includes(q)
+    );
+  }, [pendentes, busca]);
+
   function reset() {
     setStep('criterios');
     setCriterios(emptyCriterios);
     setContagem({});
     setResultado(null);
+    setBusca('');
+    setAtivoId(null);
+    setQtdInput('');
   }
 
   function handleClose(open) {
@@ -82,7 +112,24 @@ export default function InventarioConference({
 
   function iniciar() {
     setContagem({});
+    setBusca('');
+    setAtivoId(null);
+    setQtdInput('');
     setStep('conferencia');
+  }
+
+  function confirmar() {
+    if (!produtoAtivo) return;
+    if (qtdInput.trim() === '') {
+      toast({ variant: 'destructive', title: 'Informe a quantidade', description: 'Digite a quantidade contada para confirmar.' });
+      return;
+    }
+    const val = parseQtd(qtdInput);
+    setContagem({ ...contagem, [produtoAtivo.id]: val });
+    const restantes = pendentes.filter((p) => p.id !== produtoAtivo.id);
+    setAtivoId(restantes[0]?.id || null);
+    setQtdInput('');
+    setBusca('');
   }
 
   function finalizar() {
@@ -206,48 +253,93 @@ export default function InventarioConference({
         )}
 
         {step === 'conferencia' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {alvo.length === 0 ? (
               <div className="text-center py-10 text-sm text-muted-foreground">
                 Nenhum produto encontrado com esses critérios.
               </div>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">
-                  {alvo.length} produto(s) para conferir. Informe a quantidade contada de cada item.
-                </p>
-                <div className="space-y-2 max-h-[55vh] overflow-y-auto scrollbar-thin pr-1">
-                  {alvo.map((p) => {
-                    const sist = qtdSistema(p, lotes || []);
-                    const cont = contagem[p.id] ?? '';
-                    const diverge = cont !== '' && parseQtd(cont) !== sist;
-                    return (
-                      <Card key={p.id} className="p-3">
-                        <div className="flex items-center gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{conferidosCount} de {total} conferidos</span>
+                    <span className="font-semibold tabular-nums">{pct}%</span>
+                  </div>
+                  <Progress value={pct} className="h-2.5" />
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Buscar produto para conferir..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                  />
+                </div>
+
+                {busca.trim() && (
+                  <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
+                    {resultadosBusca.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">Nenhum produto pendente encontrado.</p>
+                    ) : (
+                      resultadosBusca.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => { setAtivoId(p.id); setBusca(''); setQtdInput(''); }}
+                          className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-accent text-left transition-colors"
+                        >
+                          <Package className="w-4 h-4 text-muted-foreground shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate text-sm">{p.nome}</p>
+                            <p className="text-sm font-medium truncate">{p.nome}</p>
                             <p className="text-xs text-muted-foreground font-mono truncate">{p.codigo}</p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-[10px] text-muted-foreground">Sistema</p>
-                            <p className="font-semibold tabular-nums text-sm">{formatQtd(sist)} <span className="text-[10px] text-muted-foreground">{p.unidade || 'un'}</span></p>
-                          </div>
-                          <div className="w-28 shrink-0">
-                            <Label className="text-[10px] text-muted-foreground">Contado</Label>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="0,00"
-                              value={cont}
-                              onChange={(e) => setContagem({ ...contagem, [p.id]: e.target.value })}
-                              className={diverge ? 'border-destructive' : ''}
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {produtoAtivo ? (
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <Package className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{produtoAtivo.nome}</p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">{produtoAtivo.codigo}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] text-muted-foreground">Sistema</p>
+                        <p className="font-semibold tabular-nums">{formatQtd(qtdSistema(produtoAtivo, lotes || []))} <span className="text-[10px] text-muted-foreground">{produtoAtivo.unidade || 'un'}</span></p>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-muted-foreground">Quantidade contada</label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        autoFocus
+                        placeholder="0,00"
+                        value={qtdInput}
+                        onChange={(e) => setQtdInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') confirmar(); }}
+                      />
+                    </div>
+                    <Button onClick={confirmar} className="w-full gap-2">
+                      <Check className="w-4 h-4" /> Confirmar e avançar
+                    </Button>
+                  </Card>
+                ) : (
+                  <Card className="p-6 text-center space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                    <p className="font-medium">Tudo conferido!</p>
+                    <p className="text-sm text-muted-foreground">Todos os produtos foram contados. Finalize a conferência.</p>
+                  </Card>
+                )}
+
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" onClick={() => setStep('criterios')}>Voltar</Button>
                   <Button onClick={finalizar} className="flex-1">Finalizar conferência</Button>
