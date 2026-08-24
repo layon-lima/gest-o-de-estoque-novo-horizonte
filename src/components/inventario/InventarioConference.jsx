@@ -7,6 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -72,6 +82,7 @@ export default function InventarioConference({
   const [aviso, setAviso] = useState(null);
   const [concluindo, setConcluindo] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [confirmConcluir, setConfirmConcluir] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -125,12 +136,9 @@ export default function InventarioConference({
   const pct = total ? Math.round((conferidosCount / total) * 100) : 0;
 
   const produtoAtivo = useMemo(() => {
-    if (ativoId) {
-      const f = alvo.find((p) => p.id === ativoId);
-      if (f) return f;
-    }
-    return pendentes[0] || null;
-  }, [ativoId, alvo, pendentes]);
+    if (!ativoId) return null;
+    return alvo.find((p) => p.id === ativoId) || null;
+  }, [ativoId, alvo]);
 
   const resultadosBusca = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -252,8 +260,7 @@ export default function InventarioConference({
       toast({ variant: 'destructive', title: 'Erro ao registrar contagem', description: e?.message });
       return;
     }
-    const restantes = pendentes.filter((p) => p.id !== produtoAtivo.id);
-    setAtivoId(restantes[0]?.id || null);
+    setAtivoId(null);
     setQtdInput('');
     setBusca('');
   }
@@ -439,6 +446,11 @@ export default function InventarioConference({
                 </div>
               ) : (
                 <>
+                  <div className="flex items-center justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setConfirmConcluir(true)} disabled={concluindo} className="gap-1.5">
+                      <Save className="w-4 h-4" /> Concluir inventário
+                    </Button>
+                  </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{conferidosCount} de {total}</span>
@@ -480,7 +492,7 @@ export default function InventarioConference({
                     </div>
                   )}
 
-                  {produtoAtivo ? (
+                  {produtoAtivo && (
                     <Card className="p-4 space-y-3">
                       <div className="flex items-start gap-3">
                         <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -497,12 +509,6 @@ export default function InventarioConference({
                           {formatQtd(sistAtivo)} <span className="text-xs font-normal text-muted-foreground">{produtoAtivo.unidade || 'un'}</span>
                         </span>
                       </div>
-                    </Card>
-                  ) : (
-                    <Card className="p-6 text-center space-y-2">
-                      <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                      <p className="font-semibold">Tudo conferido!</p>
-                      <p className="text-sm text-muted-foreground">Conclua o inventário para registrar.</p>
                     </Card>
                   )}
 
@@ -526,14 +532,6 @@ export default function InventarioConference({
                     </details>
                   )}
 
-                  <Button
-                    variant="ghost"
-                    onClick={concluir}
-                    disabled={concluindo}
-                    className="w-full text-sm gap-1.5 text-muted-foreground"
-                  >
-                    <Save className="w-4 h-4" /> Concluir inventário agora
-                  </Button>
                 </>
               )}
             </div>
@@ -581,11 +579,10 @@ export default function InventarioConference({
         </div>
 
         {/* Barra fixa inferior (contagem) */}
-        {step === 'documento' && inventario && total > 0 && (
+        {step === 'documento' && inventario && total > 0 && produtoAtivo && (
           <div className="sticky bottom-0 z-10 border-t bg-card px-4 py-3 pb-safe space-y-2">
-            {produtoAtivo ? (
-              <>
-                <div className="flex gap-2">
+            <>
+              <div className="flex gap-2">
                   <Input
                     ref={inputRef}
                     type="text"
@@ -607,12 +604,7 @@ export default function InventarioConference({
                       : `Diferença: ${diffLive > 0 ? '+' : ''}${formatQtd(diffLive)} ${produtoAtivo.unidade || 'un'}`}
                   </p>
                 )}
-              </>
-            ) : (
-              <Button onClick={concluir} disabled={concluindo} className="w-full h-12 gap-2">
-                {concluindo ? 'Concluindo…' : (<><Save className="w-5 h-5" /> Concluir inventário</>)}
-              </Button>
-            )}
+            </>
           </div>
         )}
 
@@ -648,6 +640,25 @@ export default function InventarioConference({
             </div>
           </div>
         )}
+
+        <AlertDialog open={confirmConcluir} onOpenChange={setConfirmConcluir}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Concluir inventário?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {conferidosCount < total
+                  ? `Você conferiu ${conferidosCount} de ${total} produtos. Os itens restantes serão registrados com o saldo do sistema. Deseja finalizar mesmo assim?`
+                  : 'Todos os produtos foram conferidos. Deseja finalizar e registrar o inventário?'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={concluindo}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction disabled={concluindo} onClick={concluir}>
+                {concluindo ? 'Concluindo…' : 'Sim, concluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
