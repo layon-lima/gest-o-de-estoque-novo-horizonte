@@ -10,11 +10,14 @@ import { formatKg, formatMoeda } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
+import DesvincularTicketDialog from './DesvincularTicketDialog';
 
-export default function PedidosManager({ pedidos, pessoas, produtos, tickets, onReload }) {
+export default function PedidosManager({ pedidos, pessoas, produtos, tickets, onReload, isAdmin }) {
   const [busca, setBusca] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [selecionado, setSelecionado] = useState(null);
+  const [editando, setEditando] = useState(null);
+  const [desvinc, setDesvinc] = useState(null);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -117,12 +120,30 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, on
         pessoas={pessoas}
         produtos={produtos}
       />
+      <PedidoFormDialog
+        open={!!editando}
+        pedido={editando}
+        tickets={tickets}
+        onClose={() => setEditando(null)}
+        onSaved={() => { setEditando(null); onReload(); }}
+        pessoas={pessoas}
+        produtos={produtos}
+      />
       <PedidoDetalheDialog
         pedido={selecionado}
         pessoas={pessoas}
         produtos={produtos}
         tickets={tickets}
         onClose={() => setSelecionado(null)}
+        isAdmin={isAdmin}
+        onEditPedido={(p) => { setSelecionado(null); setEditando(p); }}
+        onDesvincularTicket={(t) => { setSelecionado(null); setDesvinc({ ticket: t, pedido: selecionado }); }}
+      />
+      <DesvincularTicketDialog
+        ticket={desvinc?.ticket}
+        pedido={desvinc?.pedido}
+        onClose={() => setDesvinc(null)}
+        onDone={() => { setDesvinc(null); onReload(); }}
       />
     </div>
   );

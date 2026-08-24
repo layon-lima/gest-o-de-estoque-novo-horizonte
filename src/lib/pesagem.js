@@ -49,6 +49,21 @@ export function round3(n) {
   return Math.round((Number(n) || 0) * 1000) / 1000;
 }
 
+// Soma o peso líquido dos tickets vinculados a um pedido.
+export function somaLiquidoTickets(tickets = [], pedidoId) {
+  return (tickets || [])
+    .filter((t) => t.pedido_id === pedidoId)
+    .reduce((acc, t) => acc + (Number(t.peso_liquido) || 0), 0);
+}
+
+// Define o status do pedido com base no saldo (kg) restante, preservando 'cancelado'.
+export function statusPorSaldo(saldoKg, totalKg, statusAtual) {
+  if (statusAtual === 'cancelado') return 'cancelado';
+  const saldo = Number(saldoKg) || 0;
+  const total = Number(totalKg) || 0;
+  return total > 0 && saldo <= 0 ? 'concluido' : 'aberto';
+}
+
 // Formata kg para exibição — sempre em kg (sem converter para toneladas).
 export function formatKg(n) {
   const num = Number(n) || 0;

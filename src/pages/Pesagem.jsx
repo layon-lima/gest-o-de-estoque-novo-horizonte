@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, ClipboardList, Scale, History } from 'lucide-react';
+import { Users, ClipboardList, Scale, History, Unlink } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import PedidosManager from '@/components/pesagem/PedidosManager';
 import TicketsManager from '@/components/pesagem/TicketsManager';
 
 export default function Pesagem() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [pessoas, setPessoas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [pedidos, setPedidos] = useState([]);
@@ -45,17 +48,23 @@ export default function Pesagem() {
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="tickets" className="gap-1.5"><Scale className="w-4 h-4" /> Tickets {abertosCount > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">{abertosCount}</span>}</TabsTrigger>
             <TabsTrigger value="pedidos" className="gap-1.5"><ClipboardList className="w-4 h-4" /> Pedidos</TabsTrigger>
+            {isAdmin && <TabsTrigger value="naovinculados" className="gap-1.5"><Unlink className="w-4 h-4" /> Não vinculados</TabsTrigger>}
             <TabsTrigger value="historico" className="gap-1.5"><History className="w-4 h-4" /> Histórico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tickets" className="mt-4">
-            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} />
+            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
           <TabsContent value="pedidos" className="mt-4">
-            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} onReload={load} />
+            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
+          {isAdmin && (
+            <TabsContent value="naovinculados" className="mt-4">
+              <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} mode="naovinculados" isAdmin={isAdmin} />
+            </TabsContent>
+          )}
           <TabsContent value="historico" className="mt-4">
-            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} mode="historico" />
+            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} mode="historico" isAdmin={isAdmin} />
           </TabsContent>
         </Tabs>
       )}

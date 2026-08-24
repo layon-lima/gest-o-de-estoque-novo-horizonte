@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X, History } from 'lucide-react';
+import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X, History, Link2, Unlink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,17 +13,20 @@ import { normalizePlaca, formatPlaca, nextTicketNumber, formatKg } from '@/lib/p
 import { exportPDF, exportCSV } from '@/lib/exports';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
+import VincularTicketDialog from './VincularTicketDialog';
 
 const empty = { motorista: '', placa: '', peso_tara: '', observacao: '' };
 
-export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload, mode = 'ativos' }) {
+export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload, mode = 'ativos', isAdmin }) {
   const historico = mode === 'historico';
+  const naovinculados = mode === 'naovinculados';
   const [form, setForm] = useState(empty);
   const [busca, setBusca] = useState('');
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [detalheTicket, setDetalheTicket] = useState(null);
+  const [vincularTicket, setVincularTicket] = useState(null);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -35,7 +38,17 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
     [tickets]
   );
 
+  const naoVinculados = useMemo(
+    () => tickets.filter((t) => t.status === 'fechado' && !t.pedido_id).sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
+    [tickets]
+  );
+
   const filtrados = useMemo(() => {
+    if (naovinculados) {
+      const q = busca.toLowerCase().trim();
+      if (!q) return naoVinculados;
+      return naoVinculados.filter((t) => [t.numero, t.motorista, t.placa].filter(Boolean).join(' ').toLowerCase().includes(q));
+    }
     const q = busca.toLowerCase().trim();
     const base = tickets.filter((t) => t.status !== 'aberto');
     const match = (t) => {
@@ -45,7 +58,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
     };
     if (!historico && !q) return [];
     return base.filter(match).sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
-  }, [tickets, busca, historico]);
+  }, [tickets, busca, historico, naovinculados, naoVinculados]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -115,7 +128,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   return (
     <div className="space-y-4">
       {/* Botão/Form de abertura */}
-      {!historico && (
+      {!historico && !naovinculados && (
         <Card className="overflow-hidden">
           <button
             type="button"
@@ -155,7 +168,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
       )}
 
       {/* Tickets abertos em destaque */}
-      {!historico && abertos.length > 0 && (
+      {!historico && !naovinculados && abertos.length > 0 && (
         <div>
           <h3 className="font-semibold text-sm mb-2 flex items-center gap-2"><CircleDot className="w-4 h-4 text-amber-500" /> Abertos ({abertos.length})</h3>
           <div className="space-y-2 max-h-[40vh] overflow-auto scrollbar-thin pr-1">
@@ -183,9 +196,15 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
 
       {/* Busca / Histórico */}
       <div className="space-y-2">
+        {naovinculados && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Unlink className="w-4 h-4" />
+            <span>Tickets fechados sem pedido vinculado ({naoVinculados.length}).</span>
+          </div>
+        )}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar ticket, motorista, placa ou cliente..." className="pl-9 h-9" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={naovinculados ? 'Buscar ticket, motorista ou placa...' : 'Buscar ticket, motorista, placa ou cliente...'} className="pl-9 h-9" />
         </div>
 
         {historico && (
@@ -199,7 +218,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         <div className="sm:hidden max-h-[44vh] overflow-auto scrollbar-thin space-y-2 pr-1">
           {filtrados.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              {historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
+              {naovinculados ? 'Nenhum ticket não vinculado.' : historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
             </p>
           ) : filtrados.map((t) => {
             const ped = pedidoDoTicket(t.pedido_id);
@@ -207,7 +226,14 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
               <Card key={t.id} className="p-3 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setDetalheTicket(t)}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-semibold text-xs">{t.numero}</span>
-                  <Badge variant="secondary" className="gap-1 text-[10px]"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
+                  <div className="flex items-center gap-1.5">
+                    {naovinculados && isAdmin && (
+                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); setVincularTicket(t); }}>
+                        <Link2 className="w-3.5 h-3.5 mr-1" /> Vincular
+                      </Button>
+                    )}
+                    <Badge variant="secondary" className="gap-1 text-[10px]"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
+                  </div>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-sm">
                   <span className="font-medium truncate">{t.motorista}</span>
@@ -226,7 +252,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         {/* Desktop: tabela */}
         {filtrados.length === 0 ? (
           <p className="hidden sm:block text-sm text-muted-foreground text-center py-6">
-            {historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
+            {naovinculados ? 'Nenhum ticket não vinculado.' : historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
           </p>
         ) : (
           <div className="hidden sm:block rounded-lg border overflow-auto scrollbar-thin max-h-[50vh]">
@@ -243,6 +269,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                   <th className="text-right p-2 font-medium">Líquido</th>
                   <th className="text-left p-2 font-medium">Cliente</th>
                   <th className="text-center p-2 font-medium">Status</th>
+                  {naovinculados && isAdmin && <th className="text-center p-2 font-medium">Ação</th>}
                 </tr>
               </thead>
               <tbody>
@@ -262,6 +289,13 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                       <td className="p-2 text-center">
                         <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
                       </td>
+                      {naovinculados && isAdmin && (
+                        <td className="p-2 text-center">
+                          <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); setVincularTicket(t); }}>
+                            <Link2 className="w-3.5 h-3.5 mr-1" /> Vincular
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -290,6 +324,16 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         produtos={produtos}
         onClose={() => setDetalheTicket(null)}
       />
+
+      {naovinculados && (
+        <VincularTicketDialog
+          ticket={vincularTicket}
+          pedidos={pedidos}
+          pessoas={pessoas}
+          onClose={() => setVincularTicket(null)}
+          onDone={() => { setVincularTicket(null); onReload(); }}
+        />
+      )}
     </div>
   );
 }

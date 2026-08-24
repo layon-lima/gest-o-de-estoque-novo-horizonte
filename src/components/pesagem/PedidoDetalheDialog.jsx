@@ -1,4 +1,6 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Pencil, Unlink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,7 +11,7 @@ import {
 import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 
-export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, onClose }) {
+export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, onClose, isAdmin, onEditPedido, onDesvincularTicket }) {
   const open = !!pedido;
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
@@ -32,8 +34,17 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
         {pedido && (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">Detalhes do Pedido</DialogTitle>
-              <DialogDescription>Criado para <b>{clienteNome(pedido.cliente_id)}</b></DialogDescription>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <DialogTitle className="flex items-center gap-2">Detalhes do Pedido</DialogTitle>
+                  <DialogDescription>Criado para <b>{clienteNome(pedido.cliente_id)}</b></DialogDescription>
+                </div>
+                {isAdmin && (
+                  <Button variant="outline" size="sm" onClick={() => onEditPedido?.(pedido)}>
+                    <Pencil className="w-4 h-4 mr-1.5" /> Editar
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -42,18 +53,16 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                 <span className="text-xs text-muted-foreground">Saldo: <b className="text-foreground">{formatQtd(restanteSacas)} sacas</b> de {formatQtd(totalSacas)} sacas</span>
               </div>
 
-              <div className="rounded-lg border bg-primary/5 p-3 space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Carregado</span>
-                  <span className="font-bold text-primary">{formatQtd(carregadoSacas)} sacas ({carregadoPct.toFixed(1)}%)</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Total do pedido</span>
-                  <span>{formatQtd(totalSacas)} sacas</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Restante</span>
-                  <span>{formatQtd(restanteSacas)} sacas</span>
+              <div className="rounded-lg border bg-primary/5 p-4">
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Restante</p>
+                    <p className="text-3xl font-bold text-primary leading-tight mt-0.5">{formatQtd(restanteSacas)} <span className="text-base font-semibold">sacas</span></p>
+                  </div>
+                  <div className="sm:text-right">
+                    <p className="text-xs text-muted-foreground">Carregado</p>
+                    <p className="text-lg font-semibold">{formatQtd(carregadoSacas)} <span className="text-xs font-medium text-muted-foreground">({carregadoPct.toFixed(1)}%)</span></p>
+                  </div>
                 </div>
               </div>
 
@@ -105,7 +114,14 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                       <div key={t.id} className="rounded-lg border p-3 text-sm">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-mono font-semibold text-xs">{t.numero}</span>
-                          <Badge variant={t.status === 'aberto' ? 'default' : 'secondary'} className="text-[10px] capitalize">{t.status}</Badge>
+                          <div className="flex items-center gap-1.5">
+                            {isAdmin && (
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onDesvincularTicket?.(t, pedido)}>
+                                <Unlink className="w-3.5 h-3.5 mr-1" /> Desvincular
+                              </Button>
+                            )}
+                            <Badge variant={t.status === 'aberto' ? 'default' : 'secondary'} className="text-[10px] capitalize">{t.status}</Badge>
+                          </div>
                         </div>
                         <div className="mt-1 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
                           <span className="font-medium text-foreground truncate">{t.motorista}</span>

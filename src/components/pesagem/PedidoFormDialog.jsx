@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,18 +15,37 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
-import { calcTotalKg, calcValorTotal, formatKg, formatMoeda } from '@/lib/pesagem';
+import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, statusPorSaldo, round3 } from '@/lib/pesagem';
 
 const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', observacao: '' };
 
-export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos }) {
+export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, pedido, tickets }) {
+  const isEdit = !!pedido;
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!open) return;
+    if (pedido) {
+      setForm({
+        cliente_id: pedido.cliente_id || '',
+        produto_id: pedido.produto_id || '',
+        peso_saca_kg: String(pedido.peso_saca_kg ?? '60'),
+        valor_saca: String(pedido.valor_saca ?? '0'),
+        qtd_sacas: String(pedido.qtd_sacas ?? '0'),
+        observacao: pedido.observacao || '',
+      });
+    } else {
+      setForm(empty);
+    }
+  }, [open, pedido]);
+
   const clientes = pessoas.filter((p) => p.is_cliente);
   const totalKg = useMemo(() => calcTotalKg(form.qtd_sacas, form.peso_saca_kg), [form.qtd_sacas, form.peso_saca_kg]);
   const valorTotal = useMemo(() => calcValorTotal(form.qtd_sacas, form.valor_saca), [form.qtd_sacas, form.valor_saca]);
+
+  const carregadoKg = isEdit ? somaLiquidoTickets(tickets, pedido.id) : 0;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -42,9 +61,17 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
       toast({ variant: 'destructive', title: 'Quantidade e peso da saca devem ser maiores que zero' });
       return;
     }
+    if (isEdit && totalKg < carregadoKg - 0.001) {
+      toast({
+        variant: 'destructive',
+        title: 'Total menor que o já carregado',
+        description: `Já foram carregados ${formatKg(carregadoKg)} em tickets vinculados.`,
+      });
+      return;
+    }
     setSaving(true);
     try {
-      await base44.entities.PedidoPesagem.create({
+      const payload = {
         cliente_id: form.cliente_id,
         produto_id: form.produto_id,
         peso_saca_kg: parseQtd(form.peso_saca_kg),
@@ -52,16 +79,24 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         qtd_sacas: parseQtd(form.qtd_sacas),
         total_kg: totalKg,
         valor_total: valorTotal,
-        saldo_kg: totalKg,
-        status: 'aberto',
         observacao: form.observacao || '',
-      });
-      toast({ title: 'Pedido cadastrado' });
-      setForm(empty);
+      };
+      if (isEdit) {
+        const saldoKg = round3(totalKg - carregadoKg);
+        payload.saldo_kg = saldoKg;
+        payload.status = statusPorSaldo(saldoKg, totalKg, pedido.status);
+        await base44.entities.PedidoPesagem.update(pedido.id, payload);
+        toast({ title: 'Pedido atualizado' });
+      } else {
+        payload.saldo_kg = totalKg;
+        payload.status = 'aberto';
+        await base44.entities.PedidoPesagem.create(payload);
+        toast({ title: 'Pedido cadastrado' });
+      }
       onSaved?.();
       onClose?.();
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao cadastrar', description: String(err?.message || err) });
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: String(err?.message || err) });
     } finally {
       setSaving(false);
     }
@@ -71,8 +106,11 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.(); }}>
       <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Plus className="w-5 h-5 text-primary" /> Novo Pedido</DialogTitle>
-          <DialogDescription>Preencha os dados do pedido de pesagem.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            {isEdit ? <Pencil className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+            {isEdit ? 'Editar Pedido' : 'Novo Pedido'}
+          </DialogTitle>
+          <DialogDescription>{isEdit ? 'Altere os dados do pedido de pesagem.' : 'Preencha os dados do pedido de pesagem.'}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
@@ -110,6 +148,9 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
           <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Total equivalente:</span><span className="font-semibold">{formatKg(totalKg)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Valor total:</span><span className="font-semibold">{formatMoeda(valorTotal)}</span></div>
+            {isEdit && (
+              <div className="flex justify-between"><span className="text-muted-foreground">Já carregado:</span><span className="font-semibold text-amber-600">{formatKg(carregadoKg)}</span></div>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Observação</Label>
@@ -117,7 +158,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Salvando...' : 'Cadastrar'}</Button>
+            <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Salvando...' : isEdit ? 'Salvar' : 'Cadastrar'}</Button>
           </div>
         </form>
       </DialogContent>
