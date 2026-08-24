@@ -17,7 +17,7 @@ const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 export default function SetorManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });
+  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
@@ -51,7 +51,7 @@ export default function SetorManager() {
     }
     if (editingId) await base44.entities.Setor.update(editingId, form);
     else await base44.entities.Setor.create(form);
-    setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false });
+    setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false });
     setEditingId(null);
     load();
   }
@@ -62,7 +62,7 @@ export default function SetorManager() {
   }
 
   function handleEdit(item) {
-    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', controla_validade: !!item.controla_validade });
+    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', controla_validade: !!item.controla_validade, tem_aba_mobile: !!item.tem_aba_mobile });
     setEditingId(item.id);
   }
 
@@ -97,9 +97,20 @@ export default function SetorManager() {
               onCheckedChange={(v) => setForm({ ...form, controla_validade: v })}
             />
           </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="s-aba" className="cursor-pointer">Tem aba mobile</Label>
+              <p className="text-xs text-muted-foreground">Aparece na aba mobile "Setores"</p>
+            </div>
+            <Switch
+              id="s-aba"
+              checked={!!form.tem_aba_mobile}
+              onCheckedChange={(v) => setForm({ ...form, tem_aba_mobile: v })}
+            />
+          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false }); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>

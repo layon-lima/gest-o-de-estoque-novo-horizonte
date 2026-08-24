@@ -6,12 +6,14 @@ import {
   FileBarChart,
   Fuel,
   Scale,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { allowedPagesForUser } from '@/lib/permissions';
 
 const allItems = [
   { key: 'dashboard', to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
+  { key: 'setores', to: '/setores', label: 'Setores', icon: Layers, end: false },
   { key: 'movimentacoes', to: '/movimentacoes', label: 'Mov.', icon: ArrowLeftRight, end: false },
   { key: 'abastecimento', to: '/abastecimento', label: 'Abast.', icon: Fuel, end: false },
   { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },

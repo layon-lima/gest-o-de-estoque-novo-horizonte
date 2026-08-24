@@ -10,21 +10,34 @@ import { PAGES } from '@/lib/permissions';
 export default function PermissoesDialog({ user, onClose, onSaved }) {
   const open = !!user;
   const [selecionados, setSelecionados] = useState([]);
+  const [setores, setSetores] = useState([]);
+  const [setoresSel, setSetoresSel] = useState([]);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     setSelecionados(Array.isArray(user?.paginas_permitidas) ? user.paginas_permitidas : []);
+    setSetoresSel(Array.isArray(user?.setores_permitidos) ? user.setores_permitidos : []);
   }, [user]);
+
+  useEffect(() => {
+    if (open) {
+      base44.entities.Setor.list().then((s) => setSetores(s.filter((x) => x.tem_aba_mobile === true))).catch(() => setSetores([]));
+    }
+  }, [open]);
 
   const toggle = (key) => {
     setSelecionados((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
+  const toggleSetor = (id) => {
+    setSetoresSel((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      await base44.entities.User.update(user.id, { paginas_permitidas: selecionados });
+      await base44.entities.User.update(user.id, { paginas_permitidas: selecionados, setores_permitidos: setoresSel });
       toast({ title: 'Permissões atualizadas', description: `${user.full_name || user.email} teve o acesso redefinido.` });
       onSaved?.();
       onClose?.();
@@ -50,6 +63,19 @@ export default function PermissoesDialog({ user, onClose, onSaved }) {
             </label>
           ))}
         </div>
+        {setores.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-semibold">Setores liberados (aba mobile)</p>
+            <p className="text-xs text-muted-foreground -mt-1">Quais setores este usuário vê na aba "Setores" do mobile.</p>
+            {setores.map((s) => (
+              <label key={s.id} className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+                <Checkbox checked={setoresSel.includes(s.id)} onCheckedChange={() => toggleSetor(s.id)} />
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.cor || '#16a34a' }} />
+                <span className="text-sm font-medium">{s.nome}</span>
+              </label>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">Usuários só verão e poderão acessar as abas marcadas. Administradores têm acesso total.</p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>

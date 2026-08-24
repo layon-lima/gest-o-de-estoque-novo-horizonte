@@ -1,4 +1,6 @@
 import { base44 } from '@/api/base44Client';
+import { parseQtd } from '@/lib/format';
+import { consumirFefo, proximoCodigoLote } from '@/lib/lotes';
 
 // Reverte o efeito de uma movimentação no estoque (produto e lotes),
 // sem criar registro de auditoria. Usado tanto pelo estorno (que depois
@@ -96,4 +98,112 @@ export async function reverterEstoqueMov(mov, { produtos, lotes }) {
       if (novaQtd <= 0) produto.gaveta_id = '';
     }
   }
+}
+
+// Registra uma movimentação de estoque (entrada/saída) com toda a lógica de
+// lotes (FEFO), atualização de saldo do produto e numeração sequencial.
+// Reutilizada pela aba Movimentações e pela aba mobile de Setores.
+// `produto` e `lotes` são mutados localmente para refletir o novo estado.
+// Lança erros sinalizadores: 'NF_DUPLICADA', 'VALIDADE_OBRIGATORIA',
+// 'SALDO_INSUFICIENTE:<disp>' e 'Quantidade inválida.'.
+export async function registrarMovimentacao({ form, produto, lotes, movimentacoes, controlaValidade }) {
+  const qtd = parseQtd(form.quantidade);
+  if (!(qtd > 0)) throw new Error('Quantidade inválida.');
+
+  if (form.tipo === 'entrada' && form.chave_acesso) {
+    const existentes = await base44.entities.Movimentacao.filter({ chave_acesso: form.chave_acesso });
+    const ativas = existentes.filter((m) => m.tipo === 'entrada' && m.estornada !== true);
+    if (ativas.length > 0) throw new Error('NF_DUPLICADA');
+  }
+
+  const now = new Date().toISOString();
+  const baseMov = {
+    data: now,
+    numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
+    produto_id: produto.id,
+    codigo: produto.codigo,
+    nome_produto: produto.nome,
+    quantidade: qtd,
+    setor_id: produto.setor_id,
+    maquina_id: produto.maquina_id,
+    gaveta_id: produto.gaveta_id,
+    tipo: form.tipo,
+    observacao: form.observacao,
+    numero_nf: form.tipo === 'entrada' ? (form.numero_nf || '') : '',
+    fornecedor: form.tipo === 'entrada' ? (form.fornecedor || '') : '',
+    chave_acesso: form.tipo === 'entrada' ? (form.chave_acesso || '') : '',
+  };
+
+  if (controlaValidade) {
+    if (form.tipo === 'entrada') {
+      if (!form.data_validade) throw new Error('VALIDADE_OBRIGATORIA');
+      let lote = lotes.find((l) => l.produto_id === produto.id && l.data_validade === form.data_validade);
+      let loteId;
+      if (lote) {
+        loteId = lote.id;
+        await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + qtd });
+        lote.quantidade = (lote.quantidade || 0) + qtd;
+      } else {
+        const created = await base44.entities.Lote.create({
+          produto_id: produto.id,
+          codigo_referencia: produto.codigo_referencia || '',
+          setor_id: produto.setor_id,
+          maquina_id: produto.maquina_id || '',
+          gaveta_id: produto.gaveta_id || '',
+          codigo_lote: proximoCodigoLote(produto, lotes),
+          data_validade: form.data_validade,
+          quantidade: qtd,
+          unidade: produto.unidade || 'un',
+        });
+        loteId = created.id;
+        lotes.push(created);
+      }
+      await base44.entities.Movimentacao.create({ ...baseMov, lote_id: loteId, data_validade: form.data_validade });
+      const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
+      const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
+      await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
+      produto.quantidade = novaQtd;
+    } else {
+      const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
+      const { alocacoes, totalDisponivel, suficiente } = consumirFefo(lotesProduto, qtd);
+      if (!suficiente) throw new Error(`SALDO_INSUFICIENTE:${totalDisponivel}`);
+      for (const a of alocacoes) {
+        const l = lotesProduto.find((x) => x.id === a.lote_id);
+        const novaQtdLote = (l.quantidade || 0) - a.quantidade;
+        await base44.entities.Lote.update(a.lote_id, {
+          quantidade: novaQtdLote,
+          ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}),
+        });
+        l.quantidade = novaQtdLote;
+        if (novaQtdLote <= 0) l.gaveta_id = '';
+      }
+      await base44.entities.Movimentacao.create({
+        ...baseMov,
+        lote_id: alocacoes[0]?.lote_id || '',
+        data_validade: alocacoes[0]?.data_validade || '',
+        lotes_consumidos: JSON.stringify(alocacoes),
+      });
+      const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) - qtd;
+      const totalFinal = Math.max(0, novaQtd);
+      await base44.entities.Produto.update(produto.id, {
+        quantidade: totalFinal,
+        ...(totalFinal <= 0 ? { gaveta_id: '' } : {}),
+      });
+      produto.quantidade = totalFinal;
+      if (totalFinal <= 0) produto.gaveta_id = '';
+    }
+  } else {
+    await base44.entities.Movimentacao.create(baseMov);
+    const novaQtd =
+      form.tipo === 'entrada'
+        ? (produto.quantidade || 0) + qtd
+        : Math.max(0, (produto.quantidade || 0) - qtd);
+    await base44.entities.Produto.update(produto.id, {
+      quantidade: novaQtd,
+      ...(novaQtd <= 0 ? { gaveta_id: '' } : {}),
+    });
+    produto.quantidade = novaQtd;
+    if (novaQtd <= 0) produto.gaveta_id = '';
+  }
+  return { produto };
 }

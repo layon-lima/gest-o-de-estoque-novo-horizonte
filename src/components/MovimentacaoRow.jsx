@@ -21,6 +21,7 @@ export default function MovimentacaoRow({
   setores,
   maquinas,
   gavetas,
+  usuarios,
 }) {
   const x = useMotionValue(0);
   const tint = useTransform(x, [THRESHOLD, 0], ['inset 0 0 0 9999px rgba(254, 226, 226, 0.95)', 'inset 0 0 0 0 rgba(0,0,0,0)']);
@@ -51,7 +52,17 @@ export default function MovimentacaoRow({
       className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent' : isNeg ? 'bg-red-50/70 hover:bg-red-100/70 text-red-700' : 'hover:bg-muted/50'}`}
     >
       <TableCell className="text-sm whitespace-nowrap relative">
-        {mov.data ? new Date(mov.data).toLocaleString('pt-BR') : '—'}
+        {mov.data ? new Date(mov.data).toLocaleDateString('pt-BR') : '—'}
+      </TableCell>
+      <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+        {mov.data ? new Date(mov.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+      </TableCell>
+      <TableCell className="text-xs whitespace-nowrap">
+        {(() => {
+          const u = usuarios?.find((x) => x.id === mov.created_by_id);
+          if (!u) return '—';
+          return u.full_name || u.email || '—';
+        })()}
       </TableCell>
       <TableCell className="font-medium text-sm">{mov.nome_produto || '—'}</TableCell>
       <TableCell className="text-right font-semibold tabular-nums">

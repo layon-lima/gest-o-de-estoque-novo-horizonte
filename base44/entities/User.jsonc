@@ -21,6 +21,14 @@
       "items": {
         "type": "string"
       }
+    },
+    "setores_permitidos": {
+      "type": "array",
+      "title": "Setores Permitidos (Mobile)",
+      "description": "IDs dos setores que o usu\u00e1rio pode acessar na aba mobile 'Setores'. Administradores veem todos os setores ativos automaticamente.",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

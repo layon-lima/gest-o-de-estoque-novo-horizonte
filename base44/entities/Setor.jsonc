@@ -19,6 +19,12 @@
       "type": "boolean",
       "title": "Controla Validade (Lotes)",
       "default": false
+    },
+    "tem_aba_mobile": {
+      "type": "boolean",
+      "title": "Tem Aba Mobile",
+      "description": "Ativa este setor como op\u00e7\u00e3o na aba mobile 'Setores'. Setores sem esta marca\u00e7\u00e3o n\u00e3o aparecem na lista em cascata para nenhum usu\u00e1rio.",
+      "default": false
     }
   },
   "required": [

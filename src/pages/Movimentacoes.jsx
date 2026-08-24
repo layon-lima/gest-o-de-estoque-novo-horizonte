@@ -54,6 +54,7 @@ export default function Movimentacoes() {
   const [lotes, setLotes] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [pessoas, setPessoas] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -64,7 +65,7 @@ export default function Movimentacoes() {
 
   async function load() {
     setLoading(true);
-    const [p, s, m, g, l, movs, ps] = await Promise.all([
+    const [p, s, m, g, l, movs, ps, us] = await Promise.all([
       base44.entities.Produto.list(),
       base44.entities.Setor.list(),
       base44.entities.Maquina.list(),
@@ -72,8 +73,9 @@ export default function Movimentacoes() {
       base44.entities.Lote.list(),
       base44.entities.Movimentacao.list('-data', 50),
       base44.entities.Pessoa.list('-created_date', 500),
+      base44.entities.User.list(),
     ]);
-    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps);
+    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps); setUsuarios(us);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -415,6 +417,8 @@ export default function Movimentacoes() {
                   <TableHeader className="sticky top-0 bg-muted">
                     <TableRow>
                       <TableHead>Data</TableHead>
+                      <TableHead>Hora</TableHead>
+                      <TableHead>Usuário</TableHead>
                       <TableHead>Produto</TableHead>
                       <TableHead className="text-right">Quantidade</TableHead>
                       <TableHead>Código</TableHead>
@@ -437,6 +441,7 @@ export default function Movimentacoes() {
                         setores={setores}
                         maquinas={maquinas}
                         gavetas={gavetas}
+                        usuarios={usuarios}
                       />
                     ))}
                   </TableBody>

@@ -11,6 +11,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
+import Setores from '@/pages/Setores';
 import Cadastros from '@/pages/Cadastros';
 import Movimentacoes from '@/pages/Movimentacoes';
 import Abastecimento from '@/pages/Abastecimento';
@@ -47,6 +48,7 @@ const AuthenticatedApp = () => {
       <Route path="/login" element={<Login />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/setores" element={<Setores />} />
         <Route path="/cadastros" element={<Cadastros />} />
         <Route path="/movimentacoes" element={<Movimentacoes />} />
         <Route path="/abastecimento" element={<Abastecimento />} />
