@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, Package, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Search, Package, ArrowDownToLine, ArrowUpFromLine, ClipboardList } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatQtd } from '@/lib/format';
 import SetorMovimentacaoForm from '@/components/setores/SetorMovimentacaoForm';
+import InventarioConference from '@/components/inventario/InventarioConference';
 
 export default function SetorDetail() {
   const { setorId } = useParams();
@@ -26,13 +27,15 @@ export default function SetorDetail() {
   const [lotes, setLotes] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [pessoas, setPessoas] = useState([]);
+  const [depositos, setDepositos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [modalTipo, setModalTipo] = useState(null);
+  const [inventarioOpen, setInventarioOpen] = useState(false);
 
   async function load() {
     setLoading(true);
-    const [s, p, m, g, l, movs, ps] = await Promise.all([
+    const [s, p, m, g, l, movs, ps, d] = await Promise.all([
       base44.entities.Setor.list(),
       base44.entities.Produto.list(),
       base44.entities.Maquina.list(),
@@ -40,8 +43,9 @@ export default function SetorDetail() {
       base44.entities.Lote.list(),
       base44.entities.Movimentacao.list('-data', 100),
       base44.entities.Pessoa.list('-created_date', 500),
+      base44.entities.Deposito.list(),
     ]);
-    setSetores(s); setProdutos(p); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps);
+    setSetores(s); setProdutos(p); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps); setDepositos(d);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -92,6 +96,12 @@ export default function SetorDetail() {
             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">Controla validade</Badge>
           )}
         </div>
+        {setor.permite_inventario && (
+          <Button variant="outline" size="sm" className="md:hidden gap-1.5 shrink-0" onClick={() => setInventarioOpen(true)}>
+            <ClipboardList className="w-4 h-4" />
+            Inventário
+          </Button>
+        )}
       </header>
 
       {/* Busca em destaque */}
@@ -178,6 +188,19 @@ export default function SetorDetail() {
           />
         </DialogContent>
       </Dialog>
+
+      <InventarioConference
+        open={inventarioOpen}
+        onOpenChange={setInventarioOpen}
+        setor={setor}
+        produtos={produtos}
+        depositos={depositos}
+        maquinas={maquinas}
+        gavetas={gavetas}
+        lotes={lotes}
+        user={user}
+        onSaved={load}
+      />
     </div>
   );
 }

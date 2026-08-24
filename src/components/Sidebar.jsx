@@ -5,6 +5,7 @@ import {
   Settings,
   ArrowLeftRight,
   FileBarChart,
+  ClipboardList,
   Leaf,
   Fuel,
   Scale,
@@ -33,6 +34,7 @@ const allNavItems = [
   { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
   { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
   { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
+  { key: 'inventario', to: '/inventario', label: 'Inventário', icon: ClipboardList, end: false },
 ];
 
 export default function Sidebar({ open, onClose }) {

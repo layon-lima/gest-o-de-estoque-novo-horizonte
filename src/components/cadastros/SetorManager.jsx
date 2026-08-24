@@ -17,7 +17,7 @@ const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 export default function SetorManager() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false });
+  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false, permite_inventario: false });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
@@ -51,7 +51,7 @@ export default function SetorManager() {
     }
     if (editingId) await base44.entities.Setor.update(editingId, form);
     else await base44.entities.Setor.create(form);
-    setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false });
+    setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false, permite_inventario: false });
     setEditingId(null);
     load();
   }
@@ -62,7 +62,7 @@ export default function SetorManager() {
   }
 
   function handleEdit(item) {
-    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', controla_validade: !!item.controla_validade, tem_aba_mobile: !!item.tem_aba_mobile });
+    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', controla_validade: !!item.controla_validade, tem_aba_mobile: !!item.tem_aba_mobile, permite_inventario: !!item.permite_inventario });
     setEditingId(item.id);
   }
 
@@ -108,9 +108,20 @@ export default function SetorManager() {
               onCheckedChange={(v) => setForm({ ...form, tem_aba_mobile: v })}
             />
           </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="s-inv" className="cursor-pointer">Permite inventário</Label>
+              <p className="text-xs text-muted-foreground">Habilita conferência tete-a-tete na aba mobile do setor</p>
+            </div>
+            <Switch
+              id="s-inv"
+              checked={!!form.permite_inventario}
+              onCheckedChange={(v) => setForm({ ...form, permite_inventario: v })}
+            />
+          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', controla_validade: false, tem_aba_mobile: false, permite_inventario: false }); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>
