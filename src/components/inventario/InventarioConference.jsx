@@ -335,7 +335,7 @@ export default function InventarioConference({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="relative flex flex-col gap-0 p-0 max-sm:!h-[100dvh] max-sm:!max-h-none max-sm:!w-screen max-sm:!inset-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none sm:max-w-2xl sm:max-h-[92vh]">
+      <DialogContent className="flex flex-col gap-0 p-0 max-sm:!h-[100dvh] max-sm:!max-h-none max-sm:!max-w-none max-sm:!w-screen max-sm:!inset-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none sm:max-w-2xl sm:max-h-[92vh]">
         {/* Header fixo */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card px-4 pt-safe pb-3">
           <div className="flex items-center gap-2 min-w-0">
