@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -26,10 +27,20 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
-import { ClipboardList, CheckCircle2, AlertTriangle, Save, Search, Package, ChevronRight, Check } from 'lucide-react';
+import {
+  ClipboardList,
+  CheckCircle2,
+  AlertTriangle,
+  Save,
+  Search,
+  Package,
+  ChevronRight,
+  Check,
+  FolderOpen,
+  Users,
+} from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { Progress } from '@/components/ui/progress';
 import { formatQtd, parseQtd } from '@/lib/format';
 import {
   nextInventarioNumber,
@@ -39,6 +50,14 @@ import {
 } from '@/lib/inventario';
 
 const emptyCriterios = { deposito_id: '', gaveta_id: '', maquina_id: '' };
+
+function criteriosKey(c) {
+  return JSON.stringify({
+    deposito_id: c.deposito_id || '',
+    gaveta_id: c.gaveta_id || '',
+    maquina_id: c.maquina_id || '',
+  });
+}
 
 export default function InventarioConference({
   open,
@@ -51,31 +70,74 @@ export default function InventarioConference({
   lotes,
   user,
   onSaved,
+  initialInventarioId,
 }) {
   const { toast } = useToast();
   const [step, setStep] = useState('criterios');
   const [criterios, setCriterios] = useState(emptyCriterios);
-  const [contagem, setContagem] = useState({});
-  const [resultado, setResultado] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [inventario, setInventario] = useState(null);
+  const [items, setItems] = useState([]);
   const [busca, setBusca] = useState('');
   const [ativoId, setAtivoId] = useState(null);
   const [qtdInput, setQtdInput] = useState('');
+  const [abertos, setAbertos] = useState([]);
+  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [aviso, setAviso] = useState(null);
+  const [concluindo, setConcluindo] = useState(false);
+  const [resultado, setResultado] = useState(null);
 
-  const depositosSetor = useMemo(
-    () => (depositos || []).filter((d) => d.setor_id === setor?.id),
-    [depositos, setor]
-  );
+  // Retomar documento existente (resume)
+  useEffect(() => {
+    if (open && initialInventarioId) {
+      abrirDocumento(initialInventarioId);
+    }
+  }, [open, initialInventarioId]);
+
+  // Listar documentos em aberto do setor (na etapa de critérios)
+  useEffect(() => {
+    if (open && step === 'criterios' && setor) {
+      base44.entities.Inventario.filter({ setor_id: setor.id, status: 'aberto' })
+        .then((r) => setAbertos(r))
+        .catch(() => setAbertos([]));
+    }
+  }, [open, step, setor]);
+
+  // Carregar itens + assinar atualizações em tempo real (multiusuário)
+  useEffect(() => {
+    if (!inventario) return;
+    let active = true;
+    base44.entities.InventarioItem.filter({ inventario_id: inventario.id })
+      .then((r) => { if (active) setItems(r); })
+      .catch(() => {});
+    const unsub = base44.entities.InventarioItem.subscribe((event) => {
+      const rec = event.data;
+      if (rec && rec.inventario_id !== inventario.id) return;
+      setItems((prev) => {
+        if (event.type === 'delete') return prev.filter((i) => i.id !== event.id);
+        const exists = prev.some((i) => i.id === event.id);
+        return exists ? prev.map((i) => (i.id === event.id ? rec : i)) : [...prev, rec];
+      });
+    });
+    return () => { active = false; unsub?.(); };
+  }, [inventario]);
+
+  const criteriosDoc = useMemo(() => {
+    if (inventario?.criterios) {
+      try { return JSON.parse(inventario.criterios); } catch { return emptyCriterios; }
+    }
+    return criterios;
+  }, [inventario, criterios]);
 
   const alvo = useMemo(
-    () => filterProdutosParaInventario(produtos || [], setor?.id, criterios, lotes || []),
-    [produtos, setor, criterios, lotes]
+    () => filterProdutosParaInventario(produtos || [], setor?.id, criteriosDoc, lotes || []),
+    [produtos, setor, criteriosDoc, lotes]
   );
 
-  const conferidosCount = alvo.filter((p) => contagem[p.id] !== undefined).length;
+  const contadosIds = useMemo(() => new Set(items.map((i) => i.produto_id)), [items]);
+  const pendentes = useMemo(() => alvo.filter((p) => !contadosIds.has(p.id)), [alvo, contadosIds]);
+  const conferidosCount = alvo.length - pendentes.length;
   const total = alvo.length;
   const pct = total ? Math.round((conferidosCount / total) * 100) : 0;
-  const pendentes = alvo.filter((p) => contagem[p.id] === undefined);
 
   const produtoAtivo = useMemo(() => {
     if (ativoId) {
@@ -98,101 +160,181 @@ export default function InventarioConference({
   function reset() {
     setStep('criterios');
     setCriterios(emptyCriterios);
-    setContagem({});
+    setInventario(null);
+    setItems([]);
+    setBusca('');
+    setAtivoId(null);
+    setQtdInput('');
+    setAviso(null);
     setResultado(null);
-    setBusca('');
-    setAtivoId(null);
-    setQtdInput('');
   }
 
-  function handleClose(open) {
-    if (!open) reset();
-    onOpenChange?.(open);
+  function handleClose(o) {
+    if (!o) reset();
+    onOpenChange?.(o);
   }
 
-  function iniciar() {
-    setContagem({});
-    setBusca('');
-    setAtivoId(null);
-    setQtdInput('');
-    setStep('conferencia');
+  async function abrirDocumento(id) {
+    setLoadingDoc(true);
+    try {
+      const doc = await base44.entities.Inventario.get(id);
+      setInventario(doc);
+      setItems([]);
+      setBusca(''); setAtivoId(null); setQtdInput(''); setAviso(null); setResultado(null);
+      setStep('documento');
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao abrir documento', description: e?.message });
+    } finally {
+      setLoadingDoc(false);
+    }
   }
 
-  function confirmar() {
-    if (!produtoAtivo) return;
+  async function iniciar() {
+    setLoadingDoc(true);
+    try {
+      const key = criteriosKey(criterios);
+      const abertosSetor = await base44.entities.Inventario.filter({ setor_id: setor.id, status: 'aberto' });
+      const existente = abertosSetor.find((a) => (a.criterios || '') === key);
+      let doc;
+      if (existente) {
+        doc = existente;
+        toast({ title: 'Documento em aberto', description: 'Entrando no inventário já existente para este setor/critério.' });
+      } else {
+        const todos = await base44.entities.Inventario.list('-data', 500);
+        doc = await base44.entities.Inventario.create({
+          numero: nextInventarioNumber(todos),
+          data: new Date().toISOString(),
+          setor_id: setor.id,
+          setor_nome: setor.nome,
+          criterios: key,
+          criterios_descricao: buildCriteriosDescricao(criterios, depositos, maquinas, gavetas),
+          status: 'aberto',
+          responsavel: user?.full_name || user?.email || '',
+          total_itens: 0,
+          total_acertos: 0,
+          total_divergencias: 0,
+          resultado: 'consistente',
+        });
+      }
+      setInventario(doc);
+      setItems([]);
+      setBusca(''); setAtivoId(null); setQtdInput(''); setAviso(null); setResultado(null);
+      setStep('documento');
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao iniciar', description: e?.message });
+    } finally {
+      setLoadingDoc(false);
+    }
+  }
+
+  async function confirmar() {
+    if (!produtoAtivo || !inventario) return;
     if (qtdInput.trim() === '') {
       toast({ variant: 'destructive', title: 'Informe a quantidade', description: 'Digite a quantidade contada para confirmar.' });
       return;
     }
     const val = parseQtd(qtdInput);
-    setContagem({ ...contagem, [produtoAtivo.id]: val });
+    if (contadosIds.has(produtoAtivo.id)) {
+      const item = items.find((i) => i.produto_id === produtoAtivo.id);
+      setAviso({ item, produto: produtoAtivo, qty: '' });
+      return;
+    }
+    try {
+      await base44.entities.InventarioItem.create({
+        inventario_id: inventario.id,
+        produto_id: produtoAtivo.id,
+        codigo: produtoAtivo.codigo,
+        nome: produtoAtivo.nome,
+        unidade: produtoAtivo.unidade || 'un',
+        qtd_sistema: qtdSistema(produtoAtivo, lotes || []),
+        qtd_contada: val,
+        responsavel: user?.full_name || user?.email || '',
+        data: new Date().toISOString(),
+      });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao registrar contagem', description: e?.message });
+      return;
+    }
     const restantes = pendentes.filter((p) => p.id !== produtoAtivo.id);
     setAtivoId(restantes[0]?.id || null);
     setQtdInput('');
     setBusca('');
   }
 
-  function finalizar() {
-    const itens = alvo.map((p) => {
-      const sist = qtdSistema(p, lotes || []);
-      const cont = parseQtd(contagem[p.id] ?? '');
-      return {
-        produto_id: p.id,
-        codigo: p.codigo,
-        nome: p.nome,
-        unidade: p.unidade || 'un',
-        qtd_sistema: sist,
-        qtd_contada: cont,
-        divergencia: cont - sist,
-        status: cont === sist ? 'acerto' : 'divergencia',
-      };
-    });
-    const total_itens = itens.length;
-    const total_acertos = itens.filter((i) => i.status === 'acerto').length;
-    const total_divergencias = total_itens - total_acertos;
-    setResultado({
-      itens,
-      total_itens,
-      total_acertos,
-      total_divergencias,
-      resultado: total_divergencias === 0 ? 'consistente' : 'divergente',
-    });
-    setStep('resultado');
+  async function aplicarAviso(modo) {
+    if (!aviso) return;
+    if (aviso.qty.trim() === '') {
+      toast({ variant: 'destructive', title: 'Informe a quantidade' });
+      return;
+    }
+    const val = parseQtd(aviso.qty);
+    const item = aviso.item;
+    try {
+      const nova = modo === 'add' ? (Number(item.qtd_contada) || 0) + val : val;
+      await base44.entities.InventarioItem.update(item.id, {
+        qtd_contada: nova,
+        responsavel: user?.full_name || user?.email || '',
+        data: new Date().toISOString(),
+      });
+      toast({ title: modo === 'add' ? 'Quantidade adicionada' : 'Quantidade recontada' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: e?.message });
+    }
+    setAviso(null);
+    setQtdInput('');
+    setBusca('');
   }
 
-  async function salvar() {
-    setSaving(true);
+  async function concluir() {
+    if (!inventario) return;
+    setConcluindo(true);
     try {
-      const existentes = await base44.entities.Inventario.list('-data', 500);
-      await base44.entities.Inventario.create({
-        numero: nextInventarioNumber(existentes),
-        data: new Date().toISOString(),
-        setor_id: setor.id,
-        setor_nome: setor.nome,
-        criterios: JSON.stringify(criterios),
-        criterios_descricao: buildCriteriosDescricao(criterios, depositos, maquinas, gavetas),
-        itens: JSON.stringify(resultado.itens),
-        total_itens: resultado.total_itens,
-        total_acertos: resultado.total_acertos,
-        total_divergencias: resultado.total_divergencias,
-        resultado: resultado.resultado,
-        responsavel: user?.full_name || user?.email || '',
+      const itensDb = await base44.entities.InventarioItem.filter({ inventario_id: inventario.id });
+      const contagemMap = {};
+      itensDb.forEach((it) => { contagemMap[it.produto_id] = it; });
+      const itens = alvo.map((p) => {
+        const sist = qtdSistema(p, lotes || []);
+        const it = contagemMap[p.id];
+        const cont = it ? (Number(it.qtd_contada) || 0) : 0;
+        return {
+          produto_id: p.id,
+          codigo: p.codigo,
+          nome: p.nome,
+          unidade: p.unidade || 'un',
+          qtd_sistema: sist,
+          qtd_contada: cont,
+          divergencia: cont - sist,
+          status: cont === sist ? 'acerto' : 'divergencia',
+          responsavel: it?.responsavel || '',
+        };
       });
-      toast({
-        title: 'Inventário salvo',
-        description:
-          resultado.resultado === 'consistente'
-            ? 'Conferência sem divergências. Histórico bate.'
-            : `${resultado.total_divergencias} divergência(s) registrada(s).`,
+      const total_itens = itens.length;
+      const total_acertos = itens.filter((i) => i.status === 'acerto').length;
+      const total_divergencias = total_itens - total_acertos;
+      const resultadoCalc = total_divergencias === 0 ? 'consistente' : 'divergente';
+      await base44.entities.Inventario.update(inventario.id, {
+        itens: JSON.stringify(itens),
+        total_itens,
+        total_acertos,
+        total_divergencias,
+        resultado: resultadoCalc,
+        status: 'concluido',
+        data_fechamento: new Date().toISOString(),
       });
+      setResultado({ itens, total_itens, total_acertos, total_divergencias, resultado: resultadoCalc });
+      setStep('resultado');
       onSaved?.();
-      handleClose(false);
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err?.message });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao concluir', description: e?.message });
     } finally {
-      setSaving(false);
+      setConcluindo(false);
     }
   }
+
+  const depositosSetor = useMemo(
+    () => (depositos || []).filter((d) => d.setor_id === setor?.id),
+    [depositos, setor]
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -206,6 +348,26 @@ export default function InventarioConference({
 
         {step === 'criterios' && (
           <div className="space-y-4">
+            {abertos.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold flex items-center gap-1.5"><FolderOpen className="w-4 h-4" /> Documentos em aberto deste setor</p>
+                {abertos.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => abrirDocumento(d.id)}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent text-left transition-colors"
+                  >
+                    <FolderOpen className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{d.numero}</span>
+                      <p className="text-xs text-muted-foreground truncate mt-1">{d.criterios_descricao || 'Sem critérios'}</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-700">Em aberto</Badge>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               Selecione critérios para filtrar quais produtos serão conferidos (opcional). Sem critérios, todos os produtos do setor serão listados.
               A conferência é tete-a-tete: você conta cada item e compara com o saldo do sistema.
@@ -248,13 +410,21 @@ export default function InventarioConference({
                 </Select>
               </div>
             </div>
-            <Button onClick={iniciar} className="w-full">Iniciar conferência</Button>
+            <Button onClick={iniciar} disabled={loadingDoc} className="w-full">
+              {loadingDoc ? 'Abrindo…' : 'Abrir / Criar documento'}
+            </Button>
           </div>
         )}
 
-        {step === 'conferencia' && (
+        {step === 'documento' && inventario && (
           <div className="space-y-4">
-            {alvo.length === 0 ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{inventario.numero}</span>
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700">Em aberto</Badge>
+              <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="w-3 h-3" /> Colaborativo em tempo real</span>
+            </div>
+
+            {total === 0 ? (
               <div className="text-center py-10 text-sm text-muted-foreground">
                 Nenhum produto encontrado com esses critérios.
               </div>
@@ -336,13 +506,33 @@ export default function InventarioConference({
                   <Card className="p-6 text-center space-y-2">
                     <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                     <p className="font-medium">Tudo conferido!</p>
-                    <p className="text-sm text-muted-foreground">Todos os produtos foram contados. Finalize a conferência.</p>
+                    <p className="text-sm text-muted-foreground">Todos os produtos foram contados. Conclua o inventário para registrar.</p>
                   </Card>
                 )}
 
+                {items.length > 0 && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-muted-foreground">Já conferidos ({items.length})</summary>
+                    <div className="mt-2 space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
+                      {items.map((it) => (
+                        <div key={it.id} className="flex items-center gap-2 p-2 rounded bg-muted/40">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{it.nome}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{it.responsavel || ''}</p>
+                          </div>
+                          <span className="text-sm font-semibold tabular-nums">{formatQtd(it.qtd_contada)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setStep('criterios')}>Voltar</Button>
-                  <Button onClick={finalizar} className="flex-1">Finalizar conferência</Button>
+                  <Button type="button" variant="outline" onClick={() => handleClose(false)}>Fechar</Button>
+                  <Button onClick={concluir} disabled={concluindo} className="flex-1 gap-2">
+                    {concluindo ? 'Concluindo…' : (<><Save className="w-4 h-4" /> Concluir inventário</>)}
+                  </Button>
                 </div>
               </>
             )}
@@ -360,7 +550,7 @@ export default function InventarioConference({
                 )}
                 <div>
                   <p className="font-bold">
-                    {resultado.resultado === 'consistente' ? 'Histórico bate!' : 'Divergências encontradas'}
+                    {resultado.resultado === 'consistente' ? 'Inventário concluído — sem divergências' : 'Inventário concluído — divergências'}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {resultado.total_acertos} de {resultado.total_itens} conferem · {resultado.total_divergencias} divergência(s)
@@ -368,7 +558,6 @@ export default function InventarioConference({
                 </div>
               </div>
             </Card>
-
             <div className="overflow-x-auto max-h-[40vh] overflow-y-auto scrollbar-thin">
               <Table>
                 <TableHeader>
@@ -398,15 +587,44 @@ export default function InventarioConference({
                 </TableBody>
               </Table>
             </div>
-
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStep('conferencia')}>Refazer</Button>
-              <Button onClick={salvar} disabled={saving} className="gap-2">
-                {saving ? 'Salvando…' : (<><Save className="w-4 h-4" /> Salvar registro</>)}
-              </Button>
+              <Button onClick={() => handleClose(false)} className="w-full">Fechar</Button>
             </DialogFooter>
           </div>
         )}
+
+        {/* Aviso: produto já contado */}
+        <Dialog open={!!aviso} onOpenChange={(o) => !o && setAviso(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600" /> Produto já conferido
+              </DialogTitle>
+            </DialogHeader>
+            {aviso && (
+              <div className="space-y-3">
+                <p className="text-sm">
+                  <strong>{aviso.produto?.nome}</strong> já foi contado com{' '}
+                  <strong>{formatQtd(aviso.item?.qtd_contada)}</strong> {aviso.produto?.unidade || 'un'} por{' '}
+                  {aviso.item?.responsavel || 'outro usuário'}.
+                </p>
+                <p className="text-sm text-muted-foreground">O que deseja fazer?</p>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  placeholder="Nova quantidade"
+                  value={aviso.qty}
+                  onChange={(e) => setAviso({ ...aviso, qty: e.target.value })}
+                />
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => aplicarAviso('add')}>Adicionar a mais</Button>
+                  <Button className="flex-1" onClick={() => aplicarAviso('recontar')}>Recontar</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, CheckCircle2, AlertTriangle, ChevronRight } from 'lucide-react';
+import { ClipboardList, CheckCircle2, AlertTriangle, ChevronRight, FolderOpen } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -34,6 +34,7 @@ export default function Inventario() {
   const [loading, setLoading] = useState(true);
   const [setorId, setSetorId] = useState('');
   const [conferenceOpen, setConferenceOpen] = useState(false);
+  const [resumeId, setResumeId] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
 
   async function load() {
@@ -64,6 +65,13 @@ export default function Inventario() {
       toast({ variant: 'destructive', title: 'Setor obrigatório', description: 'Selecione o setor para iniciar o inventário.' });
       return;
     }
+    setResumeId(null);
+    setConferenceOpen(true);
+  }
+
+  function abrirDoc(r) {
+    setSetorId(r.setor_id);
+    setResumeId(r.id);
     setConferenceOpen(true);
   }
 
@@ -107,34 +115,39 @@ export default function Inventario() {
           <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma conferência salva ainda.</Card>
         ) : (
           <div className="space-y-2">
-            {registros.map((r) => (
-              <Card key={r.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => setDetalhe(r)}>
-                <div className={`shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${r.resultado === 'consistente' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                  {r.resultado === 'consistente' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{r.numero}</span>
-                    <p className="font-medium truncate">{r.setor_nome || '—'}</p>
-                    {r.resultado === 'consistente' ? (
-                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Consistente</Badge>
-                    ) : (
-                      <Badge variant="destructive">{r.total_divergencias} diverg.</Badge>
-                    )}
+            {registros.map((r) => {
+              const aberto = r.status === 'aberto';
+              return (
+                <Card key={r.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow cursor-pointer" onClick={() => (aberto ? abrirDoc(r) : setDetalhe(r))}>
+                  <div className={`shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${aberto ? 'bg-amber-100 text-amber-600' : r.resultado === 'consistente' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                    {aberto ? <FolderOpen className="w-4 h-4" /> : r.resultado === 'consistente' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                   </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{fmtData(r.data)} · {r.criterios_descricao || '—'}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </Card>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{r.numero}</span>
+                      <p className="font-medium truncate">{r.setor_nome || '—'}</p>
+                      {aberto ? (
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-700">Em aberto</Badge>
+                      ) : r.resultado === 'consistente' ? (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Consistente</Badge>
+                      ) : (
+                        <Badge variant="destructive">{r.total_divergencias} diverg.</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{fmtData(r.data)} · {r.criterios_descricao || '—'}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {setor && (
+      {(setor || resumeId) && (
         <InventarioConference
           open={conferenceOpen}
-          onOpenChange={setConferenceOpen}
+          onOpenChange={(o) => { setConferenceOpen(o); if (!o) setResumeId(null); }}
           setor={setor}
           produtos={produtos}
           depositos={depositos}
@@ -143,6 +156,7 @@ export default function Inventario() {
           lotes={lotes}
           user={user}
           onSaved={load}
+          initialInventarioId={resumeId}
         />
       )}
 

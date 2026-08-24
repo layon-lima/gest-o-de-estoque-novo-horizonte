@@ -1,0 +1,54 @@
+{
+  "name": "InventarioItem",
+  "type": "object",
+  "properties": {
+    "inventario_id": {
+      "type": "string",
+      "title": "Invent\u00e1rio",
+      "description": "Refer\u00eancia ao documento de Invent\u00e1rio ao qual este item pertence."
+    },
+    "produto_id": {
+      "type": "string",
+      "title": "Produto"
+    },
+    "codigo": {
+      "type": "string",
+      "title": "C\u00f3digo"
+    },
+    "nome": {
+      "type": "string",
+      "title": "Nome"
+    },
+    "unidade": {
+      "type": "string",
+      "title": "Unidade",
+      "default": "un"
+    },
+    "qtd_sistema": {
+      "type": "number",
+      "title": "Qtd. Sistema",
+      "description": "Saldo do sistema no momento da contagem.",
+      "default": 0
+    },
+    "qtd_contada": {
+      "type": "number",
+      "title": "Qtd. Contada",
+      "default": 0
+    },
+    "responsavel": {
+      "type": "string",
+      "title": "Respons\u00e1vel",
+      "description": "Usu\u00e1rio que realizou/ajustou esta contagem."
+    },
+    "data": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data e Hora"
+    }
+  },
+  "required": [
+    "inventario_id",
+    "produto_id",
+    "qtd_contada"
+  ]
+}
