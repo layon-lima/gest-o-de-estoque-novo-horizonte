@@ -238,7 +238,7 @@ export default function Abastecimento() {
               </Card>
             )}
 
-            <div>
+            <div className="hidden sm:block">
               <h3 className="font-semibold mb-3 text-sm">Abastecimentos recentes</h3>
               {loading ? (
                 <p className="text-sm text-muted-foreground">Carregando…</p>
