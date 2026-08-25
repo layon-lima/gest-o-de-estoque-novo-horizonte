@@ -198,19 +198,7 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   doc.setLineWidth(0.3);
   doc.circle(circleCx, circleCy, circleR - 1.5, 'S');
 
-  const logo = await loadLogo();
-  if (logo) {
-    // zoom: o logo preenche quase todo o círculo (clip circular via addImage)
-    const fit = (circleR - 1) * 2;
-    const ratio = logo.w / logo.h || 1;
-    let dw = fit, dh = fit;
-    if (ratio > 1) dh = fit / ratio; else dw = fit * ratio;
-    const dx = circleCx - dw / 2;
-    const dy = circleCy - dh / 2;
-    try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, dw, dh); } catch {}
-  } else {
-    drawLogo(doc, circleCx, circleCy, circleR - 3);
-  }
+  drawLogo(doc, circleCx, circleCy, circleR - 2);
 
   // Bloco de textos à direita do círculo
   const textX = margin + circleR * 2 + 10;
