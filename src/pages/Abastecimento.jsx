@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { List, Fuel, Search, Clock, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Fuel, Search, Clock, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +29,6 @@ export default function Abastecimento() {
   const [savingId, setSavingId] = useState(null);
   const [sucesso, setSucesso] = useState(false);
 
-  const [selecaoManual, setSelecaoManual] = useState(true);
   const [maquinaSelecionada, setMaquinaSelecionada] = useState(null);
   const [buscaMaquina, setBuscaMaquina] = useState('');
   const [aba, setAba] = useState('abastecer');
@@ -180,7 +178,7 @@ export default function Abastecimento() {
       )}
 
       {podeConfirmar && (
-        <div className="flex gap-1 p-1 rounded-lg bg-muted">
+        <div className="hidden sm:flex gap-1 p-1 rounded-lg bg-muted">
           <button
             onClick={() => setAba('abastecer')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${aba === 'abastecer' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
@@ -202,32 +200,27 @@ export default function Abastecimento() {
       {(!podeConfirmar || aba === 'abastecer') && (
         !maquinaSelecionada ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3">
-              <Button size="lg" className="h-16 text-base" onClick={() => setSelecaoManual((v) => !v)}>
-                <List className="w-6 h-6 mr-2" />
-                {selecaoManual ? 'Ocultar lista de máquinas' : 'Selecionar máquina'}
-              </Button>
-            </div>
-
-            {selecaoManual && (
-              <Card className="p-4 space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="Buscar máquina por código ou nome…"
-                    value={buscaMaquina}
-                    onChange={(e) => setBuscaMaquina(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 max-h-[50vh] overflow-y-auto scrollbar-thin">
-                  {maquinasFiltradas.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-6">Nenhuma máquina encontrada.</p>
-                  )}
-                  {maquinasFiltradas.map((m) => (
+            <Card className="p-4 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Buscar máquina por código ou nome…"
+                  value={buscaMaquina}
+                  onChange={(e) => setBuscaMaquina(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2 max-h-[55vh] overflow-y-auto scrollbar-thin">
+                {buscaMaquina.trim() === '' ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Digite para buscar uma máquina.</p>
+                ) : maquinasFiltradas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Nenhuma máquina encontrada.</p>
+                ) : (
+                  maquinasFiltradas.map((m) => (
                     <button
                       key={m.id}
-                      onClick={() => { setMaquinaSelecionada(m); setSelecaoManual(false); setBuscaMaquina(''); }}
+                      onClick={() => { setMaquinaSelecionada(m); setBuscaMaquina(''); }}
                       className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left"
                     >
                       <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs">
@@ -238,10 +231,10 @@ export default function Abastecimento() {
                         <p className="text-xs font-mono text-muted-foreground">{m.codigo}</p>
                       </div>
                     </button>
-                  ))}
-                </div>
-              </Card>
-            )}
+                  ))
+                )}
+              </div>
+            </Card>
 
             <div className="hidden sm:block">
               <h3 className="font-semibold mb-3 text-sm">Abastecimentos recentes</h3>
