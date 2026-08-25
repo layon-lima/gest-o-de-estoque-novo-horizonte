@@ -143,15 +143,15 @@ function resolveDestino(ticket, pedido, clienteNome) {
 function drawRow(doc, x, label, value, y, maxW, valW) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...LABEL);
-  doc.setFontSize(8.5);
+  doc.setFontSize(6);
   doc.text(label + ':', x, y);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...INK);
-  doc.setFontSize(9.5);
-  doc.text(String(value).slice(0, 32), x + valW, y);
+  doc.setFontSize(6.8);
+  doc.text(String(value).slice(0, 30), x + valW, y);
   doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.2);
-  doc.line(x, y + 2.2, x + maxW, y + 2.2);
+  doc.setLineWidth(0.15);
+  doc.line(x, y + 1.6, x + maxW, y + 1.6);
 }
 
 /**
@@ -163,10 +163,11 @@ function drawRow(doc, x, label, value, y, maxW, valW) {
 export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   const { pedido, produtoNome, clienteNome } = ctx;
 
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageW = 210;
-  const pageH = 297;
-  const margin = 16;
+  // A5 = exatamente metade de uma folha A4 (148 x 210 mm)
+  const doc = new jsPDF({ unit: 'mm', format: 'a5' });
+  const pageW = 148;
+  const pageH = 210;
+  const margin = 9;
   const contentW = pageW - margin * 2;
 
   // Fundo do container
@@ -175,25 +176,25 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   // Moldura externa
   doc.setDrawColor(...GREEN);
-  doc.setLineWidth(0.8);
-  doc.roundedRect(margin - 6, margin - 6, contentW + 12, pageH - (margin - 6) * 2, 4, 4, 'D');
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.6);
   doc.roundedRect(margin - 4, margin - 4, contentW + 8, pageH - (margin - 4) * 2, 3, 3, 'D');
+  doc.setDrawColor(...LINE);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(margin - 2.5, margin - 2.5, contentW + 5, pageH - (margin - 2.5) * 2, 2, 2, 'D');
 
   let y = margin;
 
   // Cabeçalho: círculo-mockup no canto superior esquerdo + textos à direita
-  const circleR = 19;
+  const circleR = 12;
   const circleCx = margin + circleR;
   const circleCy = y + circleR;
   // contorno do mockup circular
   doc.setDrawColor(...GREEN);
-  doc.setLineWidth(1);
+  doc.setLineWidth(0.7);
   doc.circle(circleCx, circleCy, circleR, 'S');
   doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.3);
-  doc.circle(circleCx, circleCy, circleR - 1.5, 'S');
+  doc.setLineWidth(0.25);
+  doc.circle(circleCx, circleCy, circleR - 1, 'S');
 
   const logo = await loadLogo();
   if (logo) {
@@ -203,69 +204,69 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     const dy = circleCy - circleR;
     try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, fit, fit); } catch {}
   } else {
-    drawLogo(doc, circleCx, circleCy, circleR - 2);
+    drawLogo(doc, circleCx, circleCy, circleR - 1.5);
   }
 
   // Bloco de textos à direita do círculo
-  const textX = margin + circleR * 2 + 10;
+  const textX = margin + circleR * 2 + 6;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(8);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', textX, y + 8);
+  doc.text('FAZENDA', textX, y + 5);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(26);
+  doc.setFontSize(17);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 20);
+  doc.text('NOVO HORIZONTE', textX, y + 13);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9.5);
+  doc.setFontSize(6.5);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 28);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 18.5);
 
-  y += circleR * 2 + 8;
+  y += circleR * 2 + 5;
   doc.setDrawColor(...GREEN);
-  doc.setLineWidth(0.6);
+  doc.setLineWidth(0.45);
   doc.line(margin, y, margin + contentW, y);
-  y += 12;
+  y += 8;
 
   // Título + selo do tipo
   const tipo = TIPO_LABEL[ticket.tipo] || 'Avulsa';
   const title = 'TICKET DE PESAGEM';
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
+  doc.setFontSize(12.5);
   doc.setTextColor(...INK);
   const tw = doc.getTextWidth(title);
   const cx = pageW / 2;
-  const iconSize = 6;
-  drawScaleIcon(doc, cx - tw / 2 - iconSize - 3, y - 4.5, iconSize);
+  const iconSize = 4;
+  drawScaleIcon(doc, cx - tw / 2 - iconSize - 2, y - 3, iconSize);
   doc.text(title, cx, y, { align: 'center' });
 
   // selo
   const colors = TIPO_COLORS[ticket.tipo] || TIPO_COLORS.avulsa;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  const badgeW = doc.getTextWidth(tipo) + 12;
-  const badgeH = 8.5;
+  doc.setFontSize(6.5);
+  const badgeW = doc.getTextWidth(tipo) + 8;
+  const badgeH = 5.5;
   const badgeX = margin + contentW - badgeW;
   doc.setFillColor(...colors.bg);
-  doc.roundedRect(badgeX, y - 6, badgeW, badgeH, badgeH / 2, badgeH / 2, 'F');
+  doc.roundedRect(badgeX, y - 4, badgeW, badgeH, badgeH / 2, badgeH / 2, 'F');
   doc.setTextColor(...colors.text);
   doc.text(tipo, badgeX + badgeW / 2, y - 0.2, { align: 'center' });
 
   // status (aberto/fechado) à esquerda do selo
   const statusLabel = ticket.status === 'aberto' ? 'EM ABERTO' : 'FECHADO';
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(5.5);
   doc.setTextColor(...LABEL);
   doc.text(statusLabel, margin, y);
 
-  y += 8;
+  y += 5.5;
   doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.25);
   doc.line(margin, y, margin + contentW, y);
-  y += 9;
+  y += 6.5;
 
   // Painéis
-  const gap = 7;
+  const gap = 5;
   const panelW = (contentW - gap) / 2;
   const leftX = margin;
   const rightX = margin + panelW + gap;
@@ -276,7 +277,7 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     ['Data', fmtDate(ticket.data_fechamento || ticket.data_abertura)],
     ['Hora', fmtTime(ticket.data_fechamento || ticket.data_abertura)],
     ['Tipo', tipo],
-    ['Placa do Veículo', ticket.placa || '—'],
+    ['Placa', ticket.placa || '—'],
     ['Motorista', ticket.motorista || '—'],
     ['Produto', resolveProduto(ticket, pedido, produtoNome)],
     ['Origem', ticket.origem || '—'],
@@ -286,68 +287,68 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     dataRows.push(['Pedido', pedido.numero || '—']);
   }
 
-  const rowH = 7;
-  const panelHeaderH = 8;
-  const panelH = panelHeaderH + dataRows.length * rowH + 5;
+  const rowH = 5;
+  const panelHeaderH = 5.5;
+  const panelH = panelHeaderH + dataRows.length * rowH + 3;
 
   // cartões
   doc.setFillColor(250, 252, 251);
   doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(leftX, y, panelW, panelH, 3, 3, 'FD');
-  doc.roundedRect(rightX, y, panelW, panelH, 3, 3, 'FD');
+  doc.setLineWidth(0.3);
+  doc.roundedRect(leftX, y, panelW, panelH, 2, 2, 'FD');
+  doc.roundedRect(rightX, y, panelW, panelH, 2, 2, 'FD');
 
   // barra de título dos cartões (sólida, texto centralizado)
   doc.setFillColor(...GREEN);
-  doc.roundedRect(leftX, y, panelW, panelHeaderH, 3, 3, 'F');
-  doc.roundedRect(rightX, y, panelW, panelHeaderH, 3, 3, 'F');
-  doc.rect(leftX, y + panelHeaderH - 2.5, panelW, 2.5, 'F');
-  doc.rect(rightX, y + panelHeaderH - 2.5, panelW, 2.5, 'F');
+  doc.roundedRect(leftX, y, panelW, panelHeaderH, 2, 2, 'F');
+  doc.roundedRect(rightX, y, panelW, panelHeaderH, 2, 2, 'F');
+  doc.rect(leftX, y + panelHeaderH - 1.8, panelW, 1.8, 'F');
+  doc.rect(rightX, y + panelHeaderH - 1.8, panelW, 1.8, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(6.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('DADOS DO TICKET', leftX + panelW / 2, y + panelHeaderH - 2.6, { align: 'center' });
-  doc.text('PESOS', rightX + panelW / 2, y + panelHeaderH - 2.6, { align: 'center' });
+  doc.text('DADOS DO TICKET', leftX + panelW / 2, y + panelHeaderH - 1.8, { align: 'center' });
+  doc.text('PESOS', rightX + panelW / 2, y + panelHeaderH - 1.8, { align: 'center' });
 
-  const valW = 34;
-  let ry = y + panelHeaderH + 6;
+  const valW = 22;
+  let ry = y + panelHeaderH + 4;
   dataRows.forEach(([label, val]) => {
-    drawRow(doc, leftX + 5, label, val, ry, panelW - 10, valW);
+    drawRow(doc, leftX + 3, label, val, ry, panelW - 6, valW);
     ry += rowH;
   });
 
   // Painel direito — Pesos
-  let pry = y + panelHeaderH + 12;
-  doc.setFontSize(10.5);
+  let pry = y + panelHeaderH + 8;
+  doc.setFontSize(7.5);
   [
     ['Peso Bruto (kg)', fmtNum(ticket.peso_bruto)],
     ['Tara (kg)', fmtNum(ticket.peso_tara)],
   ].forEach(([label, val]) => {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...LABEL);
-    doc.text(label, rightX + 5, pry);
+    doc.text(label, rightX + 3, pry);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...INK);
-    doc.setFontSize(13);
-    doc.text(val, rightX + panelW - 5, pry, { align: 'right' });
-    pry += 10;
+    doc.setFontSize(9.5);
+    doc.text(val, rightX + panelW - 3, pry, { align: 'right' });
+    pry += 7;
   });
 
   doc.setDrawColor(...GREEN);
-  doc.setLineWidth(0.5);
-  doc.line(rightX + 5, pry, rightX + panelW - 5, pry);
-  pry += 11;
+  doc.setLineWidth(0.4);
+  doc.line(rightX + 3, pry, rightX + panelW - 3, pry);
+  pry += 8;
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...LABEL);
-  doc.setFontSize(9.5);
-  doc.text('Peso Líquido (kg)', rightX + 5, pry);
+  doc.setFontSize(6.5);
+  doc.text('Peso Líquido (kg)', rightX + 3, pry);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...GREEN);
-  doc.setFontSize(26);
-  doc.text(fmtNum(ticket.peso_liquido), rightX + panelW - 5, pry + 2, { align: 'right' });
+  doc.setFontSize(18);
+  doc.text(fmtNum(ticket.peso_liquido), rightX + panelW - 3, pry + 1.5, { align: 'right' });
 
-  y += panelH + 11;
+  y += panelH + 7;
 
   // Observações — somente quando o usuário digitou algo
   const obsLinhas = ticket.observacao
@@ -355,39 +356,39 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     : [];
   if (obsLinhas.length > 0) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(7.5);
     doc.setTextColor(...INK);
     doc.text('Observações', margin, y);
     doc.setDrawColor(...LINE);
-    doc.setLineWidth(0.3);
-    doc.line(margin, y + 2, margin + 40, y + 2);
-    y += 7;
+    doc.setLineWidth(0.25);
+    doc.line(margin, y + 1.5, margin + 28, y + 1.5);
+    y += 5;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(6.5);
     doc.setTextColor(...LABEL);
     obsLinhas.forEach((line) => {
-      doc.text('•  ' + line, margin + 1, y);
-      y += 5.8;
+      doc.text('•  ' + line, margin + 0.5, y);
+      y += 4.2;
     });
   }
 
   // Assinaturas
-  const sigY = pageH - 32;
-  const sigW = (contentW - 24) / 2;
+  const sigY = pageH - 22;
+  const sigW = (contentW - 16) / 2;
   doc.setDrawColor(120, 120, 120);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.25);
   doc.line(margin, sigY, margin + sigW, sigY);
-  doc.line(margin + sigW + 24, sigY, margin + contentW, sigY);
+  doc.line(margin + sigW + 16, sigY, margin + contentW, sigY);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(6);
   doc.setTextColor(...LABEL);
-  doc.text('Assinatura do Operador', margin + sigW / 2, sigY + 5, { align: 'center' });
-  doc.text('Assinatura do Motorista', margin + sigW + 24 + sigW / 2, sigY + 5, { align: 'center' });
+  doc.text('Assinatura do Operador', margin + sigW / 2, sigY + 3.5, { align: 'center' });
+  doc.text('Assinatura do Motorista', margin + sigW + 16 + sigW / 2, sigY + 3.5, { align: 'center' });
 
   // Rodapé
-  doc.setFontSize(7.5);
+  doc.setFontSize(5.5);
   doc.setTextColor(160, 160, 160);
-  doc.text('Documento gerado pelo SGENH - Sistema de Gerenciamento de Estoque Novo Horizonte', pageW / 2, pageH - margin + 2, { align: 'center' });
+  doc.text('Documento gerado pelo SGENH - Sistema de Gerenciamento de Estoque Novo Horizonte', pageW / 2, pageH - margin + 1.5, { align: 'center' });
 
   if (opts.print) {
     doc.autoPrint();
