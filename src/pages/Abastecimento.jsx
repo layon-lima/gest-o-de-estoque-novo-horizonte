@@ -257,6 +257,7 @@ export default function Abastecimento() {
             combustiveis={combustiveis}
             produtoPredefinido={produtoPredefinido}
             saving={saving}
+            fotoOpcional={user?.role === 'admin'}
             onSubmit={handleSubmit}
             onBack={() => setMaquinaSelecionada(null)}
           />

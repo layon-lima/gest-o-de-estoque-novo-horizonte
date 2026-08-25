@@ -14,6 +14,7 @@ export default function AbastecimentoForm({
   combustiveis,
   produtoPredefinido,
   saving,
+  fotoOpcional,
   onSubmit,
   onBack,
 }) {
@@ -58,7 +59,7 @@ export default function AbastecimentoForm({
     setErro('');
     if (!produto) { setErro('Selecione o combustível.'); return; }
     if (!(qtd > 0)) { setErro('Informe uma quantidade maior que zero.'); return; }
-    if (!fotoUrl) { setErro('Tire a foto do painel do abastecedor para confirmação.'); return; }
+    if (!fotoOpcional && !fotoUrl) { setErro('Tire a foto do painel do abastecedor para confirmação.'); return; }
     try {
       await onSubmit({ produto, quantidade: qtd, observacao, foto_url: fotoUrl });
       setProdutoId(''); setQuantidade(''); setObservacao(''); setFotoUrl('');
@@ -123,7 +124,7 @@ export default function AbastecimentoForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label>Foto do painel do abastecedor *</Label>
+          <Label>Foto do painel do abastecedor{fotoOpcional ? '' : ' *'}</Label>
           {fotoUrl ? (
             <div className="relative rounded-lg overflow-hidden border">
               <img src={fotoUrl} alt="Painel" className="w-full max-h-56 object-cover" />
@@ -156,7 +157,11 @@ export default function AbastecimentoForm({
             className="hidden"
             onChange={handleFoto}
           />
-          <p className="text-xs text-muted-foreground">A foto fica anexa ao registro até um usuário autorizado confirmar a baixa.</p>
+          <p className="text-xs text-muted-foreground">
+            {fotoOpcional
+              ? 'Foto opcional para administradores. Fica anexa ao registro quando enviada.'
+              : 'A foto fica anexa ao registro até um usuário autorizado confirmar a baixa.'}
+          </p>
         </div>
 
         <div className="space-y-1.5">
