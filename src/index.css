@@ -93,7 +93,7 @@
     /* Liquid Glass tokens (dark) */
     --glass-bg: 150 60% 96%;
     --glass-border: 0 0% 100%;
-    --glass-highlight: 155 35% 6%;
+    --glass-highlight: 0 0% 100%;
     --glass-blur: 28px;
     --glass-blur-tinted: 16px;
     --shadow: 0 0% 0%;
@@ -140,53 +140,44 @@
 @layer components {
   /* Vidro cristal (clear) — navegação, sidebar, tab bar, topbar */
   .glass-clear {
-    background-color: hsl(var(--glass-bg) / 0.26);
-    backdrop-filter: blur(var(--glass-blur)) saturate(170%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
-    border: 1px solid hsl(var(--glass-border) / 0.4);
+    background-color: hsl(var(--glass-bg) / 0.42);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid hsl(var(--glass-border) / 0.5);
     box-shadow:
-      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.55),
-      inset 0 -1px 0 0 hsl(var(--shadow) / 0.04),
-      0 10px 40px -14px hsl(var(--shadow) / 0.18);
+      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.65),
+      inset 0 -1px 0 0 hsl(var(--shadow) / 0.05),
+      0 10px 40px -12px hsl(var(--shadow) / 0.22);
   }
 
   /* Vidro fosco (tinted) — dados, tabelas, cards de conteúdo */
   .glass-tinted {
-    background-color: hsl(var(--glass-bg) / 0.5);
-    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
-    border: 1px solid hsl(var(--glass-border) / 0.45);
+    background-color: hsl(var(--glass-bg) / 0.74);
+    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    border: 1px solid hsl(var(--glass-border) / 0.55);
     box-shadow:
-      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.45),
-      inset 0 -1px 0 0 hsl(var(--shadow) / 0.03),
-      0 6px 24px -12px hsl(var(--shadow) / 0.12);
+      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.5),
+      inset 0 -1px 0 0 hsl(var(--shadow) / 0.04),
+      0 6px 24px -10px hsl(var(--shadow) / 0.16);
   }
 
   /* Vidro de input — mais sólido para legibilidade de formulário */
   .glass-input {
-    background-color: hsl(var(--glass-bg) / 0.42);
-    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(140%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(140%);
-    border: 1px solid hsl(var(--glass-border) / 0.45);
-    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.35);
+    background-color: hsl(var(--glass-bg) / 0.6);
+    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
+    border: 1px solid hsl(var(--glass-border) / 0.5);
+    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.4);
   }
 
   /* Cápsula de vidro — botões e badges */
   .glass-pill {
-    background-color: hsl(var(--glass-bg) / 0.34);
-    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
-    border: 1px solid hsl(var(--glass-border) / 0.45);
-    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.45);
-  }
-
-  /* Texto adaptativo — halo dinâmico para legibilidade sobre vidro transparente.
-     O halo (claro no tema claro / escuro no tema escuro) envolve cada caractere,
-     garantindo contraste seja qual for o conteúdo atrás do vidro. */
-  .glass-text {
-    text-shadow:
-      0 0 1px hsl(var(--glass-highlight) / 0.55),
-      0 1px 2px hsl(var(--glass-highlight) / 0.35);
+    background-color: hsl(var(--glass-bg) / 0.55);
+    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    border: 1px solid hsl(var(--glass-border) / 0.5);
+    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.55);
   }
 }
 
