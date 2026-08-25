@@ -186,37 +186,47 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   let y = margin;
 
-  // Cabeçalho: logo SVG da fazenda + textos (centralizados)
-  const logoR = 60;
-  const logoBox = logoR * 2;
+  // Cabeçalho: círculo-mockup no canto superior esquerdo + textos à direita
+  const circleR = 26;
+  const circleCx = margin + circleR;
+  const circleCy = y + circleR;
+  // contorno do mockup circular
+  doc.setDrawColor(...GREEN);
+  doc.setLineWidth(1);
+  doc.circle(circleCx, circleCy, circleR, 'S');
+  doc.setDrawColor(...LINE);
+  doc.setLineWidth(0.3);
+  doc.circle(circleCx, circleCy, circleR - 2, 'S');
+
   const logo = await loadLogo();
   if (logo) {
+    const fit = (circleR - 5) * 2;
     const ratio = logo.w / logo.h || 1;
-    let dw = logoBox, dh = logoBox;
-    if (ratio > 1) dh = logoBox / ratio; else dw = logoBox * ratio;
-    const dx = (pageW - dw) / 2;
-    const dy = y;
+    let dw = fit, dh = fit;
+    if (ratio > 1) dh = fit / ratio; else dw = fit * ratio;
+    const dx = circleCx - dw / 2;
+    const dy = circleCy - dh / 2;
     try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, dw, dh); } catch {}
-    y += dh + 4;
   } else {
-    drawLogo(doc, pageW / 2, y + logoR, logoR);
-    y += logoBox + 4;
+    drawLogo(doc, circleCx, circleCy, circleR - 5);
   }
 
+  // Bloco de textos à direita do círculo
+  const textX = margin + circleR * 2 + 10;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', pageW / 2, y + 5, { align: 'center' });
+  doc.text('FAZENDA', textX, y + 10);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(28);
+  doc.setFontSize(26);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', pageW / 2, y + 17, { align: 'center' });
+  doc.text('NOVO HORIZONTE', textX, y + 22);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', pageW / 2, y + 25, { align: 'center' });
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 30);
 
-  y += 30 + 8;
+  y += circleR * 2 + 8;
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.6);
   doc.line(margin, y, margin + contentW, y);
