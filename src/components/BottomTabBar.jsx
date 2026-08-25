@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { allowedPagesForUser } from '@/lib/permissions';
+import { PAGES } from '@/lib/permissions';
 import SetorIcon from '@/components/setorIcon';
 
 const allItems = [
@@ -32,7 +32,13 @@ export default function BottomTabBar() {
   const { user } = useAuth();
   const [setores, setSetores] = useState([]);
 
-  const allowedKeys = new Set(allowedPagesForUser(user).map((p) => p.key));
+  // No mobile, o admin também respeita as permissões configuradas (paginas_permitidas).
+  const allowedKeys = (() => {
+    if (!user) return new Set();
+    const allowed = user.paginas_permitidas;
+    if (!Array.isArray(allowed)) return new Set(PAGES.map((p) => p.key));
+    return new Set(allowed);
+  })();
   const items = allItems.filter((it) => allowedKeys.has(it.key));
 
   useEffect(() => {
@@ -41,11 +47,11 @@ export default function BottomTabBar() {
       .catch(() => setSetores([]));
   }, []);
 
+  // No mobile, o admin também respeita setores_permitidos (igual aos usuários comuns).
   const setoresVisiveis = setores
     .filter((s) => s.tem_aba_mobile === true)
     .filter((s) => {
       if (!user) return false;
-      if (user.role === 'admin') return true;
       const permitidos = Array.isArray(user.setores_permitidos) ? user.setores_permitidos : [];
       return permitidos.includes(s.id);
     });
