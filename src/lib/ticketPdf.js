@@ -177,9 +177,10 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const { pedido, produtoNome, clienteNome } = ctx;
   const M = 8;
   const W = 210 - M * 2; // 194
-  const H = 143;
+  const H = 144;
   const tipo = TIPO_LABEL[ticket.tipo] || 'Avulsa';
   const tipoColors = TIPO_COLORS[ticket.tipo] || TIPO_COLORS.avulsa;
+  const emissao = ticket.data_fechamento || ticket.data_abertura;
 
   // Borda externa do bloco
   doc.setDrawColor(...GREEN);
@@ -191,7 +192,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   // ---------- Cabeçalho ----------
   const circleR = 11;
   const circleCx = M + circleR + 2;
-  const circleCy = y + circleR + 3;
+  const circleCy = y + circleR + 2;
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.7);
   doc.circle(circleCx, circleCy, circleR, 'S');
@@ -209,76 +210,74 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 8);
+  doc.text('NOVO HORIZONTE', textX, y + 9);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...LABEL);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 15);
+
+  // Data/hora de emissão (canto superior direito)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 13);
-
-  // Data/hora de emissão (canto superior direito)
-  const emissao = ticket.data_fechamento || ticket.data_abertura;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.setTextColor(...LABEL);
   doc.text('EMISSÃO', M + W, y + 5, { align: 'right' });
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setTextColor(...INK);
-  doc.text(fmtDateTime(emissao), M + W, y + 10, { align: 'right' });
+  doc.text(fmtDateTime(emissao), M + W, y + 11, { align: 'right' });
 
-  y += 18;
+  y += 22;
 
   // ---------- Título ----------
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.45);
   doc.line(M, y, M + W, y);
-  y += 5;
+  y += 6;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(...INK);
   doc.text('TICKET DE PESAGEM', 210 / 2, y, { align: 'center' });
   // selo do tipo à direita
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
+  doc.setFontSize(7);
   const badgeW = doc.getTextWidth(tipo) + 8;
-  const badgeH = 5.5;
+  const badgeH = 6;
   const badgeX = M + W - badgeW;
   doc.setFillColor(...tipoColors.bg);
-  doc.roundedRect(badgeX, y - 4, badgeW, badgeH, badgeH / 2, badgeH / 2, 'F');
+  doc.roundedRect(badgeX, y - 4.5, badgeW, badgeH, badgeH / 2, badgeH / 2, 'F');
   doc.setTextColor(...tipoColors.text);
-  doc.text(tipo, badgeX + badgeW / 2, y - 0.2, { align: 'center' });
+  doc.text(tipo, badgeX + badgeW / 2, y - 0.3, { align: 'center' });
   // status à esquerda
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
   doc.text(ticket.status === 'aberto' ? 'EM ABERTO' : 'FECHADO', M, y);
-  y += 4;
+  y += 5;
 
   // ---------- Grade de dados (cabeçalho tabular) ----------
   doc.setDrawColor(...LINE);
   doc.setLineWidth(0.25);
   doc.line(M, y, M + W, y);
+  const gridTop = y;
+  const gridH = 13;
   y += 4;
-
   const colW = W / 4;
-  const gridTop = y - 4;
-  const gridH = 11;
   const cells = [
     ['TICKET Nº', ticket.numero || '—'],
     ['PLACA', ticket.placa || '—'],
-    ['MOTORISTA', (ticket.motorista || '—').slice(0, 22)],
+    ['MOTORISTA', (ticket.motorista || '—').slice(0, 18)],
     ['TIPO', tipo],
   ];
   cells.forEach((c, i) => {
     const cx0 = M + colW * i + 3;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5);
+    doc.setFontSize(6.5);
     doc.setTextColor(...LABEL);
     doc.text(c[0], cx0, y);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setTextColor(...INK);
-    doc.text(c[1], cx0, y + 4.5);
+    doc.text(c[1], cx0, y + 5);
   });
   // separadores verticais
   doc.setDrawColor(...LINE);
@@ -287,157 +286,164 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
     const vx = M + colW * i;
     doc.line(vx, gridTop, vx, gridTop + gridH);
   }
-  y += gridH;
+  y = gridTop + gridH;
   doc.line(M, y, M + W, y);
   y += 5;
 
-  // ---------- Produto / Origem / Destino ----------
+  // ---------- Produto (+ Pedido p/ venda) ----------
   const produtoNomeTxt = resolveProduto(ticket, pedido, produtoNome);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...LABEL);
   doc.text('PRODUTO:', M, y);
+  const prodLabelW = 18;
+  let prodMaxW = W - prodLabelW - 10;
+  if (ticket.tipo === 'venda' && pedido) {
+    const pedidoTxt = 'PEDIDO: ' + (pedido.numero || '—');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    const pedidoW = doc.getTextWidth(pedidoTxt);
+    doc.setTextColor(...GREEN_DK);
+    doc.text(pedidoTxt, M + W, y, { align: 'right' });
+    prodMaxW = W - prodLabelW - pedidoW - 12;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...INK);
+  const prodLines = doc.splitTextToSize(produtoNomeTxt, prodMaxW);
+  doc.text(prodLines[0] || '—', M + prodLabelW, y);
+  y += 8;
+
+  // ---------- Origem / Destino ----------
+  const halfW = (W - 6) / 2;
+  const leftX = M;
+  const rightX = M + halfW + 3;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...LABEL);
+  doc.text('ORIGEM:', leftX, y);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...INK);
-  doc.text(produtoNomeTxt.slice(0, 48), M + 20, y);
-  y += 6;
-
-  // Origem / Destino em duas colunas
-  const halfW = (W - 6) / 2;
+  doc.text((ticket.origem || '—').slice(0, 26), leftX + 16, y);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
-  doc.text('ORIGEM:', M, y);
+  doc.text('DESTINO:', rightX, y);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(...INK);
-  doc.text((ticket.origem || '—').slice(0, 28), M + 14, y);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(...LABEL);
-  doc.text('DESTINO:', M + halfW + 3, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...INK);
-  doc.text(resolveDestino(ticket, pedido, clienteNome).slice(0, 28), M + halfW + 3 + 16, y);
-  if (ticket.tipo === 'venda' && pedido) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
-    doc.setTextColor(...LABEL);
-    doc.text('PEDIDO:', M + halfW + 3 + 44, y);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...INK);
-    doc.text(pedido.numero || '—', M + halfW + 3 + 56, y);
-  }
-  y += 7;
+  doc.text(resolveDestino(ticket, pedido, clienteNome).slice(0, 26), rightX + 16, y);
+  y += 8;
 
   // ---------- Datas ----------
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
-  doc.text('DATA ABERTURA:', M, y);
+  doc.text('DATA ABERTURA:', leftX, y);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(...INK);
-  doc.text(fmtDateTime(ticket.data_abertura), M + 24, y);
+  doc.text(fmtDateTime(ticket.data_abertura), leftX + 26, y);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
-  doc.text('DATA FECHAMENTO:', M + halfW + 3, y);
+  doc.text('DATA FECHAMENTO:', rightX, y);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(...INK);
-  doc.text(fmtDateTime(ticket.data_fechamento), M + halfW + 3 + 26, y);
-  y += 8;
+  doc.text(fmtDateTime(ticket.data_fechamento), rightX + 30, y);
+  y += 9;
 
   // ---------- Pesos ----------
   const weightTop = y;
   const weightH = 26;
-  const boxW = 60;
+  const boxW = 62;
   const boxX = M + W - boxW;
   // caixa destacada do peso líquido
   doc.setDrawColor(...GREEN);
-  doc.setLineWidth(0.6);
+  doc.setLineWidth(0.7);
   doc.roundedRect(boxX, weightTop, boxW, weightH, 2, 2, 'D');
   doc.setFillColor(...GREEN_LT);
-  doc.roundedRect(boxX, weightTop, boxW, 6, 2, 2, 'F');
-  doc.rect(boxX, weightTop + 3, boxW, 3, 'F');
+  doc.roundedRect(boxX, weightTop, boxW, 7, 2, 2, 'F');
+  doc.rect(boxX, weightTop + 4, boxW, 3, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
+  doc.setFontSize(7.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('PESO LÍQUIDO (kg)', boxX + boxW / 2, weightTop + 4.3, { align: 'center' });
+  doc.text('PESO LÍQUIDO (kg)', boxX + boxW / 2, weightTop + 5, { align: 'center' });
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.setTextColor(...GREEN_DK);
-  doc.text(fmtNum(ticket.peso_liquido), boxX + boxW / 2, weightTop + weightH - 5, { align: 'center' });
+  doc.text(fmtNum(ticket.peso_liquido), boxX + boxW / 2, weightTop + weightH - 6, { align: 'center' });
 
   // pesos bruto / tara à esquerda da caixa
-  const leftW = W - boxW - 5;
+  const leftW = W - boxW - 6;
+  const brutoY = weightTop + 7;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(7.5);
   doc.setTextColor(...LABEL);
-  doc.text('PESO BRUTO (kg)', M, weightTop + 5);
+  doc.text('PESO BRUTO (kg)', M, brutoY);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(14);
   doc.setTextColor(...INK);
-  doc.text(fmtNum(ticket.peso_bruto), M + leftW, weightTop + 5, { align: 'right' });
+  doc.text(fmtNum(ticket.peso_bruto), M + leftW, brutoY, { align: 'right' });
   doc.setDrawColor(...LINE);
   doc.setLineWidth(0.2);
-  doc.line(M, weightTop + 11, M + leftW, weightTop + 11);
+  doc.line(M, weightTop + 13, M + leftW, weightTop + 13);
+  const taraY = weightTop + 19;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...LABEL);
+  doc.text('TARA (kg)', M, taraY);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...INK);
+  doc.text(fmtNum(ticket.peso_tara), M + leftW, taraY, { align: 'right' });
+
+  y = weightTop + weightH + 5;
+
+  // ---------- Observações ----------
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...LABEL);
-  doc.text('TARA (kg)', M, weightTop + 17);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(...INK);
-  doc.text(fmtNum(ticket.peso_tara), M + leftW, weightTop + 17, { align: 'right' });
-
-  y = weightTop + weightH + 4;
-
-  // ---------- Observações ----------
+  doc.text('OBSERVAÇÕES:', M, y);
   const obsLinhas = ticket.observacao
     ? ticket.observacao.split('\n').map((l) => l.trim()).filter(Boolean)
     : [];
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(...LABEL);
-  doc.text('OBSERVAÇÕES:', M, y);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...INK);
   const obsText = obsLinhas.length > 0 ? obsLinhas.join(' / ') : '—';
-  const obsLines = doc.splitTextToSize(obsText, W - 24);
-  doc.text(obsLines.slice(0, 2), M + 24, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...INK);
+  const obsLines = doc.splitTextToSize(obsText, W - 30);
+  doc.text(obsLines.slice(0, 1), M + 28, y);
 
   // ---------- Rodapé jurídico ----------
-  const legalY = y0 + H - 30;
+  const legalY = y0 + H - 32;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.5);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
   const legal = 'Através deste ticket confirmamos a pesagem do veículo e a conferência do produto descrito acima, firmamos o presente para os devidos fins.';
   const legalLines = doc.splitTextToSize(legal, W - 10);
   doc.text(legalLines, 210 / 2, legalY, { align: 'center' });
-  doc.text(`NOVO HORIZONTE, ${fmtLongDate(emissao)}.`, 210 / 2, legalY + 7, { align: 'center' });
+  doc.text(`NOVO HORIZONTE, ${fmtLongDate(emissao)}.`, 210 / 2, legalY + 8, { align: 'center' });
 
   // Assinaturas
-  const sigY = y0 + H - 16;
+  const sigY = y0 + H - 14;
   const sigW = (W - 20) / 2;
   doc.setDrawColor(120, 120, 120);
   doc.setLineWidth(0.25);
   doc.line(M, sigY, M + sigW, sigY);
   doc.line(M + sigW + 20, sigY, M + W, sigY);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.5);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
-  doc.text('Assinatura do Operador', M + sigW / 2, sigY + 3.5, { align: 'center' });
-  doc.text('Assinatura do Motorista', M + sigW + 20 + sigW / 2, sigY + 3.5, { align: 'center' });
+  doc.text('Assinatura do Operador', M + sigW / 2, sigY + 4, { align: 'center' });
+  doc.text('Assinatura do Motorista', M + sigW + 20 + sigW / 2, sigY + 4, { align: 'center' });
 
   // ---------- Barra inferior ----------
-  const barY = y0 + H - 4;
+  const barY = y0 + H - 3;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.5);
+  doc.setFontSize(7);
   doc.setTextColor(...LABEL);
   doc.text(`${ticket.placa || ''} - ${tipo}`.trim(), M, barY);
   doc.setFont('helvetica', 'bold');
