@@ -21,7 +21,7 @@ const LABEL = [107, 114, 128];
 const LINE = [226, 232, 230];
 
 const LOGO_PNG_URL =
-  'https://media.base44.com/images/public/6a84b445f638bd5605381437/8dd1c2ef3_MockupCircular512x512.png';
+  'https://media.base44.com/images/public/6a84b445f638bd5605381437/f74d0a800_MockupCircular512x5121.png';
 
 // Carrega o logo circular PNG (1:1, sem margens) e retorna dataURL pronto para o PDF.
 async function loadLogo() {
