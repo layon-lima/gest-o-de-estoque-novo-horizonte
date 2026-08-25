@@ -15,7 +15,6 @@ import { formatQtd } from '@/lib/format';
 import AbastecimentoForm from '@/components/abastecimento/AbastecimentoForm';
 import AbastecimentoRow from '@/components/abastecimento/AbastecimentoRow';
 import AbastecimentoPendentes from '@/components/abastecimento/AbastecimentoPendentes';
-import CombustivelResumo from '@/components/abastecimento/CombustivelResumo';
 
 export default function Abastecimento() {
   const { user } = useAuth();
@@ -178,15 +177,6 @@ export default function Abastecimento() {
           <CheckCircle2 className="w-5 h-5 shrink-0" />
           Abastecimento enviado! Aguarde a confirmação da baixa por um usuário autorizado.
         </Card>
-      )}
-
-      {combustiveis.length > 0 && (
-        <CombustivelResumo
-          combustiveis={combustiveis}
-          lotes={lotes}
-          setores={setores}
-          loading={loading}
-        />
       )}
 
       {podeConfirmar && (
