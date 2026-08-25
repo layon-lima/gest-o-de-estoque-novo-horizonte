@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import ProdutoFotoUpload from '@/components/cadastros/ProdutoFotoUpload';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
@@ -43,6 +44,7 @@ const empty = {
   fator_conversao: 0,
   estoque_minimo: 0,
   venda: false,
+  foto_url: '',
 };
 
 export default function ProductForm({ open, onOpenChange, produto, setores, depositos = [], maquinas, gavetas, onSaved, produtos = [] }) {
@@ -196,6 +198,11 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           <div className="space-y-1.5">
             <Label htmlFor="codigo_referencia">Código de Referência</Label>
             <Input id="codigo_referencia" value={form.codigo_referencia || ''} onChange={(e) => set('codigo_referencia', e.target.value)} placeholder="Definido na entrada em estoque" />
+          </div>
+
+          <div className="space-y-2 rounded-lg border p-3">
+            <Label>Foto de referência <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+            <ProdutoFotoUpload value={form.foto_url || ''} onChange={(url) => set('foto_url', url)} />
           </div>
 
           <div className="space-y-1.5">
