@@ -20,6 +20,40 @@ const INK = [17, 24, 23];
 const LABEL = [107, 114, 128];
 const LINE = [226, 232, 230];
 
+const LOGO_SVG_URL =
+  'https://media.base44.com/images/public/6a84b445f638bd5605381437/950b68ffe_Designsemnome.svg';
+
+// Carrega o SVG da fazenda e rasteriza em PNG de alta resolução, preservando proporção.
+async function loadLogo() {
+  try {
+    const res = await fetch(LOGO_SVG_URL);
+    if (!res.ok) return null;
+    const svgText = await res.text();
+    const blob = new Blob([svgText], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = url;
+    });
+    const scale = 6;
+    const canvas = document.createElement('canvas');
+    canvas.width = (img.naturalWidth || 256) * scale;
+    canvas.height = (img.naturalHeight || 256) * scale;
+    const ctx2 = canvas.getContext('2d');
+    ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    return {
+      dataUrl: canvas.toDataURL('image/png'),
+      w: canvas.width,
+      h: canvas.height,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Logo vetorial da fazenda — sol amarelo, colinas verdes, plantas e mão acolhedora.
 function drawLogo(doc, cx, cy, r) {
   // 1) Sol — disco amarelo (fundo do emblema)
@@ -148,23 +182,37 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   let y = margin;
 
-  // Cabeçalho: logo vetorial + textos
+  // Cabeçalho: logo SVG da fazenda + textos
   const logoR = 10;
-  const logoCx = margin + logoR;
-  const logoCy = y + logoR;
-  drawLogo(doc, logoCx, logoCy, logoR);
+  const logoBox = logoR * 2;
+  const logo = await loadLogo();
+  if (logo) {
+    // preserva proporção dentro do quadrado do logo
+    const ratio = logo.w / logo.h || 1;
+    let dw = logoBox, dh = logoBox;
+    if (ratio > 1) dh = logoBox / ratio; else dw = logoBox * ratio;
+    const dx = margin + (logoBox - dw) / 2;
+    const dy = y + (logoBox - dh) / 2;
+    try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, dw, dh); } catch {}
+  } else {
+    drawLogo(doc, margin + logoR, y + logoR, logoR);
+  }
 
-  const textX = margin + logoR * 2 + 6;
+  const textX = margin + logoBox + 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...LABEL);
+  doc.text('FAZENDA', textX, y + 6);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 8);
+  doc.text('NOVO HORIZONTE', textX, y + 13.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 14.5);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 19);
 
-  y += logoR * 2 + 6;
+  y += logoBox + 6;
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.6);
   doc.line(margin, y, margin + contentW, y);
