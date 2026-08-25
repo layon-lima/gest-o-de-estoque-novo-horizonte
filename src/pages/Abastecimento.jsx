@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { useToast } from '@/components/ui/use-toast';
+import { getDisplayName } from '@/lib/userName';
 import {
   findSetorCombustivel, produtosCombustivel,
   registrarAbastecimentoPendente, confirmarAbastecimento, cancelarAbastecimento,
@@ -108,7 +109,7 @@ export default function Abastecimento() {
         produto,
         quantidade,
         observacao,
-        operador: user?.full_name || user?.email || '',
+        operador: getDisplayName(user),
         foto_url,
       });
       toast({ title: 'Abastecimento registrado', description: 'Aguardando confirmação de um usuário autorizado para baixar o estoque.' });
@@ -138,7 +139,7 @@ export default function Abastecimento() {
         abast,
         maquina,
         produto,
-        confirmado_por: user?.full_name || user?.email || '',
+        confirmado_por: getDisplayName(user),
         setores,
         lotes,
         movimentacoes,

@@ -41,6 +41,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { formatQtd, parseQtd } from '@/lib/format';
+import { getDisplayName } from '@/lib/userName';
 import {
   nextInventarioNumber,
   filterProdutosParaInventario,
@@ -228,7 +229,7 @@ export default function InventarioConference({
           criterios: key,
           criterios_descricao: buildCriteriosDescricao(criterios, depositos, maquinas, gavetas),
           status: 'aberto',
-          responsavel: user?.full_name || user?.email || '',
+          responsavel: getDisplayName(user),
           total_itens: 0,
           total_acertos: 0,
           total_divergencias: 0,
@@ -269,7 +270,7 @@ export default function InventarioConference({
         unidade: produtoAtivo.unidade || 'un',
         qtd_sistema: qtdSistema(produtoAtivo, lotes || []),
         qtd_contada: val,
-        responsavel: user?.full_name || user?.email || '',
+        responsavel: getDisplayName(user),
         data: new Date().toISOString(),
       });
     } catch (e) {
@@ -293,7 +294,7 @@ export default function InventarioConference({
       const nova = modo === 'add' ? (Number(item.qtd_contada) || 0) + val : val;
       await base44.entities.InventarioItem.update(item.id, {
         qtd_contada: nova,
-        responsavel: user?.full_name || user?.email || '',
+        responsavel: getDisplayName(user),
         data: new Date().toISOString(),
       });
       toast({ title: modo === 'add' ? 'Quantidade adicionada' : 'Quantidade recontada' });
