@@ -66,7 +66,7 @@ function App() {
 
   return (
     <AuthProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
         <QueryClientProvider client={queryClientInstance}>
           <Router>
             <ScrollToTop />
