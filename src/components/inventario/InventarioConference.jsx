@@ -38,6 +38,8 @@ import {
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { usePersistentState } from '@/hooks/usePersistentState';
+import { useBackHandler } from '@/hooks/useBackHandler';
 import { formatQtd, parseQtd } from '@/lib/format';
 import {
   nextInventarioNumber,
@@ -68,9 +70,11 @@ export default function InventarioConference({
   user,
   onSaved,
   initialInventarioId,
+  onInventarioAberto,
 }) {
   const { toast } = useToast();
-  const [step, setStep] = useState('criterios');
+  const [step, setStep] = usePersistentState(`inv:step:${setor?.id}`, 'criterios');
+  const [inventarioId, setInventarioId] = usePersistentState(`inv:id:${setor?.id}`, null);
   const [criterios, setCriterios] = useState(emptyCriterios);
   const [inventario, setInventario] = useState(null);
   const [items, setItems] = useState([]);
@@ -85,11 +89,18 @@ export default function InventarioConference({
   const [confirmConcluir, setConfirmConcluir] = useState(false);
   const inputRef = useRef(null);
 
+  // Voltar do sistema (mobile) caminha pelos passos na ordem inversa antes de fechar.
+  useBackHandler(open && step === 'criterios', () => handleClose(false));
+  useBackHandler(open && step === 'documento', () => setStep('criterios'));
+  useBackHandler(open && step === 'resultado', () => setStep('documento'));
+  useBackHandler(open && !!confirmConcluir, () => setConfirmConcluir(false));
+  useBackHandler(open && !!aviso, () => setAviso(null));
+
   useEffect(() => {
-    if (open && initialInventarioId) {
-      abrirDocumento(initialInventarioId);
+    if (open && (initialInventarioId || inventarioId) && !inventario) {
+      abrirDocumento(initialInventarioId || inventarioId);
     }
-  }, [open, initialInventarioId]);
+  }, [open, initialInventarioId, inventarioId]);
 
   useEffect(() => {
     if (open && step === 'criterios' && setor) {
@@ -164,6 +175,7 @@ export default function InventarioConference({
 
   function reset() {
     setStep('criterios');
+    setInventarioId(null);
     setCriterios(emptyCriterios);
     setInventario(null);
     setItems([]);
@@ -184,6 +196,8 @@ export default function InventarioConference({
     try {
       const doc = await base44.entities.Inventario.get(id);
       setInventario(doc);
+      setInventarioId(doc.id);
+      onInventarioAberto?.(doc.id);
       setItems([]);
       setBusca(''); setAtivoId(null); setQtdInput(''); setAviso(null); setResultado(null);
       setStep('documento');
@@ -222,6 +236,8 @@ export default function InventarioConference({
         });
       }
       setInventario(doc);
+      setInventarioId(doc.id);
+      onInventarioAberto?.(doc.id);
       setItems([]);
       setBusca(''); setAtivoId(null); setQtdInput(''); setAviso(null); setResultado(null);
       setStep('documento');

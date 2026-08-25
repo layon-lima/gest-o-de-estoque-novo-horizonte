@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { useBackHandler } from '@/hooks/useBackHandler';
 import { useToast } from '@/components/ui/use-toast';
 import {
   findSetorCombustivel, produtosCombustivel,
@@ -87,6 +88,9 @@ export default function Abastecimento() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  // Voltar do sistema (mobile): com máquina selecionada, volta para a lista em vez de sair.
+  useBackHandler(!!maquinaSelecionada, () => { setMaquinaSelecionada(null); setMaquinaId(null); });
 
   // Restaura a máquina selecionada ao retornar para a aba (preserva fluxo em andamento).
   useEffect(() => {

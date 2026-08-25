@@ -14,6 +14,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { useBackHandler } from '@/hooks/useBackHandler';
 import { readUiState, writeUiState } from '@/lib/uiStateStore';
 import SetorMovimentacaoForm from '@/components/setores/SetorMovimentacaoForm';
 import SetorProdutoRow from '@/components/setores/SetorProdutoRow';
@@ -34,7 +35,8 @@ export default function SetorDetail() {
   const [busca, setBusca] = usePersistentState(`setor:busca:${setorId}`, '');
   const [expandedId, setExpandedId] = usePersistentState(`setor:exp:${setorId}`, null);
   const [modalTipo, setModalTipo] = useState(null);
-  const [inventarioOpen, setInventarioOpen] = useState(false);
+  const [inventarioOpen, setInventarioOpen] = usePersistentState(`setor:inv:open:${setorId}`, false);
+  const [inventarioId, setInventarioId] = usePersistentState(`setor:inv:id:${setorId}`, null);
   const listRef = useRef(null);
 
   async function load() {
@@ -53,6 +55,11 @@ export default function SetorDetail() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  // Voltar do sistema (mobile) ponto a ponto: recolhe produto → fecha modal → fecha inventário.
+  useBackHandler(!!expandedId, () => setExpandedId(null));
+  useBackHandler(!!modalTipo, () => setModalTipo(null));
+  useBackHandler(inventarioOpen, () => setInventarioOpen(false));
 
   // Preserva a posição de scroll da lista ao sair/retornar da rota (mobile).
   useEffect(() => {
@@ -113,6 +120,11 @@ export default function SetorDetail() {
           <Button variant="outline" size="sm" className="md:hidden gap-1.5 shrink-0" onClick={() => setInventarioOpen(true)}>
             <ClipboardList className="w-4 h-4" />
             Inventário
+          </Button>
+        )}
+        {inventarioOpen && (
+          <Button variant="ghost" size="sm" className="md:hidden gap-1.5 shrink-0 text-destructive" onClick={() => setInventarioOpen(false)}>
+            Fechar
           </Button>
         )}
       </header>
@@ -189,7 +201,7 @@ export default function SetorDetail() {
 
       <InventarioConference
         open={inventarioOpen}
-        onOpenChange={setInventarioOpen}
+        onOpenChange={(o) => { setInventarioOpen(o); if (!o) setInventarioId(null); }}
         setor={setor}
         produtos={produtos}
         depositos={depositos}
@@ -198,6 +210,8 @@ export default function SetorDetail() {
         lotes={lotes}
         user={user}
         onSaved={load}
+        initialInventarioId={inventarioId}
+        onInventarioAberto={setInventarioId}
       />
     </div>
   );
