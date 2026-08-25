@@ -4,46 +4,41 @@
 
 @layer base {
   :root {
-    --background: 120 40% 99%;
-    --foreground: 158 49% 11%;
+    --background: 120 30% 99%;
+    --foreground: 155 45% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 158 49% 11%;
+    --card-foreground: 155 45% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 158 49% 11%;
-    --primary: 160 84% 39%;
+    --popover-foreground: 155 45% 12%;
+    --primary: 160 84% 32%;
     --primary-foreground: 150 60% 98%;
-    --secondary: 150 40% 95%;
-    --secondary-foreground: 160 60% 25%;
-    --muted: 150 30% 96%;
-    --muted-foreground: 155 18% 40%;
-    --accent: 90 60% 92%;
-    --accent-foreground: 160 60% 22%;
-    --destructive: 0 72% 48%;
+    --secondary: 150 30% 96%;
+    --secondary-foreground: 160 50% 22%;
+    --muted: 150 20% 95%;
+    --muted-foreground: 155 10% 38%;
+    --accent: 90 50% 90%;
+    --accent-foreground: 160 50% 20%;
+    --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 150 25% 90%;
-    --input: 150 25% 90%;
-    --ring: 160 84% 39%;
-    --sun: 38 92% 50%;
-    --sun-foreground: 158 49% 11%;
-    --earth: 20 40% 38%;
+    --border: 150 15% 88%;
+    --input: 150 15% 88%;
+    --ring: 160 84% 32%;
+    --sun: 38 92% 48%;
+    --sun-foreground: 155 45% 12%;
+    --earth: 20 40% 36%;
     --earth-foreground: 0 0% 100%;
-    --chart-1: 160 84% 39%;
-    --chart-2: 38 92% 50%;
-    --chart-3: 20 40% 45%;
-    --chart-4: 90 55% 50%;
-    --chart-5: 155 60% 48%;
-    --radius: 1rem;
+    --chart-1: 160 84% 32%;
+    --chart-2: 38 92% 48%;
+    --chart-3: 20 40% 42%;
+    --chart-4: 90 55% 46%;
+    --chart-5: 155 55% 44%;
+    --radius: 0.625rem;
 
-    /* Liquid Glass tokens */
-    --glass-bg: 0 0% 100%;
-    --glass-border: 0 0% 100%;
-    --glass-highlight: 0 0% 100%;
-    --glass-blur: 24px;
-    --glass-blur-tinted: 14px;
-    --shadow: 160 60% 12%;
-
-    /* App background gradient (tri-tonal) */
-    --app-bg: linear-gradient(135deg, #F3FBF2 0%, #E9F3FF 52%, #FFF7E6 100%);
+    /* Tema leve — superfícies sólidas para máxima legibilidade dos dados */
+    --app-bg: #F6FAF5;
+    --surface: 0 0% 100%;
+    --surface-border: 150 15% 88%;
+    --shadow: 155 30% 20%;
 
     --font-heading: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -51,13 +46,13 @@
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 158 49% 11%;
-    --sidebar-primary: 160 84% 39%;
+    --sidebar-foreground: 155 45% 12%;
+    --sidebar-primary: 160 84% 32%;
     --sidebar-primary-foreground: 150 60% 98%;
-    --sidebar-accent: 38 92% 50%;
-    --sidebar-accent-foreground: 158 49% 11%;
-    --sidebar-border: 0 0% 100%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-accent: 38 92% 48%;
+    --sidebar-accent-foreground: 155 45% 12%;
+    --sidebar-border: 150 15% 88%;
+    --sidebar-ring: 160 84% 32%;
   }
 }
 
@@ -69,7 +64,6 @@
   body {
     @apply text-foreground font-body;
     background: var(--app-bg);
-    background-attachment: fixed;
     min-height: 100vh;
   }
 
@@ -88,46 +82,30 @@
 }
 
 @layer components {
-  /* Vidro cristal (clear) — navegação, sidebar, tab bar, topbar */
+  /* Superfície sólida e leve — navegação, sidebar, topbar */
   .glass-clear {
-    background-color: hsl(var(--glass-bg) / 0.42);
-    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-    border: 1px solid hsl(var(--glass-border) / 0.5);
-    box-shadow:
-      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.65),
-      inset 0 -1px 0 0 hsl(var(--shadow) / 0.05),
-      0 10px 40px -12px hsl(var(--shadow) / 0.22);
+    background-color: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border));
+    box-shadow: 0 1px 2px 0 hsl(var(--shadow) / 0.04);
   }
 
-  /* Vidro fosco (tinted) — dados, tabelas, cards de conteúdo */
+  /* Superfície de conteúdo — cards, tabelas, dados */
   .glass-tinted {
-    background-color: hsl(var(--glass-bg) / 0.74);
-    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
-    border: 1px solid hsl(var(--glass-border) / 0.55);
-    box-shadow:
-      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.5),
-      inset 0 -1px 0 0 hsl(var(--shadow) / 0.04),
-      0 6px 24px -10px hsl(var(--shadow) / 0.16);
+    background-color: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border));
+    box-shadow: 0 1px 3px -1px hsl(var(--shadow) / 0.06);
   }
 
-  /* Vidro de input — mais sólido para legibilidade de formulário */
+  /* Inputs — sólidos, alto contraste para leitura */
   .glass-input {
-    background-color: hsl(var(--glass-bg) / 0.6);
-    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
-    border: 1px solid hsl(var(--glass-border) / 0.5);
-    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.4);
+    background-color: hsl(var(--surface));
+    border: 1px solid hsl(var(--surface-border));
   }
 
-  /* Cápsula de vidro — botões e badges */
+  /* Cápsulas — botões outline e badges */
   .glass-pill {
-    background-color: hsl(var(--glass-bg) / 0.55);
-    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
-    border: 1px solid hsl(var(--glass-border) / 0.5);
-    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.55);
+    background-color: hsl(var(--secondary));
+    border: 1px solid hsl(var(--surface-border));
   }
 }
 
@@ -147,26 +125,5 @@
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  @keyframes liquidWave {
-    0% { transform: translate(-50%, 50%) rotate(0deg); }
-    100% { transform: translate(-50%, 50%) rotate(360deg); }
-  }
-  @keyframes liquidWaveSlow {
-    0% { transform: translate(-50%, 50%) rotate(0deg); }
-    100% { transform: translate(-50%, 50%) rotate(-360deg); }
-  }
-  .liquid-surface {
-    animation: liquidWave 7s linear infinite;
-  }
-  .liquid-surface-slow {
-    animation: liquidWaveSlow 11s linear infinite;
-  }
-
-  /* Realce especular animado sutil para superfícies de vidro */
-  @keyframes glassShimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
   }
 }
