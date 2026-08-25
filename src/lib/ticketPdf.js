@@ -37,15 +37,18 @@ async function loadLogo() {
       im.onerror = reject;
       im.src = url;
     });
-    const scale = 6;
+    const maxSide = 512;
+    const natW = img.naturalWidth || 256;
+    const natH = img.naturalHeight || 256;
+    const fit = Math.min(maxSide / natW, maxSide / natH, 1);
     const canvas = document.createElement('canvas');
-    canvas.width = (img.naturalWidth || 256) * scale;
-    canvas.height = (img.naturalHeight || 256) * scale;
+    canvas.width = Math.round(natW * fit);
+    canvas.height = Math.round(natH * fit);
     const ctx2 = canvas.getContext('2d');
     ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
     return {
-      dataUrl: canvas.toDataURL('image/png'),
+      dataUrl: canvas.toDataURL('image/jpeg', 0.85),
       w: canvas.width,
       h: canvas.height,
     };
@@ -183,7 +186,7 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   let y = margin;
 
   // Cabeçalho: logo SVG da fazenda + textos
-  const logoR = 18;
+  const logoR = 36;
   const logoBox = logoR * 2;
   const logo = await loadLogo();
   if (logo) {
@@ -193,26 +196,26 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     if (ratio > 1) dh = logoBox / ratio; else dw = logoBox * ratio;
     const dx = margin + (logoBox - dw) / 2;
     const dy = y + (logoBox - dh) / 2;
-    try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, dw, dh); } catch {}
+    try { doc.addImage(logo.dataUrl, 'JPEG', dx, dy, dw, dh); } catch {}
   } else {
     drawLogo(doc, margin + logoR, y + logoR, logoR);
   }
 
-  const textX = margin + logoBox + 8;
+  const textX = margin + logoBox + 10;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(14);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', textX, y + 10);
+  doc.text('FAZENDA', textX, y + 20);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
+  doc.setFontSize(34);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 22);
+  doc.text('NOVO HORIZONTE', textX, y + 42);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(11);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 30);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 54);
 
-  y += logoBox + 6;
+  y += logoBox + 8;
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.6);
   doc.line(margin, y, margin + contentW, y);
