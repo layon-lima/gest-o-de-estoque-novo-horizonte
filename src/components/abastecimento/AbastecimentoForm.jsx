@@ -82,12 +82,11 @@ export default function AbastecimentoForm({
 
       <form onSubmit={handleSubmit} className="space-y-4 mt-3">
         <div className="space-y-1.5">
-          <Label>Combustível *</Label>
           {produtoPredefinido ? (
-            <div className="flex items-center gap-2 rounded-lg border bg-amber-50 border-amber-200 px-3 py-2.5">
-              <Fuel className="w-4 h-4 text-amber-600 shrink-0" />
-              <span className="font-medium text-amber-900">{produtoPredefinido.nome}</span>
-              <span className="ml-auto text-xs text-amber-700">predefinido na máquina</span>
+            <div className="flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-2.5 shadow-sm">
+              <Fuel className="w-4 h-4 text-white shrink-0" />
+              <span className="font-semibold text-white">{produtoPredefinido.nome}</span>
+              <span className="ml-auto text-xs text-amber-50/90">predefinido na máquina</span>
             </div>
           ) : (
             <Select value={produtoId} onValueChange={(v) => { setProdutoId(v); setErro(''); }}>
