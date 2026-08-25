@@ -4,86 +4,110 @@
 
 @layer base {
   :root {
-    --background: 60 25% 99%;
-    --foreground: 122 35% 12%;
+    --background: 120 40% 99%;
+    --foreground: 158 49% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 122 35% 12%;
+    --card-foreground: 158 49% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 122 35% 12%;
-    --primary: 123 46% 33%;
-    --primary-foreground: 60 30% 98%;
-    --secondary: 97 30% 95%;
-    --secondary-foreground: 123 46% 25%;
-    --muted: 97 25% 96%;
-    --muted-foreground: 122 12% 40%;
-    --accent: 97 45% 90%;
-    --accent-foreground: 123 46% 25%;
-    --destructive: 0 75% 50%;
+    --popover-foreground: 158 49% 11%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 150 60% 98%;
+    --secondary: 150 40% 95%;
+    --secondary-foreground: 160 60% 25%;
+    --muted: 150 30% 96%;
+    --muted-foreground: 155 18% 40%;
+    --accent: 90 60% 92%;
+    --accent-foreground: 160 60% 22%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border: 97 15% 89%;
-    --input: 97 15% 89%;
-    --ring: 123 46% 33%;
-    --sun: 41 100% 55%;
-    --sun-foreground: 122 40% 14%;
-    --earth: 16 25% 38%;
+    --border: 150 25% 90%;
+    --input: 150 25% 90%;
+    --ring: 160 84% 39%;
+    --sun: 38 92% 50%;
+    --sun-foreground: 158 49% 11%;
+    --earth: 20 40% 38%;
     --earth-foreground: 0 0% 100%;
-    --chart-1: 123 46% 33%;
-    --chart-2: 41 95% 52%;
-    --chart-3: 16 30% 42%;
-    --chart-4: 97 39% 52%;
-    --chart-5: 122 39% 49%;
-    --radius: 0.625rem;
-    --font-heading: ui-sans-serif, system-ui, sans-serif;
-    --font-body: ui-sans-serif, system-ui, sans-serif;
-    --font-display: ui-sans-serif, system-ui, sans-serif;
+    --chart-1: 160 84% 39%;
+    --chart-2: 38 92% 50%;
+    --chart-3: 20 40% 45%;
+    --chart-4: 90 55% 50%;
+    --chart-5: 155 60% 48%;
+    --radius: 1rem;
+
+    /* Liquid Glass tokens */
+    --glass-bg: 0 0% 100%;
+    --glass-border: 0 0% 100%;
+    --glass-highlight: 0 0% 100%;
+    --glass-blur: 24px;
+    --glass-blur-tinted: 14px;
+    --shadow: 160 60% 12%;
+
+    /* App background gradient (tri-tonal) */
+    --app-bg: linear-gradient(135deg, #F3FBF2 0%, #E9F3FF 52%, #FFF7E6 100%);
+
+    --font-heading: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --sidebar-background: 123 46% 28%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 123 46% 22%;
-    --sidebar-accent: 41 100% 55%;
-    --sidebar-accent-foreground: 122 40% 14%;
-    --sidebar-border: 123 40% 20%;
-    --sidebar-ring: 41 100% 55%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 158 49% 11%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 150 60% 98%;
+    --sidebar-accent: 38 92% 50%;
+    --sidebar-accent-foreground: 158 49% 11%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 160 84% 39%;
   }
 
   .dark {
-    --background: 122 20% 8%;
-    --foreground: 97 20% 92%;
-    --card: 122 18% 11%;
-    --card-foreground: 97 20% 92%;
-    --popover: 122 18% 11%;
-    --popover-foreground: 97 20% 92%;
-    --primary: 122 39% 49%;
-    --primary-foreground: 122 30% 10%;
-    --secondary: 122 15% 18%;
-    --secondary-foreground: 97 20% 92%;
-    --muted: 122 15% 18%;
-    --muted-foreground: 97 10% 62%;
-    --accent: 122 25% 22%;
-    --accent-foreground: 97 20% 92%;
-    --destructive: 0 60% 45%;
+    --background: 155 30% 7%;
+    --foreground: 150 81% 96%;
+    --card: 155 25% 11%;
+    --card-foreground: 150 81% 96%;
+    --popover: 155 25% 11%;
+    --popover-foreground: 150 81% 96%;
+    --primary: 160 66% 52%;
+    --primary-foreground: 155 40% 8%;
+    --secondary: 155 18% 18%;
+    --secondary-foreground: 150 81% 96%;
+    --muted: 155 18% 18%;
+    --muted-foreground: 150 12% 62%;
+    --accent: 155 22% 22%;
+    --accent-foreground: 150 81% 96%;
+    --destructive: 0 60% 48%;
     --destructive-foreground: 0 0% 96%;
-    --border: 122 15% 22%;
-    --input: 122 15% 22%;
-    --ring: 122 39% 49%;
-    --sun: 41 95% 58%;
-    --sun-foreground: 122 30% 12%;
-    --earth: 16 30% 48%;
+    --border: 155 18% 22%;
+    --input: 155 18% 22%;
+    --ring: 160 66% 52%;
+    --sun: 44 96% 56%;
+    --sun-foreground: 155 40% 8%;
+    --earth: 20 35% 50%;
     --earth-foreground: 0 0% 96%;
-    --chart-1: 122 39% 49%;
-    --chart-2: 41 95% 55%;
-    --chart-3: 16 35% 52%;
-    --chart-4: 97 39% 55%;
-    --chart-5: 123 46% 40%;
-    --sidebar-background: 123 40% 20%;
-    --sidebar-foreground: 0 0% 96%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 123 46% 22%;
-    --sidebar-accent: 41 95% 58%;
-    --sidebar-accent-foreground: 122 40% 12%;
-    --sidebar-border: 123 35% 16%;
-    --sidebar-ring: 41 95% 58%;
+    --chart-1: 160 66% 52%;
+    --chart-2: 44 96% 56%;
+    --chart-3: 20 40% 52%;
+    --chart-4: 90 55% 55%;
+    --chart-5: 155 60% 45%;
+
+    /* Liquid Glass tokens (dark) */
+    --glass-bg: 150 60% 96%;
+    --glass-border: 0 0% 100%;
+    --glass-highlight: 0 0% 100%;
+    --glass-blur: 28px;
+    --glass-blur-tinted: 16px;
+    --shadow: 0 0% 0%;
+
+    --app-bg: linear-gradient(135deg, #0A1410 0%, #0E1A14 52%, #13110A 100%);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 150 81% 96%;
+    --sidebar-primary: 160 66% 52%;
+    --sidebar-primary-foreground: 155 40% 8%;
+    --sidebar-accent: 44 96% 56%;
+    --sidebar-accent-foreground: 155 40% 8%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 160 66% 52%;
   }
 }
 
@@ -93,7 +117,10 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body;
+    @apply text-foreground font-body;
+    background: var(--app-bg);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 
   button,
@@ -107,6 +134,50 @@
   table th {
     -webkit-user-select: text;
     user-select: text;
+  }
+}
+
+@layer components {
+  /* Vidro cristal (clear) — navegação, sidebar, tab bar, topbar */
+  .glass-clear {
+    background-color: hsl(var(--glass-bg) / 0.42);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid hsl(var(--glass-border) / 0.5);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.65),
+      inset 0 -1px 0 0 hsl(var(--shadow) / 0.05),
+      0 10px 40px -12px hsl(var(--shadow) / 0.22);
+  }
+
+  /* Vidro fosco (tinted) — dados, tabelas, cards de conteúdo */
+  .glass-tinted {
+    background-color: hsl(var(--glass-bg) / 0.74);
+    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    border: 1px solid hsl(var(--glass-border) / 0.55);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.5),
+      inset 0 -1px 0 0 hsl(var(--shadow) / 0.04),
+      0 6px 24px -10px hsl(var(--shadow) / 0.16);
+  }
+
+  /* Vidro de input — mais sólido para legibilidade de formulário */
+  .glass-input {
+    background-color: hsl(var(--glass-bg) / 0.6);
+    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(150%);
+    border: 1px solid hsl(var(--glass-border) / 0.5);
+    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.4);
+  }
+
+  /* Cápsula de vidro — botões e badges */
+  .glass-pill {
+    background-color: hsl(var(--glass-bg) / 0.55);
+    backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--glass-blur-tinted)) saturate(160%);
+    border: 1px solid hsl(var(--glass-border) / 0.5);
+    box-shadow: inset 0 1px 0 0 hsl(var(--glass-highlight) / 0.55);
   }
 }
 
@@ -141,5 +212,11 @@
   }
   .liquid-surface-slow {
     animation: liquidWaveSlow 11s linear infinite;
+  }
+
+  /* Realce especular animado sutil para superfícies de vidro */
+  @keyframes glassShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 }

@@ -55,7 +55,7 @@ export default function BottomTabBar() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-sidebar text-sidebar-foreground border-t border-white/10 flex items-stretch justify-around overflow-x-auto scrollbar-thin"
+      className="md:hidden fixed bottom-0 inset-x-0 z-30 glass-clear rounded-none border-x-0 border-b-0 text-foreground flex items-stretch justify-around overflow-x-auto scrollbar-thin"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {items.map((item) => (
@@ -65,7 +65,7 @@ export default function BottomTabBar() {
           end={item.end}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center gap-1 flex-1 py-2 text-[10px] font-medium transition-colors min-w-[52px] ${
-              isActive ? 'text-sidebar-accent' : 'text-white/70'
+              isActive ? 'text-primary' : 'text-foreground/60'
             }`
           }
         >
@@ -79,7 +79,7 @@ export default function BottomTabBar() {
           to={`/setor/${s.id}`}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center gap-1 flex-1 py-2 text-[10px] font-medium transition-colors min-w-[52px] ${
-              isActive ? 'text-sidebar-accent' : 'text-white/70'
+              isActive ? 'text-primary' : 'text-foreground/60'
             }`
           }
         >

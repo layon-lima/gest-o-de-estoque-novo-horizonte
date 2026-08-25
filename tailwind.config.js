@@ -6,8 +6,9 @@ module.exports = {
   	extend: {
   		borderRadius: {
   			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			md: 'calc(var(--radius) - 4px)',
+  			sm: 'calc(var(--radius) - 8px)',
+  			xl: 'calc(var(--radius) + 4px)'
   		},
   		colors: {
   			background: 'hsl(var(--background))',
@@ -43,6 +44,11 @@ module.exports = {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
+  			glass: {
+  				DEFAULT: 'hsl(var(--glass-bg) / 0.5)',
+  				border: 'hsl(var(--glass-border) / 0.5)',
+  				highlight: 'hsl(var(--glass-highlight) / 0.6)'
+  			},
   			sun: {
   				DEFAULT: 'hsl(var(--sun))',
   				foreground: 'hsl(var(--sun-foreground))'

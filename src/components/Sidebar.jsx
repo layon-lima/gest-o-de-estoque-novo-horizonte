@@ -74,13 +74,13 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col transform transition-transform duration-300 ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 glass-clear text-foreground flex flex-col transform transition-transform duration-300 lg:m-3 lg:rounded-3xl ${
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="flex items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-white/15">
+            <div className="p-2 rounded-xl bg-primary/15 text-primary">
               <Leaf className="w-7 h-7" />
             </div>
             <div>
@@ -88,7 +88,7 @@ export default function Sidebar({ open, onClose }) {
               <p className="text-xs opacity-70 font-medium">Novo Horizonte</p>
             </div>
           </div>
-          <button onClick={onClose} className="lg:hidden p-1 rounded-lg hover:bg-white/10">
+          <button onClick={onClose} className="lg:hidden p-1 rounded-lg hover:bg-foreground/10">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -101,10 +101,10 @@ export default function Sidebar({ open, onClose }) {
               end={item.end}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-foreground/70 hover:bg-foreground/10 hover:text-foreground'
                 }`
               }
             >
@@ -114,21 +114,21 @@ export default function Sidebar({ open, onClose }) {
           ))}
 
           {setoresUser.length > 0 && (
-            <div className="pt-2 mt-2 border-t border-white/10">
-              <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-white/50 font-semibold">Setores</p>
-              {setoresUser.map((s) => (
-                <NavLink
-                  key={s.id}
-                  to={`/setor/${s.id}`}
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
-                    }`
-                  }
-                >
+            <div className="pt-2 mt-2 border-t border-foreground/10">
+             <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-foreground/50 font-semibold">Setores</p>
+             {setoresUser.map((s) => (
+               <NavLink
+                 key={s.id}
+                 to={`/setor/${s.id}`}
+                 onClick={onClose}
+                 className={({ isActive }) =>
+                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                     isActive
+                       ? 'bg-primary text-primary-foreground shadow-sm'
+                       : 'text-foreground/70 hover:bg-foreground/10 hover:text-foreground'
+                   }`
+                 }
+               >
                   <SetorIcon setor={s} className="w-5 h-5 shrink-0" />
                   {s.nome}
                 </NavLink>
@@ -137,26 +137,26 @@ export default function Sidebar({ open, onClose }) {
           )}
         </nav>
 
-        <div className="px-4 py-3 border-t border-white/10 space-y-2">
+        <div className="px-4 py-3 border-t border-foreground/10 space-y-2">
           <div className="flex items-center gap-3 px-2 pb-1">
-            <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-semibold text-sm shrink-0">
+            <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm shrink-0">
               {getDisplayInitial(user)}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium truncate">{getDisplayName(user) || 'Usuário'}</p>
-              <p className="text-xs text-white/60 truncate">{user?.email || ''}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
             </div>
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-foreground/70 hover:bg-foreground/10 hover:text-foreground transition-colors"
           >
             <LogOut className="w-4 h-4 shrink-0" />
             Sair
           </button>
           <button
             onClick={() => setDeleteOpen(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-200 hover:bg-white/10 hover:text-red-100 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
           >
             <Trash2 className="w-4 h-4 shrink-0" />
             Excluir Conta

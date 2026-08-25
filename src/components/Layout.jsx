@@ -44,14 +44,14 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-muted/20">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <header
-          className="lg:hidden flex items-center gap-3 px-4 border-b bg-sidebar text-sidebar-foreground"
+          className="lg:hidden flex items-center gap-3 px-4 glass-clear rounded-none border-x-0 border-t-0 text-foreground"
           style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))', paddingBottom: '0.75rem' }}
         >
-          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10">
+          <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-foreground/10">
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-bold">Controle de Estoque Novo Horizonte</span>
