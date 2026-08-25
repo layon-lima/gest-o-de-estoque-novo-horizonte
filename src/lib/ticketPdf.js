@@ -12,37 +12,60 @@ const TIPO_COLORS = {
 const GREEN = [43, 103, 59];
 const GREEN_DK = [27, 70, 42];
 const GREEN_LT = [222, 240, 228];
-const SUN = [214, 158, 46];
-const INK = [17, 24, 23];          // valores preto
-const LABEL = [107, 114, 128];     // rótulos cinza-escuro (legível)
+const SUN = [255, 179, 0];          // amarelo sol (#FFB300)
+const HILL_DARK = [46, 125, 50];    // verde escuro das colinas (#2E7D32)
+const HILL_LIGHT = [102, 187, 106]; // verde claro (#66BB6A)
+const HAND = [93, 64, 55];          // marrom da mão (#5D4037)
+const INK = [17, 24, 23];
+const LABEL = [107, 114, 128];
 const LINE = [226, 232, 230];
 
-// Logo vetorial padrão da fazenda — emblema circular com sol/folha.
+// Logo vetorial da fazenda — sol amarelo, colinas verdes, plantas e mão acolhedora.
 function drawLogo(doc, cx, cy, r) {
-  // anel externo
-  doc.setFillColor(...GREEN_DK);
+  // 1) Sol — disco amarelo (fundo do emblema)
+  doc.setFillColor(...SUN);
   doc.circle(cx, cy, r, 'F');
-  // campo interno claro
-  doc.setFillColor(...GREEN_LT);
-  doc.circle(cx, cy, r * 0.82, 'F');
-  // sol (semicírculo) ao topo
-  doc.setFillColor(...SUN);
-  doc.circle(cx, cy + r * 0.18, r * 0.34, 'F');
-  // campos (curvas inferiores) — duas meias-luas verdes
-  doc.setFillColor(...GREEN);
-  doc.circle(cx - r * 0.32, cy - r * 0.05, r * 0.42, 'F');
-  doc.circle(cx + r * 0.32, cy - r * 0.05, r * 0.42, 'F');
-  // recorta o topo com o campo claro para formar horizonte
-  doc.setFillColor(...GREEN_LT);
-  doc.rect(cx - r, cy - r, r * 2, r * 0.5, 'F');
-  // repinta sol acima do horizonte
-  doc.setFillColor(...SUN);
-  doc.circle(cx, cy + r * 0.18, r * 0.3, 'F');
-  // monograma NH no anel
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(r * 0.5);
-  doc.setTextColor(...GREEN_DK);
-  doc.text('NH', cx, cy - r * 0.92, { align: 'center' });
+
+  // 2) Colinas — calotas verdes (círculos posicionados abaixo, só a parte de cima aparece)
+  // colina escura de trás
+  doc.setFillColor(...HILL_DARK);
+  doc.circle(cx - r * 0.18, cy + r * 0.95, r * 0.78, 'F');
+  doc.circle(cx + r * 0.45, cy + r * 0.95, r * 0.7, 'F');
+  // colina clara da frente
+  doc.setFillColor(...HILL_LIGHT);
+  doc.circle(cx + r * 0.08, cy + r * 0.85, r * 0.62, 'F');
+
+  // 3) Plantas — três tufos verde-escuro saindo das colinas
+  const drawTuft = (tx) => {
+    const topY = cy + r * 0.18;
+    const baseY = cy + r * 0.55;
+    doc.setDrawColor(...HILL_DARK);
+    doc.setLineWidth(r * 0.04);
+    doc.line(tx, baseY, tx, topY);
+    // folhas (pequenos losangos)
+    doc.setFillColor(...HILL_LIGHT);
+    for (let i = 0; i < 3; i++) {
+      const ly = topY + i * r * 0.12;
+      const lw = r * 0.1;
+      const lh = r * 0.05;
+      doc.ellipse(tx - lw * 0.7, ly, lw / 2, lh / 2, 'F');
+      doc.ellipse(tx + lw * 0.7, ly, lw / 2, lh / 2, 'F');
+    }
+    // topo
+    doc.setFillColor(...HILL_DARK);
+    doc.circle(tx, topY - r * 0.02, r * 0.05, 'F');
+  };
+  drawTuft(cx - r * 0.28);
+  drawTuft(cx);
+  drawTuft(cx + r * 0.26);
+
+  // 4) Mão acolhedora — calota marrom na base com contorno branco
+  // contorno branco (anel)
+  doc.setFillColor(255, 255, 255);
+  doc.circle(cx, cy + r * 1.22, r * 0.8, 'F');
+  // mão marrom
+  doc.setFillColor(...HAND);
+  doc.circle(cx, cy + r * 1.22, r * 0.74, 'F');
 }
 
 function fmtDate(iso) {
@@ -133,17 +156,13 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   const textX = margin + logoR * 2 + 6;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', textX, y + 6);
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 13.5);
+  doc.text('NOVO HORIZONTE', textX, y + 8);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 19);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 14.5);
 
   y += logoR * 2 + 6;
   doc.setDrawColor(...GREEN);
