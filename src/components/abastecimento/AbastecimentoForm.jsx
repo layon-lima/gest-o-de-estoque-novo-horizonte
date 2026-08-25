@@ -86,7 +86,9 @@ export default function AbastecimentoForm({
             <div className="flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-2.5 shadow-sm">
               <Fuel className="w-4 h-4 text-white shrink-0" />
               <span className="font-semibold text-white">{produtoPredefinido.nome}</span>
-              <span className="ml-auto text-xs text-amber-50/90">predefinido na máquina</span>
+              <span className="ml-auto text-sm font-medium text-white">
+                {produto ? `${formatQtd(produto.quantidade || 0)} ${produto.unidade || 'un'}` : '—'}
+              </span>
             </div>
           ) : (
             <Select value={produtoId} onValueChange={(v) => { setProdutoId(v); setErro(''); }}>
@@ -104,14 +106,6 @@ export default function AbastecimentoForm({
                 ))}
               </SelectContent>
             </Select>
-          )}
-          {produto && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Estoque atual:</span>
-              <span className="font-semibold tabular-nums px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                {formatQtd(produto.quantidade || 0)} {produto.unidade || 'un'}
-              </span>
-            </div>
           )}
         </div>
 
