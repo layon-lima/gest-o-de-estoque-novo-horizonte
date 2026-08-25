@@ -187,7 +187,7 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   let y = margin;
 
   // Cabeçalho: círculo-mockup no canto superior esquerdo + textos à direita
-  const circleR = 26;
+  const circleR = 19;
   const circleCx = margin + circleR;
   const circleCy = y + circleR;
   // contorno do mockup circular
@@ -196,11 +196,12 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   doc.circle(circleCx, circleCy, circleR, 'S');
   doc.setDrawColor(...LINE);
   doc.setLineWidth(0.3);
-  doc.circle(circleCx, circleCy, circleR - 2, 'S');
+  doc.circle(circleCx, circleCy, circleR - 1.5, 'S');
 
   const logo = await loadLogo();
   if (logo) {
-    const fit = (circleR - 5) * 2;
+    // zoom: o logo preenche quase todo o círculo (clip circular via addImage)
+    const fit = (circleR - 1) * 2;
     const ratio = logo.w / logo.h || 1;
     let dw = fit, dh = fit;
     if (ratio > 1) dh = fit / ratio; else dw = fit * ratio;
@@ -208,7 +209,7 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     const dy = circleCy - dh / 2;
     try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, dw, dh); } catch {}
   } else {
-    drawLogo(doc, circleCx, circleCy, circleR - 5);
+    drawLogo(doc, circleCx, circleCy, circleR - 3);
   }
 
   // Bloco de textos à direita do círculo
@@ -216,15 +217,15 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', textX, y + 10);
+  doc.text('FAZENDA', textX, y + 8);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(26);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 22);
+  doc.text('NOVO HORIZONTE', textX, y + 20);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 30);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 28);
 
   y += circleR * 2 + 8;
   doc.setDrawColor(...GREEN);
