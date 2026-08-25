@@ -155,7 +155,7 @@ function resolveDestino(ticket, pedido, clienteNome) {
 
 function drawRow(doc, x, label, value, y, maxW, valW) {
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.setFontSize(6);
   doc.text(label + ':', x, y);
   doc.setFont('helvetica', 'bold');
@@ -181,11 +181,6 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const tipo = TIPO_LABEL[ticket.tipo] || 'Avulsa';
   const tipoColors = TIPO_COLORS[ticket.tipo] || TIPO_COLORS.avulsa;
   const emissao = ticket.data_fechamento || ticket.data_abertura;
-
-  // Borda externa do bloco
-  doc.setDrawColor(...GREEN);
-  doc.setLineWidth(0.6);
-  doc.roundedRect(M, y0, W, H, 2, 2, 'D');
 
   let y = y0;
 
@@ -213,13 +208,13 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   doc.text('NOVO HORIZONTE', textX, y + 9);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 15);
 
   // Data/hora de emissão (canto superior direito)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('EMISSÃO', M + W, y + 5, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
@@ -250,7 +245,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   // status à esquerda
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text(ticket.status === 'aberto' ? 'EM ABERTO' : 'FECHADO', M, y);
   y += 5;
 
@@ -272,7 +267,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
     const cx0 = M + colW * i + 3;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
-    doc.setTextColor(...LABEL);
+    doc.setTextColor(...INK);
     doc.text(c[0], cx0, y);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -294,7 +289,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const produtoNomeTxt = resolveProduto(ticket, pedido, produtoNome);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('PRODUTO:', M, y);
   const prodLabelW = 18;
   let prodMaxW = W - prodLabelW - 10;
@@ -320,7 +315,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const rightX = M + halfW + 3;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('ORIGEM:', leftX, y);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -328,7 +323,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   doc.text((ticket.origem || '—').slice(0, 26), leftX + 16, y);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('DESTINO:', rightX, y);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -339,7 +334,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   // ---------- Datas ----------
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('DATA ABERTURA:', leftX, y);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -347,7 +342,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   doc.text(fmtDateTime(ticket.data_abertura), leftX + 26, y);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('DATA FECHAMENTO:', rightX, y);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
@@ -381,7 +376,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const brutoY = weightTop + 7;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('PESO BRUTO (kg)', M, brutoY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
@@ -393,7 +388,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const taraY = weightTop + 19;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('TARA (kg)', M, taraY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
@@ -405,7 +400,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   // ---------- Observações ----------
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('OBSERVAÇÕES:', M, y);
   const obsLinhas = ticket.observacao
     ? ticket.observacao.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -421,7 +416,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const legalY = y0 + H - 32;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   const legal = 'Através deste ticket confirmamos a pesagem do veículo e a conferência do produto descrito acima, firmamos o presente para os devidos fins.';
   const legalLines = doc.splitTextToSize(legal, W - 10);
   doc.text(legalLines, 210 / 2, legalY, { align: 'center' });
@@ -436,7 +431,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   doc.line(M + sigW + 20, sigY, M + W, sigY);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text('Assinatura do Operador', M + sigW / 2, sigY + 4, { align: 'center' });
   doc.text('Assinatura do Motorista', M + sigW + 20 + sigW / 2, sigY + 4, { align: 'center' });
 
@@ -444,7 +439,7 @@ function drawTicket(doc, y0, viaLabel, ticket, ctx, logo) {
   const barY = y0 + H - 3;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.setTextColor(...LABEL);
+  doc.setTextColor(...INK);
   doc.text(`${ticket.placa || ''} - ${tipo}`.trim(), M, barY);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...INK);
