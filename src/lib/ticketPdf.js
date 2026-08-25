@@ -183,7 +183,7 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   let y = margin;
 
   // Cabeçalho: logo SVG da fazenda + textos
-  const logoR = 10;
+  const logoR = 18;
   const logoBox = logoR * 2;
   const logo = await loadLogo();
   if (logo) {
@@ -198,19 +198,19 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     drawLogo(doc, margin + logoR, y + logoR, logoR);
   }
 
-  const textX = margin + logoBox + 6;
+  const textX = margin + logoBox + 8;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', textX, y + 6);
+  doc.text('FAZENDA', textX, y + 10);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
+  doc.setFontSize(24);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 13.5);
+  doc.text('NOVO HORIZONTE', textX, y + 22);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(9);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 19);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 30);
 
   y += logoBox + 6;
   doc.setDrawColor(...GREEN);
