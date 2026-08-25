@@ -16,10 +16,9 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import SearchInput from './SearchInput';
+import { nextMaquinaCodigo } from '@/lib/maquinas';
 
 const emptyForm = { codigo: '', nome: '', descricao: '', deposito_id: '', permite_abastecimento: false };
-
-const norm = (v) => String(v || '').trim().toLowerCase();
 
 export default function MaquinaManager() {
   const [items, setItems] = useState([]);
@@ -59,21 +58,21 @@ export default function MaquinaManager() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const duplicado = items.some((m) => norm(m.codigo) === norm(form.codigo) && m.id !== editingId);
-    if (duplicado) {
-      toast({
-        variant: 'destructive',
-        title: 'Máquina duplicada',
-        description: `Já existe uma máquina com o código "${form.codigo}".`,
-      });
-      return;
-    }
     let salva;
     if (editingId) {
-      salva = await base44.entities.Maquina.update(editingId, form);
+      // Edição: preserva o código existente (somente leitura) — não permite duplicidade.
+      salva = await base44.entities.Maquina.update(editingId, {
+        nome: form.nome,
+        descricao: form.descricao,
+        deposito_id: form.deposito_id,
+        permite_abastecimento: form.permite_abastecimento,
+      });
       salva = { ...form, id: editingId, ...salva };
     } else {
-      salva = await base44.entities.Maquina.create(form);
+      // Novo: código gerado automaticamente e único.
+      const codigo = nextMaquinaCodigo(items);
+      salva = await base44.entities.Maquina.create({ ...form, codigo });
+      toast({ title: 'Máquina cadastrada', description: `Código gerado: ${codigo}` });
     }
     setForm(emptyForm);
     setEditingId(null);
@@ -96,8 +95,14 @@ export default function MaquinaManager() {
         <h3 className="font-semibold mb-4">{editingId ? 'Editar Máquina' : 'Nova Máquina'}</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="m-cod">Código *</Label>
-            <Input id="m-cod" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required />
+            <Label htmlFor="m-cod">Código {editingId ? '(gerado)' : '(automático)'}</Label>
+            <Input
+              id="m-cod"
+              readOnly
+              value={editingId ? form.codigo : nextMaquinaCodigo(items)}
+              className="bg-muted/50 font-mono cursor-not-allowed"
+              placeholder="Será gerado ao salvar"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="m-nome">Nome / Descrição *</Label>
