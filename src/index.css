@@ -127,4 +127,19 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  @keyframes liquidWave {
+    0% { transform: translate(-50%, 50%) rotate(0deg); }
+    100% { transform: translate(-50%, 50%) rotate(360deg); }
+  }
+  @keyframes liquidWaveSlow {
+    0% { transform: translate(-50%, 50%) rotate(0deg); }
+    100% { transform: translate(-50%, 50%) rotate(-360deg); }
+  }
+  .liquid-surface {
+    animation: liquidWave 7s linear infinite;
+  }
+  .liquid-surface-slow {
+    animation: liquidWaveSlow 11s linear infinite;
+  }
 }
