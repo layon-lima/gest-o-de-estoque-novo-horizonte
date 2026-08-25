@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X, History, Link2, Unlink } from 'lucide-react';
+import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X, History, Link2, Unlink, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
@@ -33,6 +34,8 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   const [saving, setSaving] = useState(false);
   const [detalheTicket, setDetalheTicket] = useState(null);
   const [vincularTicket, setVincularTicket] = useState(null);
+  const [excluirTicket, setExcluirTicket] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -112,6 +115,21 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
       toast({ variant: 'destructive', title: 'Erro ao abrir ticket', description: String(err?.message || err) });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleExcluir() {
+    if (!excluirTicket) return;
+    setExcluindo(true);
+    try {
+      await base44.entities.TicketPesagem.delete(excluirTicket.id);
+      toast({ title: 'Ticket excluído', description: excluirTicket.numero });
+      setExcluirTicket(null);
+      onReload();
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    } finally {
+      setExcluindo(false);
     }
   }
 
@@ -244,7 +262,12 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                       <span className="text-[10px] text-muted-foreground">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : ''}</span>
                     </div>
                   </div>
-                  <Button size="sm" className="shrink-0" onClick={() => setFecharTicket(t)}>Fechar</Button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <Button size="sm" onClick={() => setFecharTicket(t)}>Fechar</Button>
+                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setExcluirTicket(t)} title="Excluir">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -382,6 +405,25 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         produtos={produtos}
         onClose={() => setDetalheTicket(null)}
       />
+
+      <AlertDialog open={!!excluirTicket} onOpenChange={(o) => !o && setExcluirTicket(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir ticket aberto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {excluirTicket && (
+                <>Tem certeza que deseja excluir o ticket <b className="font-mono">{excluirTicket.numero}</b> ({excluirTicket.motorista} / {formatPlaca(excluirTicket.placa)})? Esta ação não pode ser desfeita.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluir} disabled={excluindo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {excluindo ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {naovinculados && (
         <VincularTicketDialog
