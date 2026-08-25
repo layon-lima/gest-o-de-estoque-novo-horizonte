@@ -35,7 +35,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const pedidosAbertos = pedidos.filter((p) => p.status === 'aberto');
+  const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
+  const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto') : [];
 
   const liquido = useMemo(
     () => calcLiquido(pesoBruto, ticket?.peso_tara || 0),
@@ -62,15 +63,17 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       await base44.entities.TicketPesagem.update(ticket.id, {
         peso_bruto: parseQtd(pesoBruto),
         peso_liquido: liquido,
-        pedido_id: pedidoId,
+        pedido_id: isVenda ? pedidoId : '',
         status: 'fechado',
         data_fechamento: new Date().toISOString(),
         observacao: observacao || '',
       });
-      await base44.entities.PedidoPesagem.update(pedidoId, {
-        saldo_kg: novoSaldo,
-        status: novoSaldo <= 0 ? 'concluido' : 'aberto',
-      });
+      if (isVenda) {
+        await base44.entities.PedidoPesagem.update(pedidoId, {
+          saldo_kg: novoSaldo,
+          status: novoSaldo <= 0 ? 'concluido' : 'aberto',
+        });
+      }
       toast({ title: 'Ticket fechado', description: `Líquido: ${formatKg(liquido)}` });
       reset();
       onClosed();
@@ -90,7 +93,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       toast({ variant: 'destructive', title: 'Peso bruto menor que a tara' });
       return;
     }
-    if (!pedidoId) {
+    if (isVenda && !pedidoId) {
       toast({ variant: 'destructive', title: 'Selecione um pedido' });
       return;
     }
@@ -108,7 +111,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
-          <DialogDescription>Registre o peso bruto e vincule um pedido para concluir a pesagem.</DialogDescription>
+          <DialogDescription>Registre o peso bruto{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -143,6 +146,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             </div>
           )}
 
+          {isVenda && (
           <div className="space-y-1.5">
             <Label>Pedido *</Label>
             {pedidosAbertos.length === 0 ? (
@@ -183,8 +187,9 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
               </div>
             )}
           </div>
+          )}
 
-          {pedidoSel && (() => {
+          {isVenda && pedidoSel && (() => {
             const ps = pedidoSel.peso_saca_kg || 0;
             const saldoSacas = ps > 0 ? saldo / ps : 0;
             return (
@@ -208,7 +213,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-            <Button className="flex-1" onClick={handleConfirmar} disabled={saving || pedidosAbertos.length === 0}>
+            <Button className="flex-1" onClick={handleConfirmar} disabled={saving || (isVenda && pedidosAbertos.length === 0)}>
               {saving ? 'Fechando...' : 'Confirmar Fechamento'}
             </Button>
           </div>

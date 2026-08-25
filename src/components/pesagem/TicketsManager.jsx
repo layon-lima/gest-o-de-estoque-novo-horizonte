@@ -15,7 +15,13 @@ import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
 import VincularTicketDialog from './VincularTicketDialog';
 
-const empty = { motorista: '', placa: '', peso_tara: '', observacao: '' };
+const empty = { tipo: 'avulsa', motorista: '', placa: '', peso_tara: '', produto_id: '', origem: '', destino: '', observacao: '' };
+
+const TIPOS = [
+  { value: 'venda', label: 'Saída para Venda' },
+  { value: 'lavoura', label: 'Saída para Lavoura' },
+  { value: 'avulsa', label: 'Pesagem Avulsa' },
+];
 
 export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload, mode = 'ativos', isAdmin }) {
   const historico = mode === 'historico';
@@ -70,6 +76,10 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
       toast({ variant: 'destructive', title: 'Informe o peso tara' });
       return;
     }
+    if (form.tipo !== 'venda' && !form.produto_id) {
+      toast({ variant: 'destructive', title: 'Selecione o produto', description: 'Para lavoura ou avulsa, o produto é obrigatório.' });
+      return;
+    }
     const placaNorm = normalizePlaca(form.placa);
     const duplicado = abertos.some((t) => normalizePlaca(t.placa) === placaNorm);
     if (duplicado) {
@@ -81,9 +91,13 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
       const numero = nextTicketNumber(tickets);
       await base44.entities.TicketPesagem.create({
         numero,
+        tipo: form.tipo,
         data_abertura: new Date().toISOString(),
         motorista: form.motorista.trim(),
         placa: placaNorm,
+        produto_id: form.tipo !== 'venda' ? form.produto_id || '' : '',
+        origem: form.origem.trim(),
+        destino: form.tipo === 'venda' ? '' : form.destino.trim(),
         peso_tara: parseQtd(form.peso_tara),
         peso_bruto: 0,
         peso_liquido: 0,
@@ -142,6 +156,21 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
             <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t">
               <div className="grid grid-cols-2 gap-2 pt-3">
                 <div className="space-y-1 col-span-2">
+                  <Label className="text-xs">Tipo de Ticket *</Label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {TIPOS.map((t) => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setForm({ ...form, tipo: t.value })}
+                        className={`text-xs font-medium rounded-md border px-2 py-1.5 transition-colors text-center ${form.tipo === t.value ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1 col-span-2">
                   <Label className="text-xs">Motorista *</Label>
                   <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
                 </div>
@@ -153,6 +182,32 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                   <Label className="text-xs">Tara (kg) *</Label>
                   <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
                 </div>
+                {form.tipo !== 'venda' && (
+                  <>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Produto *</Label>
+                      <select
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                        value={form.produto_id}
+                        onChange={(e) => setForm({ ...form, produto_id: e.target.value })}
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        {produtos.map((p) => (
+                          <option key={p.id} value={p.id}>{p.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Origem</Label>
+                      <Input value={form.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} placeholder="Ex.: Sede" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Destino</Label>
+                      <Input value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })} placeholder={form.tipo === 'lavoura' ? 'Ex.: Talhão 07' : ''} />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1 col-span-2">
                   <Label className="text-xs">Observação</Label>
                   <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
@@ -162,6 +217,9 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                 <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
                 <Button type="button" variant="outline" onClick={() => { setFormAberto(false); setForm(empty); }}><X className="w-4 h-4" /></Button>
               </div>
+              {form.tipo === 'venda' && (
+                <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
+              )}
             </form>
           )}
         </Card>

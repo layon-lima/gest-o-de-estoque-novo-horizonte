@@ -1,19 +1,37 @@
+import { useState } from 'react';
+import { Printer, Download, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
+import { gerarTicketPDF } from '@/lib/ticketPdf';
+
+const TIPO_LABEL = { venda: 'Venda', lavoura: 'Lavoura', avulsa: 'Avulsa' };
 
 export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, onClose }) {
   const open = !!ticket;
+  const [gerandoPdf, setGerandoPdf] = useState(null);
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedido = ticket ? pedidos.find((p) => p.id === ticket.pedido_id) : null;
+
+  async function handlePdf(opts) {
+    if (!ticket) return;
+    setGerandoPdf(opts.print ? 'print' : 'download');
+    try {
+      await gerarTicketPDF(ticket, { pedido, produtoNome, clienteNome }, opts);
+    } finally {
+      setGerandoPdf(null);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.(); }}>
@@ -26,10 +44,36 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
             </DialogHeader>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <Badge variant={ticket.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{ticket.status}</Badge>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Badge variant={ticket.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{ticket.status}</Badge>
+                  {ticket.tipo && <Badge variant="outline">{TIPO_LABEL[ticket.tipo] || ticket.tipo}</Badge>}
+                </div>
                 <span className="text-xs text-muted-foreground">Abertura: {ticket.data_abertura ? new Date(ticket.data_abertura).toLocaleString('pt-BR') : '—'}</span>
               </div>
+
+              {ticket.tipo !== 'venda' && (ticket.produto_id || ticket.origem || ticket.destino) && (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {ticket.produto_id && (
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground">Produto</p>
+                      <p className="font-medium truncate">{produtoNome(ticket.produto_id)}</p>
+                    </div>
+                  )}
+                  {ticket.origem && (
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs text-muted-foreground">Origem</p>
+                      <p className="font-medium truncate">{ticket.origem}</p>
+                    </div>
+                  )}
+                  {ticket.destino && (
+                    <div className="rounded-lg border p-3 col-span-2">
+                      <p className="text-xs text-muted-foreground">Destino</p>
+                      <p className="font-medium truncate">{ticket.destino}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg border p-3">
@@ -75,6 +119,17 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
                 </div>
               )}
             </div>
+
+            {ticket.status === 'fechado' && (
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => handlePdf({ print: true })} disabled={!!gerandoPdf}>
+                  {gerandoPdf === 'print' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Imprimir
+                </Button>
+                <Button className="flex-1" onClick={() => handlePdf({})} disabled={!!gerandoPdf}>
+                  {gerandoPdf === 'download' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} Baixar PDF
+                </Button>
+              </div>
+            )}
           </>
         )}
       </DialogContent>
