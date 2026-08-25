@@ -45,10 +45,11 @@ async function loadLogo() {
     canvas.width = Math.round(natW * fit);
     canvas.height = Math.round(natH * fit);
     const ctx2 = canvas.getContext('2d');
+    ctx2.clearRect(0, 0, canvas.width, canvas.height);
     ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
     return {
-      dataUrl: canvas.toDataURL('image/jpeg', 0.85),
+      dataUrl: canvas.toDataURL('image/png'),
       w: canvas.width,
       h: canvas.height,
     };
@@ -185,37 +186,37 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   let y = margin;
 
-  // Cabeçalho: logo SVG da fazenda + textos
-  const logoR = 36;
+  // Cabeçalho: logo SVG da fazenda + textos (centralizados)
+  const logoR = 60;
   const logoBox = logoR * 2;
   const logo = await loadLogo();
   if (logo) {
-    // preserva proporção dentro do quadrado do logo
     const ratio = logo.w / logo.h || 1;
     let dw = logoBox, dh = logoBox;
     if (ratio > 1) dh = logoBox / ratio; else dw = logoBox * ratio;
-    const dx = margin + (logoBox - dw) / 2;
-    const dy = y + (logoBox - dh) / 2;
-    try { doc.addImage(logo.dataUrl, 'JPEG', dx, dy, dw, dh); } catch {}
+    const dx = (pageW - dw) / 2;
+    const dy = y;
+    try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, dw, dh); } catch {}
+    y += dh + 4;
   } else {
-    drawLogo(doc, margin + logoR, y + logoR, logoR);
+    drawLogo(doc, pageW / 2, y + logoR, logoR);
+    y += logoBox + 4;
   }
 
-  const textX = margin + logoBox + 10;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', textX, y + 20);
+  doc.text('FAZENDA', pageW / 2, y + 5, { align: 'center' });
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(34);
+  doc.setFontSize(28);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', textX, y + 42);
+  doc.text('NOVO HORIZONTE', pageW / 2, y + 17, { align: 'center' });
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 54);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', pageW / 2, y + 25, { align: 'center' });
 
-  y += logoBox + 8;
+  y += 30 + 8;
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.6);
   doc.line(margin, y, margin + contentW, y);
