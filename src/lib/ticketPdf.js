@@ -1,9 +1,6 @@
 // Geração do Ticket de Pesagem em PDF — layout "Painéis Agrupados".
 import { jsPDF } from 'jspdf';
 
-const LOGO_URL =
-  'https://media.base44.com/images/public/6a84b445f638bd5605381437/708755ddd_ImagemdoWhatsAppde2025-01-17s153747_b380a23b.jpg';
-
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Lavoura', avulsa: 'Avulsa' };
 
 const TIPO_COLORS = {
@@ -13,29 +10,39 @@ const TIPO_COLORS = {
 };
 
 const GREEN = [43, 103, 59];
+const GREEN_DK = [27, 70, 42];
+const GREEN_LT = [222, 240, 228];
+const SUN = [214, 158, 46];
 const INK = [17, 24, 23];          // valores preto
 const LABEL = [107, 114, 128];     // rótulos cinza-escuro (legível)
 const LINE = [226, 232, 230];
 
-function loadLogoDataUrl() {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.92), w: img.naturalWidth, h: img.naturalHeight });
-      } catch {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = LOGO_URL;
-  });
+// Logo vetorial padrão da fazenda — emblema circular com sol/folha.
+function drawLogo(doc, cx, cy, r) {
+  // anel externo
+  doc.setFillColor(...GREEN_DK);
+  doc.circle(cx, cy, r, 'F');
+  // campo interno claro
+  doc.setFillColor(...GREEN_LT);
+  doc.circle(cx, cy, r * 0.82, 'F');
+  // sol (semicírculo) ao topo
+  doc.setFillColor(...SUN);
+  doc.circle(cx, cy + r * 0.18, r * 0.34, 'F');
+  // campos (curvas inferiores) — duas meias-luas verdes
+  doc.setFillColor(...GREEN);
+  doc.circle(cx - r * 0.32, cy - r * 0.05, r * 0.42, 'F');
+  doc.circle(cx + r * 0.32, cy - r * 0.05, r * 0.42, 'F');
+  // recorta o topo com o campo claro para formar horizonte
+  doc.setFillColor(...GREEN_LT);
+  doc.rect(cx - r, cy - r, r * 2, r * 0.5, 'F');
+  // repinta sol acima do horizonte
+  doc.setFillColor(...SUN);
+  doc.circle(cx, cy + r * 0.18, r * 0.3, 'F');
+  // monograma NH no anel
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(r * 0.5);
+  doc.setTextColor(...GREEN_DK);
+  doc.text('NH', cx, cy - r * 0.92, { align: 'center' });
 }
 
 function fmtDate(iso) {
@@ -75,16 +82,6 @@ function resolveDestino(ticket, pedido, clienteNome) {
   return '—';
 }
 
-function buildObservacoes(ticket) {
-  const lines = [];
-  if (ticket.observacao) {
-    ticket.observacao.split('\n').forEach((l) => l.trim() && lines.push(l.trim()));
-  }
-  lines.push('Dados registrados automaticamente pelo sistema SGENH.');
-  lines.push('Conferido e validado pelo operador responsável.');
-  return lines;
-}
-
 function drawRow(doc, x, label, value, y, maxW, valW) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...LABEL);
@@ -107,7 +104,6 @@ function drawRow(doc, x, label, value, y, maxW, valW) {
  */
 export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   const { pedido, produtoNome, clienteNome } = ctx;
-  const logo = await loadLogoDataUrl();
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = 210;
@@ -129,38 +125,27 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   let y = margin;
 
-  // Cabeçalho: logo + textos
-  const logoBox = 20;
-  if (logo) {
-    // fundo circular claro para a logo
-    doc.setFillColor(243, 248, 244);
-    doc.circle(margin + logoBox / 2, y + logoBox / 2, logoBox / 2 + 1.5, 'F');
-    // preserva proporção
-    const ratio = logo.h ? logo.w / logo.h : 1;
-    let dw = logoBox, dh = logoBox;
-    if (ratio > 1) { dh = logoBox / ratio; } else { dw = logoBox * ratio; }
-    const dx = margin + (logoBox - dw) / 2;
-    const dy = y + (logoBox - dh) / 2;
-    try { doc.addImage(logo.dataUrl, 'JPEG', dx, dy, dw, dh); } catch {}
-  } else {
-    doc.setFillColor(...GREEN);
-    doc.circle(margin + logoBox / 2, y + logoBox / 2, logoBox / 2, 'F');
-  }
+  // Cabeçalho: logo vetorial + textos
+  const logoR = 10;
+  const logoCx = margin + logoR;
+  const logoCy = y + logoR;
+  drawLogo(doc, logoCx, logoCy, logoR);
 
+  const textX = margin + logoR * 2 + 6;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...LABEL);
-  doc.text('FAZENDA', margin + logoBox + 5, y + 6);
+  doc.text('FAZENDA', textX, y + 6);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(19);
+  doc.setFontSize(20);
   doc.setTextColor(...INK);
-  doc.text('NOVO HORIZONTE', margin + logoBox + 5, y + 13);
+  doc.text('NOVO HORIZONTE', textX, y + 13.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...LABEL);
-  doc.text('Sistema de Gerenciamento de Estoque - SGENH', margin + logoBox + 5, y + 18.5);
+  doc.text('Sistema de Gerenciamento de Estoque - SGENH', textX, y + 19);
 
-  y += logoBox + 6;
+  y += logoR * 2 + 6;
   doc.setDrawColor(...GREEN);
   doc.setLineWidth(0.6);
   doc.line(margin, y, margin + contentW, y);
@@ -204,32 +189,10 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   y += 9;
 
   // Painéis
-  const panelH = 82;
   const gap = 7;
   const panelW = (contentW - gap) / 2;
   const leftX = margin;
   const rightX = margin + panelW + gap;
-
-  // cartões
-  doc.setFillColor(250, 252, 251);
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(leftX, y, panelW, panelH, 3, 3, 'FD');
-  doc.roundedRect(rightX, y, panelW, panelH, 3, 3, 'FD');
-
-  // barra de título dos cartões
-  doc.setFillColor(...GREEN);
-  doc.roundedRect(leftX, y, panelW, 7, 3, 3, 'F');
-  doc.roundedRect(rightX, y, panelW, 7, 3, 3, 'F');
-  doc.setFillColor(255, 255, 255);
-  doc.rect(leftX, y + 4, panelW, 3, 'F');
-  doc.rect(rightX, y + 4, panelW, 3, 'F');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.text('DADOS DO TICKET', leftX + 5, y + 5);
-  doc.text('PESOS', rightX + 5, y + 5);
 
   // Linhas do painel esquerdo
   const dataRows = [
@@ -247,15 +210,39 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
     dataRows.push(['Pedido', pedido.numero || '—']);
   }
 
+  const rowH = 7;
+  const panelHeaderH = 8;
+  const panelH = panelHeaderH + dataRows.length * rowH + 5;
+
+  // cartões
+  doc.setFillColor(250, 252, 251);
+  doc.setDrawColor(...LINE);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(leftX, y, panelW, panelH, 3, 3, 'FD');
+  doc.roundedRect(rightX, y, panelW, panelH, 3, 3, 'FD');
+
+  // barra de título dos cartões (sólida, texto centralizado)
+  doc.setFillColor(...GREEN);
+  doc.roundedRect(leftX, y, panelW, panelHeaderH, 3, 3, 'F');
+  doc.roundedRect(rightX, y, panelW, panelHeaderH, 3, 3, 'F');
+  doc.rect(leftX, y + panelHeaderH - 2.5, panelW, 2.5, 'F');
+  doc.rect(rightX, y + panelHeaderH - 2.5, panelW, 2.5, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('DADOS DO TICKET', leftX + panelW / 2, y + panelHeaderH - 2.6, { align: 'center' });
+  doc.text('PESOS', rightX + panelW / 2, y + panelHeaderH - 2.6, { align: 'center' });
+
   const valW = 34;
-  let ry = y + 14;
+  let ry = y + panelHeaderH + 6;
   dataRows.forEach(([label, val]) => {
     drawRow(doc, leftX + 5, label, val, ry, panelW - 10, valW);
-    ry += 7;
+    ry += rowH;
   });
 
   // Painel direito — Pesos
-  let pry = y + 18;
+  let pry = y + panelHeaderH + 12;
   doc.setFontSize(10.5);
   [
     ['Peso Bruto (kg)', fmtNum(ticket.peso_bruto)],
@@ -286,22 +273,27 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
 
   y += panelH + 11;
 
-  // Observações
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...INK);
-  doc.text('Observações', margin, y);
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y + 2, margin + 40, y + 2);
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...LABEL);
-  buildObservacoes(ticket).forEach((line) => {
-    doc.text('•  ' + line, margin + 1, y);
-    y += 5.8;
-  });
+  // Observações — somente quando o usuário digitou algo
+  const obsLinhas = ticket.observacao
+    ? ticket.observacao.split('\n').map((l) => l.trim()).filter(Boolean)
+    : [];
+  if (obsLinhas.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...INK);
+    doc.text('Observações', margin, y);
+    doc.setDrawColor(...LINE);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y + 2, margin + 40, y + 2);
+    y += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...LABEL);
+    obsLinhas.forEach((line) => {
+      doc.text('•  ' + line, margin + 1, y);
+      y += 5.8;
+    });
+  }
 
   // Assinaturas
   const sigY = pageH - 32;
