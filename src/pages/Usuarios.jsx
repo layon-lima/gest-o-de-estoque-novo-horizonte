@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import InviteUserDialog from '@/components/usuarios/InviteUserDialog';
 import PermissoesDialog from '@/components/usuarios/PermissoesDialog';
+import UsuarioNomeEditor from '@/components/usuarios/UsuarioNomeEditor';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -172,14 +173,9 @@ export default function Usuarios() {
                   return (
                     <TableRow key={u.id}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm shrink-0">
-                            {(u.full_name || u.email || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium">{u.full_name || '—'}</p>
-                            {isSelf && <span className="text-xs text-muted-foreground">(você)</span>}
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <UsuarioNomeEditor user={u} onSaved={loadUsuarios} />
+                          {isSelf && <span className="text-xs text-muted-foreground">(você)</span>}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
