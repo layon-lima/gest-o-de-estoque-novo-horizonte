@@ -251,7 +251,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
             {abertos.map((t) => (
               <Card key={t.id} className="p-3 border-amber-300 bg-amber-50/60">
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetalheTicket(t)}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-xs">{t.numero}</span>
                       <span className="font-medium text-sm truncate">{t.motorista}</span>

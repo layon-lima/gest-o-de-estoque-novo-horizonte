@@ -120,16 +120,14 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
               )}
             </div>
 
-            {ticket.status === 'fechado' && (
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => handlePdf({ print: true })} disabled={!!gerandoPdf}>
-                  {gerandoPdf === 'print' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Imprimir
-                </Button>
-                <Button className="flex-1" onClick={() => handlePdf({})} disabled={!!gerandoPdf}>
-                  {gerandoPdf === 'download' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} Baixar PDF
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => handlePdf({ print: true })} disabled={!!gerandoPdf}>
+                {gerandoPdf === 'print' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Imprimir
+              </Button>
+              <Button className="flex-1" onClick={() => handlePdf({})} disabled={!!gerandoPdf}>
+                {gerandoPdf === 'download' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} Baixar PDF
+              </Button>
+            </div>
           </>
         )}
       </DialogContent>
