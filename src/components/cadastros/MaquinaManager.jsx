@@ -15,14 +15,16 @@ import {
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { findSetorCombustivel, produtosCombustivel } from '@/lib/abastecimento';
 import SearchInput from './SearchInput';
 import { nextMaquinaCodigo } from '@/lib/maquinas';
 
-const emptyForm = { codigo: '', nome: '', descricao: '', deposito_id: '', permite_abastecimento: false };
+const emptyForm = { codigo: '', nome: '', descricao: '', deposito_id: '', permite_abastecimento: false, combustivel_id: '', combustivel_nome: '' };
 
 export default function MaquinaManager() {
   const [items, setItems] = useState([]);
   const [depositos, setDepositos] = useState([]);
+  const [combustiveis, setCombustiveis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -32,6 +34,11 @@ export default function MaquinaManager() {
   const depositoLabel = (id) => {
     const d = depositos.find((x) => x.id === id);
     return d ? (d.nome ? `${d.numero} · ${d.nome}` : d.numero) : null;
+  };
+
+  const combustivelLabel = (id) => {
+    const c = combustiveis.find((x) => x.id === id);
+    return c ? c.nome : null;
   };
 
   const filteredItems = useMemo(() => {
@@ -46,32 +53,39 @@ export default function MaquinaManager() {
 
   async function load() {
     setLoading(true);
-    const [m, d] = await Promise.all([
+    const [m, d, p, s] = await Promise.all([
       base44.entities.Maquina.list(),
       base44.entities.Deposito.list(),
+      base44.entities.Produto.list(),
+      base44.entities.Setor.list(),
     ]);
     setItems(m);
     setDepositos(d);
+    setCombustiveis(produtosCombustivel(p, findSetorCombustivel(s)?.id));
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const combustivel = combustiveis.find((c) => c.id === form.combustivel_id) || null;
+    const combustivelPayload = form.permite_abastecimento
+      ? { combustivel_id: combustivel?.id || '', combustivel_nome: combustivel?.nome || '' }
+      : { combustivel_id: '', combustivel_nome: '' };
+
     let salva;
     if (editingId) {
-      // Edição: preserva o código existente (somente leitura) — não permite duplicidade.
       salva = await base44.entities.Maquina.update(editingId, {
         nome: form.nome,
         descricao: form.descricao,
         deposito_id: form.deposito_id,
         permite_abastecimento: form.permite_abastecimento,
+        ...combustivelPayload,
       });
       salva = { ...form, id: editingId, ...salva };
     } else {
-      // Novo: código gerado automaticamente e único.
       const codigo = nextMaquinaCodigo(items);
-      salva = await base44.entities.Maquina.create({ ...form, codigo });
+      salva = await base44.entities.Maquina.create({ ...form, codigo, ...combustivelPayload });
       toast({ title: 'Máquina cadastrada', description: `Código gerado: ${codigo}` });
     }
     setForm(emptyForm);
@@ -85,7 +99,15 @@ export default function MaquinaManager() {
   }
 
   function handleEdit(item) {
-    setForm({ codigo: item.codigo, nome: item.nome, descricao: item.descricao || '', deposito_id: item.deposito_id || '', permite_abastecimento: item.permite_abastecimento === true });
+    setForm({
+      codigo: item.codigo,
+      nome: item.nome,
+      descricao: item.descricao || '',
+      deposito_id: item.deposito_id || '',
+      permite_abastecimento: item.permite_abastecimento === true,
+      combustivel_id: item.combustivel_id || '',
+      combustivel_nome: item.combustivel_nome || '',
+    });
     setEditingId(item.id);
   }
 
@@ -131,6 +153,29 @@ export default function MaquinaManager() {
             </div>
             <Switch id="m-abast" checked={form.permite_abastecimento} onCheckedChange={(v) => setForm({ ...form, permite_abastecimento: v })} />
           </div>
+          {form.permite_abastecimento && (
+            <div className="space-y-1.5">
+              <Label>Combustível <span className="text-xs font-normal text-muted-foreground">(predefinido)</span></Label>
+              <Select
+                value={form.combustivel_id || 'none'}
+                onValueChange={(v) => setForm({ ...form, combustivel_id: v === 'none' ? '' : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Nenhum —</SelectItem>
+                  {combustiveis.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      Nenhum produto no setor de Combustíveis.
+                    </div>
+                  )}
+                  {combustiveis.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Definido, o combustível é selecionado automaticamente ao abastecer esta máquina.</p>
+            </div>
+          )}
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
             {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); }}>Cancelar</Button>}
@@ -151,6 +196,9 @@ export default function MaquinaManager() {
                   <p className="font-medium truncate">{item.nome}</p>
                   {item.permite_abastecimento === true && (
                     <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100"><Fuel className="w-3 h-3 mr-1" />Abastece</Badge>
+                  )}
+                  {item.permite_abastecimento === true && combustivelLabel(item.combustivel_id) && (
+                    <Badge variant="outline" className="text-amber-700 border-amber-300"><Fuel className="w-3 h-3 mr-1" />{combustivelLabel(item.combustivel_id)}</Badge>
                   )}
                   {depositoLabel(item.deposito_id) && (
                     <Badge variant="outline" className="font-mono">{depositoLabel(item.deposito_id)}</Badge>

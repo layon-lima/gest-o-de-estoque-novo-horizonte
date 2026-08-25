@@ -24,6 +24,16 @@
       "title": "Permite Abastecimento",
       "description": "Indica se a m\u00e1quina pode receber abastecimento de combust\u00edvel via QR Code. Apenas m\u00e1quinas marcadas aparecem na tela de Abastecimento.",
       "default": false
+    },
+    "combustivel_id": {
+      "type": "string",
+      "title": "Combust\u00edvel",
+      "description": "Produto de combust\u00edvel predefinido para esta m\u00e1quina. Quando definido, o combust\u00edvel \u00e9 selecionado automaticamente ao abastecer."
+    },
+    "combustivel_nome": {
+      "type": "string",
+      "title": "Combust\u00edvel (nome)",
+      "description": "Nome do combust\u00edvel predefinido (espelhado para exibi\u00e7\u00e3o r\u00e1pida)."
     }
   },
   "required": [

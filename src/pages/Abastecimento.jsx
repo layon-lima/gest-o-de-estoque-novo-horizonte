@@ -55,6 +55,11 @@ export default function Abastecimento() {
       );
   }, [maquinas, buscaMaquina]);
 
+  const produtoPredefinido = useMemo(
+    () => combustiveis.find((p) => p.id === maquinaSelecionada?.combustivel_id) || null,
+    [combustiveis, maquinaSelecionada]
+  );
+
   const pendentes = useMemo(
     () => abastecimentos.filter((a) => (a.status || 'pendente') === 'pendente'),
     [abastecimentos]
@@ -267,6 +272,7 @@ export default function Abastecimento() {
           <AbastecimentoForm
             maquina={maquinaSelecionada}
             combustiveis={combustiveis}
+            produtoPredefinido={produtoPredefinido}
             saving={saving}
             onSubmit={handleSubmit}
             onBack={() => setMaquinaSelecionada(null)}

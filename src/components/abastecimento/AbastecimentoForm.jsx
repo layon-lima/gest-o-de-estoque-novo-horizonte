@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Fuel, Save, ArrowLeft, AlertTriangle, Camera, Loader2, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,17 +12,23 @@ import { formatQtd, parseQtd } from '@/lib/format';
 export default function AbastecimentoForm({
   maquina,
   combustiveis,
+  produtoPredefinido,
   saving,
   onSubmit,
   onBack,
 }) {
-  const [produtoId, setProdutoId] = useState('');
+  const [produtoId, setProdutoId] = useState(produtoPredefinido?.id || '');
   const [quantidade, setQuantidade] = useState('');
   const [observacao, setObservacao] = useState('');
   const [erro, setErro] = useState('');
   const [fotoUrl, setFotoUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+
+  // Sincroniza quando o combustível predefinido da máquina muda.
+  useEffect(() => {
+    if (produtoPredefinido) setProdutoId(produtoPredefinido.id);
+  }, [produtoPredefinido]);
 
   const produto = useMemo(
     () => combustiveis.find((p) => p.id === produtoId),
@@ -77,21 +83,29 @@ export default function AbastecimentoForm({
       <form onSubmit={handleSubmit} className="space-y-4 mt-3">
         <div className="space-y-1.5">
           <Label>Combustível *</Label>
-          <Select value={produtoId} onValueChange={(v) => { setProdutoId(v); setErro(''); }}>
-            <SelectTrigger><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
-            <SelectContent>
-              {combustiveis.length === 0 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  Nenhum produto no setor de Combustíveis.
-                </div>
-              )}
-              {combustiveis.map((p) => (
-                <SelectItem key={p.id} value={p.id} disabled={(p.quantidade || 0) <= 0}>
-                  {p.nome} — {formatQtd(p.quantidade || 0)} {p.unidade || 'un'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {produtoPredefinido ? (
+            <div className="flex items-center gap-2 rounded-lg border bg-amber-50 border-amber-200 px-3 py-2.5">
+              <Fuel className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="font-medium text-amber-900">{produtoPredefinido.nome}</span>
+              <span className="ml-auto text-xs text-amber-700">predefinido na máquina</span>
+            </div>
+          ) : (
+            <Select value={produtoId} onValueChange={(v) => { setProdutoId(v); setErro(''); }}>
+              <SelectTrigger><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
+              <SelectContent>
+                {combustiveis.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    Nenhum produto no setor de Combustíveis.
+                  </div>
+                )}
+                {combustiveis.map((p) => (
+                  <SelectItem key={p.id} value={p.id} disabled={(p.quantidade || 0) <= 0}>
+                    {p.nome} — {formatQtd(p.quantidade || 0)} {p.unidade || 'un'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {produto && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Estoque atual:</span>
