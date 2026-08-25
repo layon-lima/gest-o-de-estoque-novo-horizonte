@@ -8,6 +8,11 @@
         "user"
       ]
     },
+    "display_name": {
+      "type": "string",
+      "title": "Nome de Exibi\u00e7\u00e3o",
+      "description": "Nome personalizado definido pelo admin. Quando preenchido, substitui o full_name em todas as exibi\u00e7\u00f5es do sistema."
+    },
     "pode_confirmar_abastecimento": {
       "type": "boolean",
       "title": "Pode Confirmar Abastecimento",

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { getDisplayName, getDisplayInitial } from '@/lib/userName';
 import { allowedPagesForUser } from '@/lib/permissions';
 import { setoresAcessiveis } from '@/lib/setoresAcesso';
 import { base44 } from '@/api/base44Client';
@@ -139,10 +140,10 @@ export default function Sidebar({ open, onClose }) {
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
           <div className="flex items-center gap-3 px-2 pb-1">
             <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-semibold text-sm shrink-0">
-              {(user?.full_name || user?.email || '?').charAt(0).toUpperCase()}
+              {getDisplayInitial(user)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{user?.full_name || 'Usuário'}</p>
+              <p className="text-sm font-medium truncate">{getDisplayName(user) || 'Usuário'}</p>
               <p className="text-xs text-white/60 truncate">{user?.email || ''}</p>
             </div>
           </div>
