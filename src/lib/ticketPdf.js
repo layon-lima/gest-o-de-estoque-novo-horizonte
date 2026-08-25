@@ -20,16 +20,15 @@ const INK = [17, 24, 23];
 const LABEL = [107, 114, 128];
 const LINE = [226, 232, 230];
 
-const LOGO_SVG_URL =
-  'https://media.base44.com/images/public/6a84b445f638bd5605381437/950b68ffe_Designsemnome.svg';
+const LOGO_PNG_URL =
+  'https://media.base44.com/images/public/6a84b445f638bd5605381437/8dd1c2ef3_MockupCircular512x512.png';
 
-// Carrega o SVG da fazenda e rasteriza em PNG de alta resolução, preservando proporção.
+// Carrega o logo circular PNG (1:1, sem margens) e retorna dataURL pronto para o PDF.
 async function loadLogo() {
   try {
-    const res = await fetch(LOGO_SVG_URL);
+    const res = await fetch(LOGO_PNG_URL);
     if (!res.ok) return null;
-    const svgText = await res.text();
-    const blob = new Blob([svgText], { type: 'image/svg+xml' });
+    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const img = await new Promise((resolve, reject) => {
       const im = new Image();
@@ -37,22 +36,20 @@ async function loadLogo() {
       im.onerror = reject;
       im.src = url;
     });
-    const maxSide = 512;
-    const natW = img.naturalWidth || 256;
-    const natH = img.naturalHeight || 256;
-    const fit = Math.min(maxSide / natW, maxSide / natH, 1);
+    const side = 512;
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(natW * fit);
-    canvas.height = Math.round(natH * fit);
+    canvas.width = side;
+    canvas.height = side;
     const ctx2 = canvas.getContext('2d');
-    ctx2.clearRect(0, 0, canvas.width, canvas.height);
-    ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx2.clearRect(0, 0, side, side);
+    ctx2.drawImage(img, 0, 0, side, side);
+    // clipa ao círculo inscrito — remove cantos fora do emblema circular
+    ctx2.globalCompositeOperation = 'destination-in';
+    ctx2.beginPath();
+    ctx2.arc(side / 2, side / 2, side / 2, 0, Math.PI * 2);
+    ctx2.fill();
     URL.revokeObjectURL(url);
-    return {
-      dataUrl: canvas.toDataURL('image/png'),
-      w: canvas.width,
-      h: canvas.height,
-    };
+    return { dataUrl: canvas.toDataURL('image/png'), w: side, h: side };
   } catch (e) {
     return null;
   }
@@ -198,7 +195,16 @@ export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
   doc.setLineWidth(0.3);
   doc.circle(circleCx, circleCy, circleR - 1.5, 'S');
 
-  drawLogo(doc, circleCx, circleCy, circleR - 2);
+  const logo = await loadLogo();
+  if (logo) {
+    // imagem quadrada 1:1 — encaixa no diâmetro do círculo (círculo da imagem = borda do mockup)
+    const fit = circleR * 2;
+    const dx = circleCx - circleR;
+    const dy = circleCy - circleR;
+    try { doc.addImage(logo.dataUrl, 'PNG', dx, dy, fit, fit); } catch {}
+  } else {
+    drawLogo(doc, circleCx, circleCy, circleR - 2);
+  }
 
   // Bloco de textos à direita do círculo
   const textX = margin + circleR * 2 + 10;
