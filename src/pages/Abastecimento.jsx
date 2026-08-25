@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import { useToast } from '@/components/ui/use-toast';
 import {
   findSetorCombustivel, produtosCombustivel,
@@ -30,7 +31,8 @@ export default function Abastecimento() {
   const [sucesso, setSucesso] = useState(false);
 
   const [maquinaSelecionada, setMaquinaSelecionada] = useState(null);
-  const [buscaMaquina, setBuscaMaquina] = useState('');
+  const [buscaMaquina, setBuscaMaquina] = usePersistentState('abast:busca', '');
+  const [maquinaId, setMaquinaId] = usePersistentState('abast:maquinaId', null);
   const [aba, setAba] = useState('abastecer');
 
   const podeConfirmar = user?.role === 'admin' || user?.pode_confirmar_abastecimento === true;
@@ -86,6 +88,14 @@ export default function Abastecimento() {
   }
   useEffect(() => { load(); }, []);
 
+  // Restaura a máquina selecionada ao retornar para a aba (preserva fluxo em andamento).
+  useEffect(() => {
+    if (maquinaId && !maquinaSelecionada) {
+      const m = maquinas.find((x) => x.id === maquinaId);
+      if (m) setMaquinaSelecionada(m);
+    }
+  }, [maquinas, maquinaId, maquinaSelecionada]);
+
   async function handleSubmit({ produto, quantidade, observacao, foto_url }) {
     setSaving(true);
     try {
@@ -99,6 +109,7 @@ export default function Abastecimento() {
       });
       toast({ title: 'Abastecimento registrado', description: 'Aguardando confirmação de um usuário autorizado para baixar o estoque.' });
       setMaquinaSelecionada(null);
+      setMaquinaId(null);
       setSucesso(true);
       setTimeout(() => setSucesso(false), 4000);
       load();
@@ -208,7 +219,6 @@ export default function Abastecimento() {
                   placeholder="Buscar máquina por código ou nome…"
                   value={buscaMaquina}
                   onChange={(e) => setBuscaMaquina(e.target.value)}
-                  autoFocus
                 />
               </div>
               <div className="space-y-2 max-h-[55vh] overflow-y-auto scrollbar-thin">
@@ -220,7 +230,7 @@ export default function Abastecimento() {
                   maquinasFiltradas.map((m) => (
                     <button
                       key={m.id}
-                      onClick={() => { setMaquinaSelecionada(m); setBuscaMaquina(''); }}
+                      onClick={() => { setMaquinaSelecionada(m); setMaquinaId(m.id); setBuscaMaquina(''); }}
                       className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left"
                     >
                       <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs">
@@ -259,7 +269,7 @@ export default function Abastecimento() {
             saving={saving}
             fotoOpcional={user?.role === 'admin'}
             onSubmit={handleSubmit}
-            onBack={() => setMaquinaSelecionada(null)}
+            onBack={() => { setMaquinaSelecionada(null); setMaquinaId(null); }}
           />
         )
       )}

@@ -11,6 +11,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { PAGES } from '@/lib/permissions';
+import { setoresAcessiveis } from '@/lib/setoresAcesso';
 import SetorIcon from '@/components/setorIcon';
 
 const allItems = [
@@ -48,13 +49,7 @@ export default function BottomTabBar() {
   }, []);
 
   // No mobile, o admin também respeita setores_permitidos (igual aos usuários comuns).
-  const setoresVisiveis = setores
-    .filter((s) => s.tem_aba_mobile === true)
-    .filter((s) => {
-      if (!user) return false;
-      const permitidos = Array.isArray(user.setores_permitidos) ? user.setores_permitidos : [];
-      return permitidos.includes(s.id);
-    });
+  const setoresVisiveis = setoresAcessiveis(setores, user);
 
   if (items.length === 0 && setoresVisiveis.length === 0) return null;
 

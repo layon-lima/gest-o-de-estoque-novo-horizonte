@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, Package, ArrowDownToLine, ArrowUpFromLine, ClipboardList } from 'lucide-react';
+import { Search, ArrowDownToLine, ArrowUpFromLine, ClipboardList } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { formatQtd } from '@/lib/format';
+import { usePersistentState } from '@/hooks/usePersistentState';
+import { readUiState, writeUiState } from '@/lib/uiStateStore';
 import SetorMovimentacaoForm from '@/components/setores/SetorMovimentacaoForm';
+import SetorProdutoRow from '@/components/setores/SetorProdutoRow';
 import InventarioConference from '@/components/inventario/InventarioConference';
 
 export default function SetorDetail() {
@@ -29,9 +31,11 @@ export default function SetorDetail() {
   const [pessoas, setPessoas] = useState([]);
   const [depositos, setDepositos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState('');
+  const [busca, setBusca] = usePersistentState(`setor:busca:${setorId}`, '');
+  const [expandedId, setExpandedId] = usePersistentState(`setor:exp:${setorId}`, null);
   const [modalTipo, setModalTipo] = useState(null);
   const [inventarioOpen, setInventarioOpen] = useState(false);
+  const listRef = useRef(null);
 
   async function load() {
     setLoading(true);
@@ -49,6 +53,15 @@ export default function SetorDetail() {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  // Preserva a posição de scroll da lista ao sair/retornar da rota (mobile).
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const saved = readUiState(`setor:scroll:${setorId}`);
+    if (saved) el.scrollTop = saved;
+    return () => writeUiState(`setor:scroll:${setorId}`, el.scrollTop);
+  }, [setorId, loading]);
 
   const setor = useMemo(() => setores.find((s) => s.id === setorId), [setores, setorId]);
 
@@ -108,7 +121,6 @@ export default function SetorDetail() {
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
-          autoFocus
           className="pl-11 h-12 text-base rounded-xl shadow-sm"
           placeholder="Buscar produto por nome ou código…"
           value={busca}
@@ -117,36 +129,22 @@ export default function SetorDetail() {
       </div>
 
       <Card className="p-2 sm:p-3">
-        <div className="space-y-1 max-h-[55vh] overflow-y-auto scrollbar-thin">
+        <div ref={listRef} className="space-y-1 max-h-[55vh] overflow-y-auto scrollbar-thin">
           {produtosSetor.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-10">Nenhum produto encontrado.</p>
           ) : (
-            produtosSetor.map((p) => {
-              const gav = gavetas.find((g) => g.id === p.gaveta_id);
-              const maq = maquinas.find((m) => m.id === p.maquina_id);
-              const baixo = (p.estoque_minimo || 0) > 0 && (p.quantidade || 0) <= (p.estoque_minimo || 0);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => setModalTipo('saida')}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/60 text-left transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Package className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate text-sm">{p.nome}</p>
-                    <p className="text-xs text-muted-foreground font-mono truncate">
-                      {p.codigo}{gav ? ` · Gav ${gav.codigo}` : ''}{maq ? ` · ${maq.nome}` : ''}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className={`font-semibold tabular-nums text-sm ${baixo ? 'text-destructive' : ''}`}>{formatQtd(p.quantidade || 0)}</p>
-                    <p className="text-[10px] text-muted-foreground">{p.unidade || ''}</p>
-                  </div>
-                </button>
-              );
-            })
+            produtosSetor.map((p) => (
+              <SetorProdutoRow
+                key={p.id}
+                produto={p}
+                gavetas={gavetas}
+                maquinas={maquinas}
+                depositos={depositos}
+                lotes={lotes}
+                expanded={expandedId === p.id}
+                onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+              />
+            ))
           )}
         </div>
       </Card>

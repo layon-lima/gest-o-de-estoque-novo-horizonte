@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -16,6 +16,9 @@ import {
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { allowedPagesForUser } from '@/lib/permissions';
+import { setoresAcessiveis } from '@/lib/setoresAcesso';
+import { base44 } from '@/api/base44Client';
+import SetorIcon from '@/components/setorIcon';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -41,9 +44,15 @@ export default function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [setores, setSetores] = useState([]);
+
+  useEffect(() => {
+    base44.entities.Setor.list().then(setSetores).catch(() => setSetores([]));
+  }, []);
 
   const allowedKeys = new Set(allowedPagesForUser(user).map((p) => p.key));
   const navItems = allNavItems.filter((it) => allowedKeys.has(it.key));
+  const setoresUser = setoresAcessiveis(setores, user);
 
   const handleDeleteAccount = async () => {
     setDeleteOpen(false);
@@ -102,6 +111,29 @@ export default function Sidebar({ open, onClose }) {
               {item.label}
             </NavLink>
           ))}
+
+          {setoresUser.length > 0 && (
+            <div className="pt-2 mt-2 border-t border-white/10">
+              <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-white/50 font-semibold">Setores</p>
+              {setoresUser.map((s) => (
+                <NavLink
+                  key={s.id}
+                  to={`/setor/${s.id}`}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <SetorIcon setor={s} className="w-5 h-5 shrink-0" />
+                  {s.nome}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
 
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
