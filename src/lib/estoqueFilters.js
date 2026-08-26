@@ -2,6 +2,7 @@ export function filterProdutos(produtos, filtros) {
   let result = [...produtos];
 
   if (filtros.setor_id) result = result.filter((p) => p.setor_id === filtros.setor_id);
+  if (filtros.deposito_id) result = result.filter((p) => p.deposito_id === filtros.deposito_id);
   if (filtros.maquina_id) result = result.filter((p) => p.maquina_id === filtros.maquina_id);
   if (filtros.gaveta_id) result = result.filter((p) => p.gaveta_id === filtros.gaveta_id);
 
@@ -24,7 +25,7 @@ export function getNome(id, lista, field = 'nome') {
   return item?.[field] || '—';
 }
 
-export function matchTerm(produto, termo, maquinas, gavetas) {
+export function matchTerm(produto, termo, maquinas, gavetas, depositos) {
   const t = termo.toLowerCase().trim();
   if (!t) return false;
 
@@ -33,6 +34,9 @@ export function matchTerm(produto, termo, maquinas, gavetas) {
   const gaveta = gavetas?.find((g) => g.id === produto.gaveta_id);
   const codigoGaveta = (gaveta?.codigo || '').toLowerCase();
   const descGaveta = (gaveta?.descricao || '').toLowerCase();
+  const deposito = depositos?.find((d) => d.id === produto.deposito_id);
+  const numDeposito = (deposito?.numero || '').toLowerCase();
+  const nomeDeposito = (deposito?.nome || '').toLowerCase();
 
   // "gaveta <num>" → busca por gaveta; "*" no final = correspondência exata
   if (t.startsWith('gaveta')) {
@@ -45,13 +49,26 @@ export function matchTerm(produto, termo, maquinas, gavetas) {
     return codigoGaveta.includes(rest) || descGaveta.includes(rest);
   }
 
+  // "deposito <num>" → busca por depósito; "*" no final = correspondência exata
+  if (t.startsWith('deposito') || t.startsWith('depósito')) {
+    const rest = t.replace(/^dep[oó]sito\s*/, '').trim();
+    if (!rest) return Boolean(numDeposito || nomeDeposito);
+    if (rest.endsWith('*')) {
+      const exato = rest.slice(0, -1).trim();
+      return numDeposito === exato || nomeDeposito === exato;
+    }
+    return numDeposito.includes(rest) || nomeDeposito.includes(rest);
+  }
+
   return (
     (produto.nome || '').toLowerCase().includes(t) ||
     (produto.codigo || '').toLowerCase().includes(t) ||
     (produto.codigo_referencia || '').toLowerCase().includes(t) ||
     nomeMaquina.includes(t) ||
     codigoGaveta.includes(t) ||
-    descGaveta.includes(t)
+    descGaveta.includes(t) ||
+    numDeposito.includes(t) ||
+    nomeDeposito.includes(t)
   );
 }
 

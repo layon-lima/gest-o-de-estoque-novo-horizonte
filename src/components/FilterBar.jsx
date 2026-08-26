@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export default function FilterBar({ filtros, setFiltros, setores, maquinas, gavetas }) {
+export default function FilterBar({ filtros, setFiltros, setores, maquinas, gavetas, depositos }) {
   const update = (key, value) =>
     setFiltros({ ...filtros, [key]: value === 'all' ? '' : value });
 
@@ -49,6 +49,25 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
           <SelectItem value="ZERADO">Zerado</SelectItem>
         </SelectContent>
       </Select>
+
+      {depositos && (
+        <Select
+          value={filtros.deposito_id || 'all'}
+          onValueChange={(v) => update('deposito_id', v)}
+        >
+          <SelectTrigger className="w-full sm:w-[170px] flex-1 sm:flex-none min-w-[140px]">
+            <SelectValue placeholder="Depósito" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os depósitos</SelectItem>
+            {depositos.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.numero}{d.nome ? ` — ${d.nome}` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <Select
         value={filtros.maquina_id || 'all'}

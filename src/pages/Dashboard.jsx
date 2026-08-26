@@ -7,13 +7,13 @@ import { useEntidades } from '@/lib/useEntidades';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 
 export default function Dashboard() {
-  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
+  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', deposito_id: '', maquina_id: '', gaveta_id: '' });
   const [busca, setBusca] = useState('');
 
   const { data, loading } = useEntidades({
-    Produto: {}, Setor: {}, Maquina: {}, Gaveta: {}, Lote: {},
+    Produto: {}, Setor: {}, Maquina: {}, Gaveta: {}, Deposito: {}, Lote: {},
   });
-  const { Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Lote: lotes } = data;
+  const { Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Deposito: depositos, Lote: lotes } = data;
 
   const filtered = useMemo(() => {
     const porFiltros = filterProdutos(produtos, filtros);
@@ -21,9 +21,9 @@ export default function Dashboard() {
     const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
     if (termos.length === 0) return porFiltros;
     return porFiltros.filter((p) =>
-      termos.every((termo) => matchTerm(p, termo, maquinas, gavetas))
+      termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos))
     );
-  }, [produtos, filtros, busca, maquinas, gavetas]);
+  }, [produtos, filtros, busca, maquinas, gavetas, depositos]);
 
 
 
@@ -42,15 +42,15 @@ export default function Dashboard() {
       </header>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} />
+        <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
         <div className="flex items-center gap-2 flex-wrap">
-          <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+          <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
         </div>
       </div>
 
       <Card className="p-5">
         <h3 className="font-semibold mb-3">Produtos Filtrados</h3>
-        <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+        <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
       </Card>
     </div>
   );

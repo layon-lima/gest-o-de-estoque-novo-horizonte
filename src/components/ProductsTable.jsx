@@ -17,6 +17,7 @@ export default function ProductsTable({
   setores,
   maquinas,
   gavetas,
+  depositos,
   showStatus = true,
   onEdit,
   onDelete,
@@ -44,6 +45,7 @@ export default function ProductsTable({
               <TableHead>Código</TableHead>
               <TableHead>Ref.</TableHead>
               <TableHead>Setor</TableHead>
+              <TableHead>Depósito</TableHead>
               <TableHead>Máquina</TableHead>
               <TableHead>Gaveta</TableHead>
               {showStatus && <TableHead>Status</TableHead>}
@@ -63,6 +65,7 @@ export default function ProductsTable({
                   <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo_referencia || '—'}</TableCell>
                   <TableCell className="text-sm">{getNome(p.setor_id, setores)}</TableCell>
+                  <TableCell className="text-sm">{getNome(p.deposito_id, depositos, 'numero')}{getNome(p.deposito_id, depositos, 'nome') !== '—' ? ` — ${getNome(p.deposito_id, depositos, 'nome')}` : ''}</TableCell>
                   <TableCell className="text-sm">{getNome(p.maquina_id, maquinas)}</TableCell>
                   <TableCell className="text-sm font-mono">{getNome(p.gaveta_id, gavetas, 'codigo')}</TableCell>
                   {showStatus && (
@@ -111,6 +114,7 @@ export default function ProductsTable({
                 <div><span className="font-medium text-foreground/70">Código:</span> <span className="font-mono">{p.codigo}</span></div>
                 <div><span className="font-medium text-foreground/70">Ref.:</span> <span className="font-mono">{p.codigo_referencia || '—'}</span></div>
                 <div className="truncate"><span className="font-medium text-foreground/70">Setor:</span> {getNome(p.setor_id, setores) || '—'}</div>
+                <div className="truncate"><span className="font-medium text-foreground/70">Dep.:</span> {getNome(p.deposito_id, depositos, 'numero') || '—'}{getNome(p.deposito_id, depositos, 'nome') !== '—' ? ` — ${getNome(p.deposito_id, depositos, 'nome')}` : ''}</div>
                 <div className="truncate"><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>
                 <div className="truncate"><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>
               </div>

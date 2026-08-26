@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { matchTerm } from '@/lib/estoqueFilters';
 
-export default function SearchBar({ value, onChange, produtos, maquinas, gavetas }) {
+export default function SearchBar({ value, onChange, produtos, maquinas, gavetas, depositos }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const containerRef = useRef(null);
@@ -13,9 +13,9 @@ export default function SearchBar({ value, onChange, produtos, maquinas, gavetas
 
   const suggestions = useMemo(() => {
     if (termos.length === 0) return [];
-    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas)));
+    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos)));
     return matches.slice(0, 8);
-  }, [produtos, value]);
+  }, [produtos, value, maquinas, gavetas, depositos]);
 
   useEffect(() => {
     setHighlightIndex(-1);
@@ -39,6 +39,11 @@ export default function SearchBar({ value, onChange, produtos, maquinas, gavetas
   const getGavetaNome = (p) => {
     const g = gavetas?.find((g) => g.id === p.gaveta_id);
     return g?.codigo || '';
+  };
+
+  const getDepositoNome = (p) => {
+    const d = depositos?.find((d) => d.id === p.deposito_id);
+    return d?.numero || '';
   };
 
   const handleSelect = (produto) => {
@@ -100,6 +105,7 @@ export default function SearchBar({ value, onChange, produtos, maquinas, gavetas
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 {p.codigo_referencia && <span>Ref: {p.codigo_referencia}</span>}
+                {getDepositoNome(p) && <span>Dep: {getDepositoNome(p)}</span>}
                 {getGavetaNome(p) && <span>Gav: {getGavetaNome(p)}</span>}
                 {getMaquinaNome(p) && <span className="truncate">{getMaquinaNome(p)}</span>}
               </div>
