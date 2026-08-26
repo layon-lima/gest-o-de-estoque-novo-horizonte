@@ -5,7 +5,6 @@ import MaquinaManager from '@/components/cadastros/MaquinaManager';
 import GavetaManager from '@/components/cadastros/GavetaManager';
 import ProdutosManager from '@/components/cadastros/ProdutosManager';
 import PessoasManager from '@/components/cadastros/PessoasManager';
-import TransportadoraManager from '@/components/cadastros/TransportadoraManager';
 import Usuarios from '@/pages/Usuarios';
 import { useAuth } from '@/lib/AuthContext';
 import { canAccessUsuarios } from '@/lib/permissions';
@@ -23,7 +22,6 @@ export default function Cadastros() {
       <Tabs defaultValue="pessoas">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="pessoas">Pessoas</TabsTrigger>
-          <TabsTrigger value="transportadoras">Transportadoras</TabsTrigger>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="setores">Setores</TabsTrigger>
           <TabsTrigger value="depositos">Depósitos</TabsTrigger>
@@ -33,9 +31,6 @@ export default function Cadastros() {
         </TabsList>
         <TabsContent value="pessoas">
           <PessoasManager />
-        </TabsContent>
-        <TabsContent value="transportadoras">
-          <TransportadoraManager />
         </TabsContent>
         <TabsContent value="produtos">
           <ProdutosManager />
