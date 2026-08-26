@@ -47,10 +47,6 @@ export default function DepositoManager() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.setor_id) {
-      toast({ variant: 'destructive', title: 'Setor obrigatório', description: 'Selecione o setor (categoria) do depósito.' });
-      return;
-    }
     try {
       if (editingId) {
         await base44.entities.Deposito.update(editingId, form);
@@ -87,7 +83,7 @@ export default function DepositoManager() {
         <p className="text-xs text-muted-foreground mb-4">Agrupamento dentro de um setor. A numeração é automática e global.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Setor (categoria) *</Label>
+            <Label>Setor (categoria) <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
             <Select value={form.setor_id || 'none'} onValueChange={(v) => setForm({ ...form, setor_id: v === 'none' ? '' : v })}>
               <SelectTrigger><SelectValue placeholder="Selecione um setor" /></SelectTrigger>
               <SelectContent>
