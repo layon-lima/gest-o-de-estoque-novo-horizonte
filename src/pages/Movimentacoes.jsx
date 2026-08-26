@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Undo2, CalendarClock, ArrowRightLeft } from 'lucide-react';
+import { Plus, CalendarClock, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,50 +12,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@/components/ui/table';
-import { base44 } from '@/api/base44Client';
 import { useEntidades } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
-import { reverterEstoqueMov, maxNumeroMovimento, formatarNumeroMov, registrarMovimentacao, registrarTransferencia } from '@/lib/movimentacoes';
+import { registrarMovimentacao, registrarTransferencia } from '@/lib/movimentacoes';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
-import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
-import MovimentacaoRow from '@/components/MovimentacaoRow';
 import NfeDropZone from '@/components/NfeDropZone';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 import { useNfeImport } from '@/hooks/useNfeImport';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
 export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [movToDelete, setMovToDelete] = useState(null);
   const { toast } = useToast();
 
-  const { data, loading, reload: load } = useEntidades({
+  const { data, reload: load } = useEntidades({
     Produto: {},
     Setor: {},
     Maquina: {},
@@ -65,11 +42,10 @@ export default function Movimentacoes() {
     SaldoEstoque: {},
     Movimentacao: { sort: '-data', limit: 50 },
     Pessoa: { sort: '-created_date', limit: 500 },
-    User: {},
   });
   const {
     Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Deposito: depositos, Lote: lotes,
-    SaldoEstoque: saldos, Movimentacao: movimentacoes, Pessoa: pessoas, User: usuarios,
+    SaldoEstoque: saldos, Movimentacao: movimentacoes, Pessoa: pessoas,
   } = data;
   const nfe = useNfeImport({ produtos, setores, maquinas, gavetas, onImported: load });
 
@@ -111,51 +87,6 @@ export default function Movimentacoes() {
       )
       .reduce((sum, s) => sum + (s.quantidade || 0), 0);
   }, [produtoSelecionado, form.deposito_origem_id, form.gaveta_origem_id, saldos]);
-
-  async function handleUndo(mov) {
-    setSaving(true);
-    try {
-      await reverterEstoqueMov(mov, { produtos, lotes, saldos });
-      await base44.entities.Movimentacao.create({
-        data: new Date().toISOString(),
-        numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
-        produto_id: mov.produto_id,
-        codigo: mov.codigo,
-        nome_produto: mov.nome_produto,
-        quantidade: mov.quantidade,
-        setor_id: mov.setor_id,
-        maquina_id: mov.maquina_id,
-        gaveta_id: mov.gaveta_id,
-        tipo: 'estorno',
-        observacao: `Estorno da movimentação de ${mov.tipo} (${mov.data ? new Date(mov.data).toLocaleString('pt-BR') : ''})`,
-        numero_nf: mov.numero_nf || '',
-        fornecedor: mov.fornecedor || '',
-        chave_acesso: mov.chave_acesso || '',
-        lote_id: mov.lote_id || '',
-        data_validade: mov.data_validade || '',
-        lotes_consumidos: mov.lotes_consumidos || '',
-      });
-      await base44.entities.Movimentacao.update(mov.id, { estornada: true });
-      toast({ title: 'Movimentação estornada', description: `${mov.nome_produto} — estoque atualizado e auditoria mantida.` });
-      load();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete(mov) {
-    setSaving(true);
-    try {
-      await reverterEstoqueMov(mov, { produtos, lotes, saldos });
-      await base44.entities.Movimentacao.delete(mov.id);
-      toast({ title: 'Movimentação excluída', description: `${mov.nome_produto} — estoque revertido e registro removido.` });
-      if (selectedId === mov.id) setSelectedId(null);
-      setMovToDelete(null);
-      load();
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -230,6 +161,8 @@ export default function Movimentacoes() {
                 </div>
               )}
             </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Tipo *</Label>
@@ -360,6 +293,8 @@ export default function Movimentacoes() {
                 <span>Saída consumida automaticamente pelo critério FEFO (primeiro lote a vencer). {lotesDoProduto.length} lote(s) disponível(is).</span>
               </div>
             )}
+              </div>
+              <div className="space-y-4">
 
             {form.tipo === 'entrada' && (
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
@@ -385,9 +320,11 @@ export default function Movimentacoes() {
                 </div>
               </div>
             )}
-            <div className="space-y-1.5">
-              <Label htmlFor="mv-obs">Observação</Label>
-              <Textarea id="mv-obs" rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="mv-obs">Observação</Label>
+                  <Textarea id="mv-obs" rows={4} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                </div>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={saving || !form.produto_id || (form.tipo === 'transferencia' && (!form.deposito_origem_id || !form.deposito_destino_id))}>
               {form.tipo === 'transferencia' ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
@@ -402,107 +339,9 @@ export default function Movimentacoes() {
             </div>
           )}
         </Card>
+      </div>
 
-        <div>
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Movimentações Recentes</h3>
-              {selectedId && (() => {
-                 const sel = movimentacoes.find((m) => m.id === selectedId);
-                 return sel ? (
-                   <Button
-                     variant="destructive"
-                     size="sm"
-                     disabled={saving || sel.estornada === true || sel.tipo === 'estorno'}
-                     onClick={() => handleUndo(sel)}
-                   >
-                     <Undo2 className="w-4 h-4 mr-1" />
-                     {saving ? 'Estornando…' : sel.estornada === true ? 'Estornada' : 'Estornar Movimentação'}
-                   </Button>
-                 ) : null;
-               })()}
-            </div>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Carregando…</p>
-            ) : movimentacoes.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma movimentação registrada.</p>
-            ) : (
-              <div className="rounded-lg border overflow-auto scrollbar-thin max-h-[500px]">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-muted">
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Hora</TableHead>
-                      <TableHead>Usuário</TableHead>
-                      <TableHead>Produto</TableHead>
-                      <TableHead className="text-right">Quantidade</TableHead>
-                      <TableHead>Código</TableHead>
-                      <TableHead>NF / Fornecedor</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Setor</TableHead>
-                      <TableHead>Validade</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movimentacoes.map((m) => (
-                      <MovimentacaoRow
-                        key={m.id}
-                        mov={m}
-                        isSelected={selectedId === m.id}
-                        onSelect={() => setSelectedId(selectedId === m.id ? null : m.id)}
-                        onSwipeDelete={setMovToDelete}
-                        produtos={produtos}
-                        setores={setores}
-                        maquinas={maquinas}
-                        gavetas={gavetas}
-                        usuarios={usuarios}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              )}
-              </Card>
-
-              {selectedId && (() => {
-              const sel = movimentacoes.find((m) => m.id === selectedId);
-              return sel ? (
-              <MovimentacaoDetalhe
-                mov={sel}
-                produtos={produtos}
-                setores={setores}
-                maquinas={maquinas}
-                gavetas={gavetas}
-                lotes={lotes}
-              />
-              ) : null;
-              })()}
-              </div>
-              </div>
-
-              <AlertDialog open={!!movToDelete} onOpenChange={(o) => !o && setMovToDelete(null)}>
-               <AlertDialogContent>
-                 <AlertDialogHeader>
-                   <AlertDialogTitle>Excluir movimentação?</AlertDialogTitle>
-                   <AlertDialogDescription>
-                     {movToDelete ? `Esta ação reverte o estoque de "${movToDelete.nome_produto}" e remove o registro permanentemente. Não dá para desfazer.` : ''}
-                   </AlertDialogDescription>
-                 </AlertDialogHeader>
-                 <AlertDialogFooter>
-                   <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
-                   <AlertDialogAction
-                     disabled={saving}
-                     onClick={() => movToDelete && handleDelete(movToDelete)}
-                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                   >
-                     {saving ? 'Excluindo…' : 'Excluir'}
-                   </AlertDialogAction>
-                 </AlertDialogFooter>
-               </AlertDialogContent>
-              </AlertDialog>
-
-              {nfe.preview && (
+        {nfe.preview && (
                 <NfePreviewDialog
                   open
                   nfeInfo={{ nNF: nfe.preview.nNF, emitente: nfe.preview.emitente, chave: nfe.preview.chave }}
