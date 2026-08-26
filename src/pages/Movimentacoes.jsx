@@ -26,13 +26,12 @@ import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
-import { reverterEstoqueMov, maxNumeroMovimento, formatarNumeroMov, registrarMovimentacao } from '@/lib/movimentacoes';
+import { reverterEstoqueMov, maxNumeroMovimento, formatarNumeroMov, registrarMovimentacao, registrarTransferencia } from '@/lib/movimentacoes';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
 import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
 import MovimentacaoRow from '@/components/MovimentacaoRow';
-import TransferenciaDepositoDialog from '@/components/movimentacoes/TransferenciaDepositoDialog';
 import NfeDropZone from '@/components/NfeDropZone';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 import { useNfeImport } from '@/hooks/useNfeImport';
@@ -47,14 +46,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id: '', gaveta_id: '', observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
+const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
 export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [movToDelete, setMovToDelete] = useState(null);
-  const [showTransfer, setShowTransfer] = useState(false);
   const { toast } = useToast();
 
   const { data, loading, reload: load } = useEntidades({
@@ -89,6 +87,30 @@ export default function Movimentacoes() {
   const lotesDoProduto = produtoSelecionado
     ? lotes.filter((l) => l.produto_id === produtoSelecionado.id)
     : [];
+
+  // Depósitos que têm saldo do produto selecionado (para origem na transferência)
+  const depositosComSaldo = useMemo(() => {
+    if (!produtoSelecionado) return [];
+    const depIds = new Set(
+      (saldos || [])
+        .filter((s) => s.produto_id === produtoSelecionado.id && (s.quantidade || 0) > 0)
+        .map((s) => s.deposito_id)
+        .filter(Boolean)
+    );
+    return (depositos || []).filter((d) => depIds.has(d.id));
+  }, [produtoSelecionado, saldos, depositos]);
+
+  const saldoOrigem = useMemo(() => {
+    if (!produtoSelecionado || !form.deposito_origem_id) return 0;
+    return (saldos || [])
+      .filter(
+        (s) =>
+          s.produto_id === produtoSelecionado.id &&
+          s.deposito_id === form.deposito_origem_id &&
+          (!form.gaveta_origem_id || (s.gaveta_id || '') === form.gaveta_origem_id)
+      )
+      .reduce((sum, s) => sum + (s.quantidade || 0), 0);
+  }, [produtoSelecionado, form.deposito_origem_id, form.gaveta_origem_id, saldos]);
 
   async function handleUndo(mov) {
     setSaving(true);
@@ -141,7 +163,11 @@ export default function Movimentacoes() {
     if (!produto) return;
     setSaving(true);
     try {
-      await registrarMovimentacao({ form, produto, lotes, saldos, movimentacoes, controlaValidade });
+      if (form.tipo === 'transferencia') {
+        await registrarTransferencia({ form, produto, lotes, saldos, movimentacoes, controlaValidade, depositos });
+      } else {
+        await registrarMovimentacao({ form, produto, lotes, saldos, movimentacoes, controlaValidade });
+      }
       toast({ title: 'Movimentação registrada com sucesso' });
       setForm(emptyForm);
       load();
@@ -153,6 +179,8 @@ export default function Movimentacoes() {
         toast({ variant: 'destructive', title: 'Validade obrigatória', description: 'Este setor controla validade. Informe a data de validade.' });
       } else if (msg.startsWith('DEPOSITO_OBRIGATORIO')) {
         toast({ variant: 'destructive', title: 'Depósito obrigatório', description: 'Selecione o depósito onde o estoque será movimentado.' });
+      } else if (msg.startsWith('ORIGEM_DESTINO_IGUAIS')) {
+        toast({ variant: 'destructive', title: 'Origem e destino iguais', description: 'Selecione depósitos ou gavetas diferentes para a transferência.' });
       } else if (msg.startsWith('SALDO_INSUFICIENTE')) {
         const disp = Number(msg.split(':')[1] || 0);
         toast({ variant: 'destructive', title: 'Saldo insuficiente', description: `Disponível: ${formatQtd(disp)} ${produto.unidade || 'un'}.` });
@@ -176,13 +204,7 @@ export default function Movimentacoes() {
 
       <div className="space-y-6">
         <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Nova Movimentação</h3>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowTransfer(true)}>
-              <ArrowRightLeft className="w-4 h-4 mr-1" />
-              Transferir Depósito
-            </Button>
-          </div>
+          <h3 className="font-semibold mb-4">Nova Movimentação</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Produto *</Label>
@@ -211,11 +233,17 @@ export default function Movimentacoes() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Tipo *</Label>
-                <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
+                <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '' })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="entrada">Entrada</SelectItem>
                     <SelectItem value="saida">Saída</SelectItem>
+                    <SelectItem value="transferencia">
+                      <span className="flex items-center gap-2">
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                        Transferência
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -225,28 +253,92 @@ export default function Movimentacoes() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Depósito *</Label>
-                <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v, gaveta_id: '' })}>
-                  <SelectTrigger><SelectValue placeholder="Onde?" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Nenhum —</SelectItem>
-                    {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            {form.tipo === 'transferencia' ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-red-50/60 border border-red-200">
+                  <div className="col-span-2"><span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Origem (de onde sai)</span></div>
+                  <div className="space-y-1.5">
+                    <Label>Depósito de Origem *</Label>
+                    <Select value={form.deposito_origem_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_origem_id: v === 'none' ? '' : v, gaveta_origem_id: '' })} disabled={!produtoSelecionado}>
+                      <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                      <SelectContent>
+                        {depositosComSaldo.length === 0 ? (
+                          <SelectItem value="none" disabled>— Sem saldo —</SelectItem>
+                        ) : (
+                          depositosComSaldo.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Gaveta de Origem <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+                    <Select value={form.gaveta_origem_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_origem_id: v === 'none' ? '' : v })} disabled={!form.deposito_origem_id}>
+                      <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Todas —</SelectItem>
+                        {sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_origem_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {form.deposito_origem_id && (
+                    <div className="col-span-2 text-xs">
+                      <span className="text-muted-foreground">Saldo disponível: </span>
+                      <span className="font-semibold tabular-nums">{formatQtd(saldoOrigem)} {produtoSelecionado?.unidade || ''}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-green-50/60 border border-green-200">
+                  <div className="col-span-2"><span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Destino (para onde vai)</span></div>
+                  <div className="space-y-1.5">
+                    <Label>Depósito de Destino *</Label>
+                    <Select value={form.deposito_destino_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_destino_id: v === 'none' ? '' : v, gaveta_destino_id: '' })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" disabled>— Selecione —</SelectItem>
+                        {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Gaveta de Destino <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+                    <Select value={form.gaveta_destino_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_destino_id: v === 'none' ? '' : v })} disabled={!form.deposito_destino_id}>
+                      <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Nenhuma —</SelectItem>
+                        {sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_destino_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {controlaValidade && (
+                    <p className="col-span-2 text-xs text-blue-700">Setor controla validade: lotes consumidos por FEFO na origem e recriados no destino automaticamente.</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Depósito *</Label>
+                  <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v, gaveta_id: '' })}>
+                    <SelectTrigger><SelectValue placeholder="Onde?" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Nenhum —</SelectItem>
+                      {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+                  <Select value={form.gaveta_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_id: v === 'none' ? '' : v })} disabled={!form.deposito_id}>
+                    <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Nenhum —</SelectItem>
+                      {sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-                <Select value={form.gaveta_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_id: v === 'none' ? '' : v })} disabled={!form.deposito_id}>
-                  <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Nenhum —</SelectItem>
-                    {sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            )}
 
             {controlaValidade && form.tipo === 'entrada' && (
               <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
@@ -297,9 +389,9 @@ export default function Movimentacoes() {
               <Label htmlFor="mv-obs">Observação</Label>
               <Textarea id="mv-obs" rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
             </div>
-            <Button type="submit" className="w-full" disabled={saving || !form.produto_id}>
-              <Plus className="w-4 h-4 mr-2" />
-              {saving ? 'Registrando…' : 'Registrar Movimentação'}
+            <Button type="submit" className="w-full" disabled={saving || !form.produto_id || (form.tipo === 'transferencia' && (!form.deposito_origem_id || !form.deposito_destino_id))}>
+              {form.tipo === 'transferencia' ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              {saving ? 'Registrando…' : form.tipo === 'transferencia' ? 'Transferir' : 'Registrar Movimentação'}
             </Button>
           </form>
 
@@ -409,19 +501,6 @@ export default function Movimentacoes() {
                  </AlertDialogFooter>
                </AlertDialogContent>
               </AlertDialog>
-
-              <TransferenciaDepositoDialog
-                open={showTransfer}
-                onOpenChange={setShowTransfer}
-                produtos={produtos}
-                depositos={depositos}
-                gavetas={gavetas}
-                setores={setores}
-                lotes={lotes}
-                saldos={saldos}
-                movimentacoes={movimentacoes}
-                onDone={load}
-              />
 
               {nfe.preview && (
                 <NfePreviewDialog
