@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Search, Wallet, FileSpreadsheet } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Wallet, FileSpreadsheet, Filter, CheckCircle2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
 import {
   AlertDialog,
@@ -32,13 +33,28 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir] = useState(null);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
+  const [pedidosSel, setPedidosSel] = useState([]);
+  const [buscaPedido, setBuscaPedido] = useState('');
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const pedidoNumero = (id) => pedidos.find((p) => p.id === id)?.numero || '—';
 
+  const pedidosDisponiveis = useMemo(() => {
+    const q = buscaPedido.toLowerCase().trim();
+    return pedidos
+      .filter((p) => p.status !== 'cancelado')
+      .filter((p) => !q || [p.numero || '', clienteNome(p.cliente_id)].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
+  }, [pedidos, buscaPedido, pessoas]);
+
+  const pedidosBase = useMemo(
+    () => (pedidosSel.length > 0 ? pedidos.filter((p) => pedidosSel.includes(p.id)) : pedidos),
+    [pedidos, pedidosSel]
+  );
+
   const valorTotalPesado = useMemo(() => {
-    return pedidos.reduce((acc, ped) => {
+    return pedidosBase.reduce((acc, ped) => {
       const liquidoKg = (tickets || [])
         .filter((t) => t.pedido_id === ped.id && t.status === 'fechado')
         .reduce((s, t) => s + (Number(t.peso_liquido) || 0), 0);
@@ -47,12 +63,12 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
       const sacas = pesoSaca > 0 ? liquidoKg / pesoSaca : 0;
       return acc + round3(sacas * valorSaca);
     }, 0);
-  }, [pedidos, tickets]);
+  }, [pedidosBase, tickets]);
 
-  const valorTotalPago = useMemo(
-    () => pagamentos.reduce((s, p) => s + (Number(p.valor) || 0), 0),
-    [pagamentos]
-  );
+  const valorTotalPago = useMemo(() => {
+    const base = pedidosSel.length > 0 ? pagamentos.filter((p) => pedidosSel.includes(p.pedido_id)) : pagamentos;
+    return base.reduce((s, p) => s + (Number(p.valor) || 0), 0);
+  }, [pagamentos, pedidosSel]);
 
   const saldoReceber = round3(valorTotalPesado - valorTotalPago);
 
@@ -80,6 +96,56 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Filter className="w-4 h-4 mr-2" />
+              {pedidosSel.length === 0 ? 'Todos os pedidos' : `${pedidosSel.length} pedido(s) selecionado(s)`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input value={buscaPedido} onChange={(e) => setBuscaPedido(e.target.value)} placeholder="Buscar pedido..." className="pl-8 h-8 text-sm" />
+              </div>
+            </div>
+            <div className="max-h-60 overflow-auto scrollbar-thin p-1">
+              <button
+                type="button"
+                onClick={() => setPedidosSel([])}
+                className={`w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors ${pedidosSel.length === 0 ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'}`}
+              >
+                <span>Todos os pedidos</span>
+                {pedidosSel.length === 0 && <CheckCircle2 className="w-4 h-4" />}
+              </button>
+              {pedidosDisponiveis.map((p) => {
+                const checked = pedidosSel.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPedidosSel((prev) => checked ? prev.filter((id) => id !== p.id) : [...prev, p.id])}
+                    className={`w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors text-left ${checked ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-primary border-primary' : 'border-input'}`}>
+                      {checked && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                    </span>
+                    <span className="truncate">{p.numero ? `${p.numero} · ` : ''}{clienteNome(p.cliente_id)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
+        {pedidosSel.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setPedidosSel([])}>
+            <X className="w-3.5 h-3.5 mr-1" /> Limpar
+          </Button>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="p-4">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wide font-semibold"><Wallet className="w-3.5 h-3.5" /> Total Pesado</div>
