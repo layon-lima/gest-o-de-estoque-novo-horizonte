@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { normalizePlaca, formatPlaca, nextTicketNumber, formatKg } from '@/lib/pesagem';
+import { normalizePlaca, formatPlaca, nextTicketNumber, formatKg, round3, statusPorSaldo } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
@@ -140,8 +140,18 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
     if (!excluirTicket) return;
     setExcluindo(true);
     try {
+      // Devolve o peso líquido ao saldo do pedido vinculado, sempre que houver vínculo.
+      const ped = excluirTicket.pedido_id ? pedidoDoTicket(excluirTicket.pedido_id) : null;
+      if (ped) {
+        const liq = Number(excluirTicket.peso_liquido) || 0;
+        const novoSaldo = round3((Number(ped.saldo_kg) || 0) + liq);
+        await base44.entities.PedidoPesagem.update(ped.id, {
+          saldo_kg: novoSaldo,
+          status: statusPorSaldo(novoSaldo, ped.total_kg, ped.status),
+        });
+      }
       await base44.entities.TicketPesagem.delete(excluirTicket.id);
-      toast({ title: 'Ticket excluído', description: excluirTicket.numero });
+      toast({ title: 'Ticket excluído', description: ped ? 'Saldo do pedido restaurado.' : excluirTicket.numero });
       setExcluirTicket(null);
       onReload();
     } catch (err) {
