@@ -1,8 +1,13 @@
-import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useRef, useMemo } from 'react';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 
+// Combobox genérico baseado no Popover nativo do Radix. Ao contrário de um
+// portal customizado no body, o Popover se registra como "ramo" do
+// DismissableLayer do Dialog pai, permitindo que os itens sejam clicados
+// normalmente dentro de um Dialog modal.
 export default function SearchSelect({
   value,
   onChange,
@@ -13,40 +18,9 @@ export default function SearchSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  const ref = useRef(null);
   const inputRef = useRef(null);
-  const menuRef = useRef(null);
 
   const selected = options.find((o) => o.value === value);
-
-  const updateCoords = () => {
-    if (!ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    setCoords({ top: r.bottom, left: r.left, width: r.width });
-  };
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    updateCoords();
-    const onScroll = () => updateCoords();
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    function handleClick(e) {
-      const inTrigger = ref.current && ref.current.contains(e.target);
-      const inMenu = menuRef.current && menuRef.current.contains(e.target);
-      if (!inTrigger && !inMenu) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -66,38 +40,58 @@ export default function SearchSelect({
   }
 
   return (
-    <div ref={ref} className={cn('relative', className)}>
-      <div
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring"
-      >
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          placeholder={selected ? selected.label : placeholder}
-          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-0"
-        />
-        <div className="flex items-center gap-1 shrink-0">
-          {selected && (
-            <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground cursor-pointer" onClick={clear} />
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-accent/40 transition-colors',
+            className
           )}
-          <ChevronDown className="w-4 h-4 opacity-50" />
-        </div>
-      </div>
-
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          onPointerDown={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
-          className="z-[100] mt-1 max-h-60 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
         >
+          <span className={cn('truncate text-left flex-1 min-w-0', !selected && !allLabel && 'text-muted-foreground')}>
+            {selected ? selected.label : (value === 'all' && allLabel ? allLabel : placeholder)}
+          </span>
+          <span className="flex items-center gap-1 shrink-0">
+            {selected && (
+              <X
+                className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground"
+                onClick={clear}
+              />
+            )}
+            <ChevronDown className="w-4 h-4 opacity-50" />
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
+        <div className="p-2 border-b">
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar..."
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="max-h-60 overflow-auto scrollbar-thin py-1">
           {allLabel && (
             <button
               type="button"
-              onMouseDown={(e) => { e.preventDefault(); pick('all'); }}
+              onClick={() => pick('all')}
               className={cn(
                 'flex items-center justify-between w-full px-3 py-1.5 text-sm text-left hover:bg-accent',
                 value === 'all' && 'bg-accent'
@@ -114,7 +108,7 @@ export default function SearchSelect({
               <button
                 key={o.value}
                 type="button"
-                onMouseDown={(e) => { e.preventDefault(); pick(o.value); }}
+                onClick={() => pick(o.value)}
                 className={cn(
                   'flex items-center justify-between w-full px-3 py-1.5 text-sm text-left hover:bg-accent',
                   value === o.value && 'bg-accent'
@@ -125,9 +119,8 @@ export default function SearchSelect({
               </button>
             ))
           )}
-        </div>,
-        document.body
-      )}
-    </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

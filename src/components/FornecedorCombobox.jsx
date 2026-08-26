@@ -1,8 +1,12 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Input } from '@/components/ui/input';
+import { useState, useRef, useMemo } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 
+// Combobox de fornecedor baseado no Popover nativo do Radix. O Popover se
+// registra como "ramo" do DismissableLayer do Dialog pai, permitindo que os
+// itens sejam clicados normalmente dentro de um Dialog modal.
 export default function FornecedorCombobox({
   value,
   onChange,
@@ -12,41 +16,14 @@ export default function FornecedorCombobox({
   className,
 }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  const wrapperRef = useRef(null);
-  const menuRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const inputRef = useRef(null);
 
-  const filtered = suggestions
-    .filter((s) => s && s.toLowerCase().includes((value || '').toLowerCase().trim()))
-    .slice(0, 20);
-
-  const updateCoords = () => {
-    if (!wrapperRef.current) return;
-    const r = wrapperRef.current.getBoundingClientRect();
-    setCoords({ top: r.bottom, left: r.left, width: r.width });
-  };
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    updateCoords();
-    const onScroll = () => updateCoords();
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    function handleClick(e) {
-      const inTrigger = wrapperRef.current && wrapperRef.current.contains(e.target);
-      const inMenu = menuRef.current && menuRef.current.contains(e.target);
-      if (!inTrigger && !inMenu) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  const filtered = useMemo(() => {
+    const q = (query || '').toLowerCase().trim();
+    if (!q) return suggestions.slice(0, 50);
+    return suggestions.filter((s) => s && s.toLowerCase().includes(q)).slice(0, 50);
+  }, [suggestions, query]);
 
   function pick(s) {
     onChange(s);
@@ -54,40 +31,61 @@ export default function FornecedorCombobox({
   }
 
   return (
-    <div ref={wrapperRef} className="relative">
-      <Input
-        id={id}
-        className={className}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery(value || '');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Input
+          id={id}
+          className={cn('cursor-pointer', className)}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setOpen(true)}
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
         }}
-        onFocus={() => setOpen(true)}
-      />
-      {open && filtered.length > 0 && createPortal(
-        <div
-          ref={menuRef}
-          style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
-          className="z-[100] mt-1 max-h-60 overflow-auto scrollbar-thin rounded-md border bg-popover text-popover-foreground shadow-md py-1"
-        >
-          {filtered.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); pick(s); }}
-              className={cn(
-                'flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-accent truncate',
-                s === value && 'bg-accent'
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </div>
+      >
+        <div className="p-2 border-b">
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar fornecedor..."
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="max-h-60 overflow-auto scrollbar-thin py-1">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado.</p>
+          ) : (
+            filtered.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => pick(s)}
+                className={cn(
+                  'flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-accent truncate',
+                  s === value && 'bg-accent'
+                )}
+              >
+                {s}
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
