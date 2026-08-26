@@ -1,9 +1,10 @@
-import { Users, ClipboardList, Scale, History, Unlink } from 'lucide-react';
+import { Users, ClipboardList, Scale, History, Unlink, Wallet } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
 import PedidosManager from '@/components/pesagem/PedidosManager';
 import TicketsManager from '@/components/pesagem/TicketsManager';
+import PagamentosManager from '@/components/pesagem/PagamentosManager';
 
 export default function Pesagem() {
   const { user } = useAuth();
@@ -14,8 +15,9 @@ export default function Pesagem() {
     Produto: {},
     PedidoPesagem: { sort: '-created_date', limit: 500 },
     TicketPesagem: { sort: '-data_abertura', limit: 500 },
+    Pagamento: { sort: '-data_pagamento', limit: 500 },
   });
-  const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets } = data;
+  const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets, Pagamento: pagamentos } = data;
   const transportadoras = pessoas.filter((p) => p.is_transportadora);
 
   const abertosCount = tickets.filter((t) => t.status === 'aberto').length;
@@ -35,6 +37,7 @@ export default function Pesagem() {
           <TabsList className="w-full justify-start overflow-x-auto">
             <TabsTrigger value="tickets" className="gap-1.5"><Scale className="w-4 h-4" /> Tickets {abertosCount > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">{abertosCount}</span>}</TabsTrigger>
             <TabsTrigger value="pedidos" className="gap-1.5"><ClipboardList className="w-4 h-4" /> Pedidos</TabsTrigger>
+            <TabsTrigger value="pagamentos" className="gap-1.5"><Wallet className="w-4 h-4" /> Pagamentos</TabsTrigger>
             {isAdmin && <TabsTrigger value="naovinculados" className="gap-1.5 hidden sm:flex"><Unlink className="w-4 h-4" /> Não vinculados</TabsTrigger>}
             <TabsTrigger value="historico" className="gap-1.5"><History className="w-4 h-4" /> Histórico</TabsTrigger>
           </TabsList>
@@ -44,6 +47,9 @@ export default function Pesagem() {
           </TabsContent>
           <TabsContent value="pedidos" className="mt-4">
             <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} transportadoras={transportadoras} onReload={load} isAdmin={isAdmin} />
+          </TabsContent>
+          <TabsContent value="pagamentos" className="mt-4">
+            <PagamentosManager pagamentos={pagamentos} pedidos={pedidos} pessoas={pessoas} tickets={tickets} onReload={load} />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="naovinculados" className="mt-4 hidden sm:block">

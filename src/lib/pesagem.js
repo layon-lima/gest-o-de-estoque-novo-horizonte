@@ -30,6 +30,19 @@ export function nextTicketNumber(tickets = []) {
   return `PES-${String(max + 1).padStart(6, '0')}`;
 }
 
+// Gera o próximo número sequencial de pagamento (PAG-000001) com base na lista existente.
+export function nextPagamentoNumber(pagamentos = []) {
+  let max = 0;
+  pagamentos.forEach((p) => {
+    const m = String(p.numero || '').match(/PAG-(\d+)/i);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
+  });
+  return `PAG-${String(max + 1).padStart(6, '0')}`;
+}
+
 // Gera o próximo número sequencial de pedido (PED-000001) com base na lista existente.
 export function nextPedidoNumber(pedidos = []) {
   let max = 0;
