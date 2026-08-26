@@ -4,7 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatQtd } from '@/lib/format';
-import moment from 'moment';
+function fmtData(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 import {
   Dialog, DialogContent, DialogTitle,
 } from '@/components/ui/dialog';
@@ -35,7 +40,7 @@ export default function AbastecimentoPendentes({
       {pendentes.map((abast) => {
         const maquina = maquinas.find((m) => m.id === abast.maquina_id);
         const produto = produtos.find((p) => p.id === abast.produto_id);
-        const data = abast.data ? moment(abast.data).format('DD/MM/YYYY HH:mm') : '—';
+        const data = fmtData(abast.data);
         const busy = savingId === abast.id;
         return (
           <Card key={abast.id} className="p-3 space-y-3">

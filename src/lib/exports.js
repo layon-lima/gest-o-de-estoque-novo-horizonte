@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf';
-
 // Ajusta o texto para caber dentro de uma largura máxima, adicionando "…" se necessário.
 function fitText(doc, value, maxWidth) {
   const text = String(value ?? '');
@@ -11,7 +9,8 @@ function fitText(doc, value, maxWidth) {
   return t.length > 0 ? t + '…' : '';
 }
 
-export function exportPDF(titulo, colunas, linhas) {
+export async function exportPDF(titulo, colunas, linhas) {
+  const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

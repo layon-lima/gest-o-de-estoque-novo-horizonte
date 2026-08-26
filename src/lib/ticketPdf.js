@@ -1,35 +1,13 @@
-// Geração do Ticket de Pesagem em PDF — layout fiel à planilha ticket001.xlsx.
-// Um ticket por folha A4 (210 x 297 mm). Logo extraído do próprio arquivo xlsx.
-import { jsPDF } from 'jspdf';
-
+// Geração do Ticket de Pesagem em PDF — layout leve e simples, um ticket por folha A4.
+// jsPDF é carregado sob demanda (import dinâmico) só ao gerar o documento.
 const TIPO_LABEL = { venda: 'VENDA', lavoura: 'LAVOURA', avulsa: 'AVULSA' };
 
 const XLSX_URL =
   'https://media.base44.com/files/public/6a84b445f638bd5605381437/faca5668c_ticket001.xlsx';
 
-// --- Geometria da planilha (11 colunas A–K, largura ~8,8867 chars cada) ---
-const ML = 7;                                  // margem esquerda (mm)
-const COLW = 196 / 11;                         // largura de cada coluna
-const X = Array.from({ length: 12 }, (_, i) => ML + COLW * i);
-// X[0]=A ... X[11]=fim   (A=7,B=24.82,C=42.64,D=60.45,E=78.27,F=96.09,
-//                         G=113.91,H=131.73,I=149.55,J=167.36,K=185.18,fim=203)
-
-// Bandas verticais (mm) — reproduzem as linhas mescladas do modelo
-const Y = {
-  headerTop: 8, headerBot: 60,        // linhas 1-5 (logo + título)
-  ntTop: 60, ntBot: 78,              // linha 6-7 (N° + tipo)
-  motTop: 82, motBot: 100,           // motorista
-  plaTop: 104, plaBot: 122,          // placa
-  proTop: 126, proBot: 144,          // produto
-  datTop: 148, datBot: 166,          // data - hora
-  pLabTop: 172, pLabBot: 184,       // rótulos dos pesos
-  pValTop: 184, pValBot: 216,        // valores dos pesos
-  obsTop: 222, obsBot: 244,          // observações
-  sigY: 274,                         // linha de assinatura
-};
-
 const INK = [0, 0, 0];
-const BORDER = [120, 120, 120];
+const MUTED = [130, 130, 130];
+const LINE = [210, 210, 210];
 
 // --- Helpers de formatação ---
 function fmtDateTime(iso) {
@@ -53,7 +31,6 @@ async function loadSheetLogo() {
     const ab = await res.arrayBuffer();
     const dv = new DataView(ab);
     const u8 = new Uint8Array(ab);
-    // localiza o End Of Central Directory
     let eocd = -1;
     for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) {
       if (u8[i] === 0x50 && u8[i + 1] === 0x4b && u8[i + 2] === 0x05 && u8[i + 3] === 0x06) {
@@ -104,7 +81,7 @@ async function loadSheetLogo() {
   }
 }
 
-// --- Desenho vetorial do logo (fallback) ---
+// --- Logo vetorial (fallback) ---
 const SUN = [255, 179, 0];
 const HILL_DARK = [46, 125, 50];
 const HILL_LIGHT = [102, 187, 106];
@@ -120,34 +97,22 @@ function drawLogo(doc, cx, cy, r) {
   doc.setFillColor(...HAND); doc.circle(cx, cy + r * 1.22, r * 0.74, 'F');
 }
 
-// --- Primitivas de desenho ---
-function rect(doc, x1, y1, x2, y2) {
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.2);
-  doc.rect(x1, y1, x2 - x1, y2 - y1, 'S');
-}
-function vline(doc, x, y1, y2) {
-  doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
-  doc.line(x, y1, x, y2);
-}
-function hline(doc, x1, x2, y) {
-  doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
-  doc.line(x1, y, x2, y);
-}
-// texto centralizado verticalmente numa caixa
-function cellText(doc, x1, y1, x2, y2, text, { size = 11, bold = false, align = 'left' } = {}) {
-  doc.setFont('helvetica', bold ? 'bold' : 'normal');
-  doc.setFontSize(size);
-  doc.setTextColor(...INK);
-  const cy = (y1 + y2) / 2 + size * 0.12;
-  const ax = align === 'center' ? (x1 + x2) / 2 : align === 'right' ? x2 - 1.5 : x1 + 1.5;
-  doc.text(String(text), ax, cy, { align });
-}
-
 function resolveProduto(ticket, pedido, produtoNome) {
   if (ticket.tipo === 'venda' && pedido && produtoNome) return produtoNome(pedido.produto_id) || '—';
   if (ticket.produto_id && produtoNome) return produtoNome(ticket.produto_id) || '—';
   return '—';
+}
+
+// --- Primitivas leves ---
+function hline(doc, x1, x2, y, color = LINE, w = 0.2) {
+  doc.setDrawColor(...color); doc.setLineWidth(w);
+  doc.line(x1, y, x2, y);
+}
+function text(doc, x, y, str, { size = 11, bold = false, color = INK, align = 'left' } = {}) {
+  doc.setFont('helvetica', bold ? 'bold' : 'normal');
+  doc.setFontSize(size);
+  doc.setTextColor(...color);
+  doc.text(String(str), x, y, { align });
 }
 
 function drawTicket(doc, ticket, ctx, logoImg) {
@@ -155,96 +120,90 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   const tipo = TIPO_LABEL[ticket.tipo] || 'AVULSA';
   const dataTxt = fmtDateTime(ticket.data_fechamento || ticket.data_abertura);
 
-  // fundo branco
+  const ML = 16, MR = 16, LW = 210 - ML - MR; // margens e largura útil
+
+  // Fundo branco
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, 210, 297, 'F');
 
-  // ===== Cabeçalho (linhas 1-5) =====
-  rect(doc, X[0], Y.headerTop, X[3], Y.headerBot);   // logo  A1:C5
-  rect(doc, X[3], Y.headerTop, X[11], Y.headerBot);  // título D1:K5
-  // logo: ajusta (contain) na caixa A1:C5
-  const lbX = X[0], lbY = Y.headerTop, lbW = X[3] - X[0], lbH = Y.headerBot - Y.headerTop;
+  // ===== Cabeçalho: logo + título =====
+  const logoX = ML, logoY = 14, logoSize = 26;
   if (logoImg) {
     const iw = logoImg.naturalWidth || logoImg.width;
     const ih = logoImg.naturalHeight || logoImg.height;
     if (iw && ih) {
-      const pad = 2;
-      const aw = lbW - pad * 2, ah = lbH - pad * 2;
-      const s = Math.min(aw / iw, ah / ih);
+      const s = Math.min(logoSize / iw, logoSize / ih);
       const w = iw * s, h = ih * s;
-      doc.addImage(logoImg, 'JPEG', lbX + (lbW - w) / 2, lbY + (lbH - h) / 2, w, h);
+      doc.addImage(logoImg, 'JPEG', logoX + (logoSize - w) / 2, logoY + (logoSize - h) / 2, w, h);
     }
   } else {
-    drawLogo(doc, lbX + lbW / 2, lbY + lbH / 2, Math.min(lbW, lbH) / 2 - 3);
+    drawLogo(doc, logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 - 2);
   }
-  // título
-  cellText(doc, X[3], Y.headerTop, X[11], Y.headerBot, 'TICKET DE PESAGEM', { size: 24, bold: true, align: 'center' });
 
-  // ===== Linha N° + tipo (6-7) =====
-  rect(doc, X[0], Y.ntTop, X[11], Y.ntBot);
-  vline(doc, X[1], Y.ntTop, Y.ntBot);  // A|B
-  vline(doc, X[3], Y.ntTop, Y.ntBot);  // C|D
-  cellText(doc, X[0], Y.ntTop, X[1], Y.ntBot, 'N°', { size: 11, bold: true });
-  cellText(doc, X[1], Y.ntTop, X[3], Y.ntBot, ticket.numero || '—', { size: 12, bold: true });
-  cellText(doc, X[3], Y.ntTop, X[11], Y.ntBot, tipo, { size: 12, bold: true, align: 'center' });
+  text(doc, ML + logoSize + 8, logoY + 10, 'NOVO HORIZONTE', { size: 18, bold: true });
+  text(doc, ML + logoSize + 8, logoY + 18, 'TICKET DE PESAGEM', { size: 11, color: MUTED });
 
-  // ===== Motorista (10-11) =====
-  rect(doc, X[0], Y.motTop, X[11], Y.motBot);
-  vline(doc, X[2], Y.motTop, Y.motBot);
-  cellText(doc, X[0], Y.motTop, X[2], Y.motBot, 'MOTORISTA', { size: 11, bold: true });
-  cellText(doc, X[2], Y.motTop, X[11], Y.motBot, ticket.motorista || '—', { size: 12, bold: true });
+  // Rótulo do tipo à direita
+  text(doc, 210 - MR, logoY + 10, tipo, { size: 14, bold: true, align: 'right' });
 
-  // ===== Placa (13-14) =====
-  rect(doc, X[0], Y.plaTop, X[11], Y.plaBot);
-  vline(doc, X[2], Y.plaTop, Y.plaBot);
-  cellText(doc, X[0], Y.plaTop, X[2], Y.plaBot, 'PLACA', { size: 11, bold: true });
-  cellText(doc, X[2], Y.plaTop, X[11], Y.plaBot, (ticket.placa || '—').toUpperCase(), { size: 12, bold: true });
+  // Linha de separação do cabeçalho
+  hline(doc, ML, 210 - MR, logoY + logoSize + 4);
 
-  // ===== Produto (16-17) =====
-  rect(doc, X[0], Y.proTop, X[11], Y.proBot);
-  vline(doc, X[2], Y.proTop, Y.proBot);
-  cellText(doc, X[0], Y.proTop, X[2], Y.proBot, 'PRODUTO', { size: 11, bold: true });
-  const prodNome = resolveProduto(ticket, pedido, produtoNome);
-  // quebra se necessário
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...INK);
-  const prodLines = doc.splitTextToSize(prodNome, X[11] - X[2] - 3);
-  doc.text(prodLines[0] || '—', X[2] + 1.5, (Y.proTop + Y.proBot) / 2 + 12 * 0.12);
+  // ===== Número =====
+  let y = logoY + logoSize + 16;
+  text(doc, ML, y, 'Nº', { size: 10, color: MUTED });
+  text(doc, ML + 14, y, ticket.numero || '—', { size: 13, bold: true });
+  hline(doc, ML, 210 - MR, y + 4);
 
-  // ===== Data - Hora (19-20) =====
-  rect(doc, X[0], Y.datTop, X[11], Y.datBot);
-  vline(doc, X[2], Y.datTop, Y.datBot);
-  cellText(doc, X[0], Y.datTop, X[2], Y.datBot, 'DATA - HORA', { size: 11, bold: true });
-  cellText(doc, X[2], Y.datTop, X[11], Y.datBot, dataTxt, { size: 12, bold: true });
+  // ===== Linhas de informação (rótulo à esquerda, valor à direita) =====
+  const labelX = ML;
+  const valueX = ML + 42;
+  function infoRow(label, value, opts = {}) {
+    y += opts.gap || 14;
+    text(doc, labelX, y, label, { size: 9, color: MUTED });
+    text(doc, valueX, y, value, { size: 12, bold: true });
+    hline(doc, ML, 210 - MR, y + 4);
+  }
 
-  // ===== Pesos (22-24) — três caixas: TARA | BRUTO | LÍQUIDO =====
+  infoRow('MOTORISTA', ticket.motorista || '—');
+  infoRow('PLACA', (ticket.placa || '—').toUpperCase());
+  infoRow('PRODUTO', resolveProduto(ticket, pedido, produtoNome));
+  infoRow('DATA - HORA', dataTxt);
+
+  // ===== Pesos: três caixas leves =====
+  y += 18;
+  const boxW = (LW - 8) / 3;
   const boxes = [
-    { x1: X[1], x2: X[4], label: 'PESO TARA (kg)', val: ticket.peso_tara },     // B:D
-    { x1: X[4], x2: X[7], label: 'PESO BRUTO (kg)', val: ticket.peso_bruto },    // E:G
-    { x1: X[7], x2: X[10], label: 'PESO LÍQUIDO (kg)', val: ticket.peso_liquido }, // H:J
+    { label: 'TARA (kg)', val: ticket.peso_tara },
+    { label: 'BRUTO (kg)', val: ticket.peso_bruto },
+    { label: 'LÍQUIDO (kg)', val: ticket.peso_liquido },
   ];
-  boxes.forEach((b) => {
-    rect(doc, b.x1, Y.pLabTop, b.x2, Y.pValBot);
-    hline(doc, b.x1, b.x2, Y.pLabBot);
-    cellText(doc, b.x1, Y.pLabTop, b.x2, Y.pLabBot, b.label, { size: 10, bold: true, align: 'center' });
-    cellText(doc, b.x1, Y.pValTop, b.x2, Y.pValBot, fmtNum(b.val), { size: 20, bold: true, align: 'center' });
+  boxes.forEach((b, i) => {
+    const bx = ML + i * (boxW + 4);
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.3);
+    doc.roundedRect(bx, y - 10, boxW, 34, 2, 2, 'S');
+    text(doc, bx + boxW / 2, y - 3, b.label, { size: 9, color: MUTED, align: 'center' });
+    text(doc, bx + boxW / 2, y + 16, fmtNum(b.val), { size: 22, bold: true, align: 'center' });
   });
 
-  // ===== Observações (26-27) =====
-  rect(doc, X[0], Y.obsTop, X[11], Y.obsBot);
-  vline(doc, X[2], Y.obsTop, Y.obsBot);
-  cellText(doc, X[0], Y.obsTop, X[2], Y.obsBot, 'Observações', { size: 11, bold: true });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...INK);
-  const obsLines = doc.splitTextToSize(ticket.observacao || '—', X[11] - X[2] - 3);
-  doc.text(obsLines.slice(0, 2), X[2] + 1.5, Y.obsTop + 6);
+  // ===== Observações (somente se houver) =====
+  if (ticket.observacao && ticket.observacao.trim()) {
+    y += 44;
+    text(doc, ML, y, 'Observações', { size: 9, color: MUTED });
+    y += 5;
+    hline(doc, ML, 210 - MR, y, LINE, 0.2);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...INK);
+    const obsLines = doc.splitTextToSize(ticket.observacao, LW);
+    doc.text(obsLines.slice(0, 3), ML, y + 6);
+  }
 
-  // ===== Assinaturas (34) =====
-  const sigY = Y.sigY;
+  // ===== Assinaturas =====
+  const sigY = 254;
   doc.setDrawColor(...INK); doc.setLineWidth(0.3);
-  doc.line(X[1], sigY, X[4], sigY);             // Motorista  B:E
-  doc.line(X[6], sigY, X[9], sigY);            // Balanceiro G:J
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...INK);
-  doc.text('Assinatura do Motorista', (X[1] + X[4]) / 2, sigY + 4, { align: 'center' });
-  doc.text('Assinatura do Balanceiro', (X[6] + X[9]) / 2, sigY + 4, { align: 'center' });
+  doc.line(ML + 6, sigY, ML + 76, sigY);
+  doc.line(210 - MR - 76, sigY, 210 - MR - 6, sigY);
+  text(doc, ML + 41, sigY + 5, 'Assinatura do Motorista', { size: 9, align: 'center' });
+  text(doc, 210 - MR - 41, sigY + 5, 'Assinatura do Balanceiro', { size: 9, align: 'center' });
 }
 
 /**
@@ -254,6 +213,7 @@ function drawTicket(doc, ticket, ctx, logoImg) {
  * @param {object} opts - { print: true } abre impressão; senão baixa o arquivo.
  */
 export async function gerarTicketPDF(ticket, ctx = {}, opts = {}) {
+  const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const logoImg = await loadSheetLogo();
   drawTicket(doc, ticket, ctx, logoImg);
