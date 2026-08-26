@@ -11,12 +11,12 @@ export default function Pesagem() {
 
   const { data, loading, reload: load } = useEntidades({
     Pessoa: { sort: '-created_date', limit: 500 },
-    Transportadora: { sort: '-created_date', limit: 500 },
     Produto: {},
     PedidoPesagem: { sort: '-created_date', limit: 500 },
     TicketPesagem: { sort: '-data_abertura', limit: 500 },
   });
-  const { Pessoa: pessoas, Transportadora: transportadoras, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets } = data;
+  const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets } = data;
+  const transportadoras = pessoas.filter((p) => p.is_transportadora);
 
   const abertosCount = tickets.filter((t) => t.status === 'aberto').length;
 

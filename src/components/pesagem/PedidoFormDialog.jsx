@@ -155,7 +155,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
             <Label>Transportadora(s)</Label>
             <p className="text-xs text-muted-foreground -mt-1">Vincule uma ou mais transportadoras. Em tickets de venda com mais de uma, o usuário escolhe no fechamento.</p>
             {transportadoras.length === 0 ? (
-              <p className="text-sm text-destructive">Nenhuma transportadora cadastrada. Cadastre em Cadastros → Transportadoras.</p>
+              <p className="text-sm text-destructive">Nenhuma transportadora cadastrada. Cadastre em Cadastros → Pessoas marcando a flag Transportadora.</p>
             ) : (
               <div className="max-h-40 overflow-auto scrollbar-thin rounded-lg border p-2 space-y-1">
                 {transportadoras.map((t) => {
