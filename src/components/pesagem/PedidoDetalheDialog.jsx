@@ -51,7 +51,7 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                   <DialogDescription>Criado para <b>{clienteNome(pedido.cliente_id)}</b></DialogDescription>
                 </div>
                 {isAdmin && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 pr-8">
                     <Button variant="outline" size="sm" onClick={() => onEditPedido?.(pedido)}>
                       <Pencil className="w-4 h-4 mr-1.5" /> Editar
                     </Button>
