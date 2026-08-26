@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Search, Printer, FileDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +26,9 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
+import { gerarTicketPDF } from '@/lib/ticketPdf';
 
-export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed }) {
+export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed, onReload }) {
   const [pesoBruto, setPesoBruto] = useState('');
   const [pedidoId, setPedidoId] = useState('');
   const [transportadoraId, setTransportadoraId] = useState('');
@@ -35,6 +36,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const [buscaPedido, setBuscaPedido] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [fechado, setFechado] = useState(null);
+  const [gerando, setGerando] = useState(false);
   const { toast } = useToast();
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
@@ -79,6 +82,22 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     setObservacao('');
     setBuscaPedido('');
     setConfirmOpen(false);
+    setFechado(null);
+  }
+
+  async function imprimir(onlyPrint = false) {
+    if (!fechado) return;
+    setGerando(true);
+    try {
+      await gerarTicketPDF(fechado, { pedido: pedidoSel, produtoNome, clienteNome }, { print: onlyPrint });
+      if (!onlyPrint) {
+        toast({ title: 'PDF gerado', description: fechado.numero });
+      }
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao gerar PDF', description: String(err?.message || err) });
+    } finally {
+      setGerando(false);
+    }
   }
 
   async function confirmarFechamento() {
@@ -103,9 +122,21 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           status: novoSaldo <= 0 ? 'concluido' : 'aberto',
         });
       }
+      const closedTicket = {
+        ...ticket,
+        peso_bruto: parseQtd(pesoBruto),
+        peso_liquido: liquido,
+        pedido_id: isVenda ? pedidoId : '',
+        produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
+        transportadora_id: transpId,
+        transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
+        status: 'fechado',
+        data_fechamento: new Date().toISOString(),
+        observacao: observacao || '',
+      };
       toast({ title: 'Ticket fechado', description: `Líquido: ${formatKg(liquido)}` });
-      reset();
-      onClosed();
+      setFechado(closedTicket);
+      if (onReload) onReload();
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao fechar ticket', description: String(err?.message || err) });
     } finally {
@@ -147,6 +178,29 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           <DialogDescription>Registre o peso bruto{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
         </DialogHeader>
 
+        {fechado ? (
+          <div className="space-y-4 text-center py-2">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-green-600" />
+              </div>
+              <p className="font-semibold">Ticket fechado com sucesso!</p>
+              <p className="text-sm text-muted-foreground">Peso líquido: <b className="text-foreground">{formatKg(fechado.peso_liquido)}</b></p>
+              <p className="text-xs text-muted-foreground">Deseja imprimir ou baixar o ticket?</p>
+            </div>
+            <div className="flex flex-col gap-2 pt-1">
+              <Button className="w-full" onClick={() => imprimir(true)} disabled={gerando}>
+                <Printer className="w-4 h-4 mr-2" /> {gerando ? 'Preparando...' : 'Imprimir'}
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => imprimir(false)} disabled={gerando}>
+                <FileDown className="w-4 h-4 mr-2" /> Baixar PDF
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => { reset(); onClose(); }}>
+                <X className="w-4 h-4 mr-2" /> Fechar
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg border p-3">
@@ -278,6 +332,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

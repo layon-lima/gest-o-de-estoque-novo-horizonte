@@ -70,8 +70,8 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
     };
     if (!historico && !q) return [];
     return base.filter(match).sort((a, b) => {
-      if (historico) return new Date(a.data_fechamento || a.data_abertura) - new Date(b.data_fechamento || b.data_abertura);
-      return new Date(b.data_abertura) - new Date(a.data_abertura);
+      // Mais recentes no topo, mais antigos para baixo
+      return new Date(b.data_fechamento || b.data_abertura) - new Date(a.data_fechamento || a.data_abertura);
     });
   }, [tickets, busca, historico, naovinculados, naoVinculados]);
 
@@ -461,6 +461,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           open={!!fecharTicket}
           onClose={() => setFecharTicket(null)}
           onClosed={() => { setFecharTicket(null); onReload(); }}
+          onReload={onReload}
         />
       )}
 
