@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Undo2, CalendarClock } from 'lucide-react';
+import { Plus, Undo2, CalendarClock, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +32,7 @@ import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
 import MovimentacaoDetalhe from '@/components/MovimentacaoDetalhe';
 import MovimentacaoRow from '@/components/MovimentacaoRow';
+import TransferenciaDepositoDialog from '@/components/movimentacoes/TransferenciaDepositoDialog';
 import NfeDropZone from '@/components/NfeDropZone';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 import { useNfeImport } from '@/hooks/useNfeImport';
@@ -53,6 +54,7 @@ export default function Movimentacoes() {
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [movToDelete, setMovToDelete] = useState(null);
+  const [showTransfer, setShowTransfer] = useState(false);
   const { toast } = useToast();
 
   const { data, loading, reload: load } = useEntidades({
@@ -174,7 +176,13 @@ export default function Movimentacoes() {
 
       <div className="space-y-6">
         <Card className="p-5">
-          <h3 className="font-semibold mb-4">Nova Movimentação</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Nova Movimentação</h3>
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowTransfer(true)}>
+              <ArrowRightLeft className="w-4 h-4 mr-1" />
+              Transferir Depósito
+            </Button>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Produto *</Label>
@@ -401,6 +409,19 @@ export default function Movimentacoes() {
                  </AlertDialogFooter>
                </AlertDialogContent>
               </AlertDialog>
+
+              <TransferenciaDepositoDialog
+                open={showTransfer}
+                onOpenChange={setShowTransfer}
+                produtos={produtos}
+                depositos={depositos}
+                gavetas={gavetas}
+                setores={setores}
+                lotes={lotes}
+                saldos={saldos}
+                movimentacoes={movimentacoes}
+                onDone={load}
+              />
 
               {nfe.preview && (
                 <NfePreviewDialog

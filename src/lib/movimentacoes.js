@@ -1,7 +1,7 @@
 import { base44 } from '@/api/base44Client';
 import { parseQtd } from '@/lib/format';
 import { proximoCodigoLote } from '@/lib/lotes';
-import { entrarSaldo, sairSaldo, reverterSaldoMov } from '@/lib/saldos';
+import { entrarSaldo, sairSaldo, reverterSaldoMov, transferirSaldo } from '@/lib/saldos';
 
 // Reverte o efeito de uma movimentação no estoque (produto e lotes),
 // sem criar registro de auditoria. Usado tanto pelo estorno (que depois
@@ -177,6 +177,78 @@ export async function registrarMovimentacao({ form, produto, lotes, saldos, movi
     }
     await base44.entities.Movimentacao.create(baseMov);
   }
+
+  // Sincroniza produto localmente
+  const saldosProduto = (saldos || []).filter((s) => s.produto_id === produto.id);
+  produto.quantidade = saldosProduto.reduce((s, sl) => s + (sl.quantidade || 0), 0);
+  return { produto };
+}
+
+// Registra uma transferência interna entre depósitos: cria duas movimentações
+// (saída da origem + entrada no destino) e move os saldos preservando lotes.
+// `form` deve conter: produto_id, deposito_origem_id, gaveta_origem_id,
+// deposito_destino_id, gaveta_destino_id, quantidade, observacao.
+// `depositos` é a lista de depósitos para formatar os labels na observação.
+export async function registrarTransferencia({ form, produto, lotes, saldos, movimentacoes, controlaValidade, depositos }) {
+  const qtd = parseQtd(form.quantidade);
+  if (!(qtd > 0)) throw new Error('Quantidade inválida.');
+
+  const depOrigem = depositos.find((d) => d.id === form.deposito_origem_id);
+  const depDest = depositos.find((d) => d.id === form.deposito_destino_id);
+  const labelOrigem = depOrigem ? `${depOrigem.numero}${depOrigem.nome ? ' · ' + depOrigem.nome : ''}` : 'depósito de origem';
+  const labelDestino = depDest ? `${depDest.numero}${depDest.nome ? ' · ' + depDest.nome : ''}` : 'depósito de destino';
+
+  const { consumidos } = await transferirSaldo({
+    produto,
+    depositoOrigemId: form.deposito_origem_id,
+    gavetaOrigemId: form.gaveta_origem_id || '',
+    depositoDestinoId: form.deposito_destino_id,
+    gavetaDestinoId: form.gaveta_destino_id || '',
+    quantidade: qtd,
+    lotes,
+    saldos,
+  });
+
+  const now = new Date().toISOString();
+  const baseNum = maxNumeroMovimento(movimentacoes) + 1;
+  const obs = form.observacao ? ` — ${form.observacao}` : '';
+  const lotesJson = consumidos.length > 0 ? JSON.stringify(consumidos) : '';
+  const primeiroLoteId = consumidos[0]?.lote_id || '';
+  const primeiroLote = (lotes || []).find((l) => l.id === primeiroLoteId);
+
+  // Movimentação de SAÍDA (origem)
+  await base44.entities.Movimentacao.create({
+    data: now,
+    numero: formatarNumeroMov(baseNum),
+    produto_id: produto.id,
+    codigo: produto.codigo,
+    nome_produto: produto.nome,
+    quantidade: qtd,
+    setor_id: produto.setor_id,
+    deposito_id: form.deposito_origem_id,
+    maquina_id: produto.maquina_id || '',
+    gaveta_id: form.gaveta_origem_id || '',
+    tipo: 'saida',
+    observacao: `Transferência → ${labelDestino}${obs}`,
+    ...(controlaValidade && lotesJson ? { lotes_consumidos: lotesJson, lote_id: primeiroLoteId, data_validade: primeiroLote?.data_validade || '' } : {}),
+  });
+
+  // Movimentação de ENTRADA (destino)
+  await base44.entities.Movimentacao.create({
+    data: now,
+    numero: formatarNumeroMov(baseNum + 1),
+    produto_id: produto.id,
+    codigo: produto.codigo,
+    nome_produto: produto.nome,
+    quantidade: qtd,
+    setor_id: produto.setor_id,
+    deposito_id: form.deposito_destino_id,
+    maquina_id: produto.maquina_id || '',
+    gaveta_id: form.gaveta_destino_id || '',
+    tipo: 'entrada',
+    observacao: `Transferência ← ${labelOrigem}${obs}`,
+    ...(controlaValidade && primeiroLoteId ? { lote_id: primeiroLoteId, data_validade: primeiroLote?.data_validade || '', lotes_consumidos: lotesJson } : {}),
+  });
 
   // Sincroniza produto localmente
   const saldosProduto = (saldos || []).filter((s) => s.produto_id === produto.id);

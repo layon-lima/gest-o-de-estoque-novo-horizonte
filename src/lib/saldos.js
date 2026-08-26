@@ -135,6 +135,50 @@ export async function reverterSaldoMov(mov, { saldos }) {
   return { produto: { id: produtoId } };
 }
 
+// Transferência interna entre depósitos: consome do saldo de origem (FEFO)
+// e adiciona ao saldo de destino, preservando lotes.
+// Retorna { consumidos, totalDisponivel }.
+export async function transferirSaldo({ produto, depositoOrigemId, gavetaOrigemId = '', depositoDestinoId, gavetaDestinoId = '', quantidade, lotes = [], saldos }) {
+  if (!depositoOrigemId || !depositoDestinoId) throw new Error('DEPOSITO_OBRIGATORIO');
+  if (depositoOrigemId === depositoDestinoId && (gavetaOrigemId || '') === (gavetaDestinoId || ''))
+    throw new Error('ORIGEM_DESTINO_IGUAIS');
+
+  const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
+
+  // 1. Sair do depósito de origem (FEFO)
+  const { consumidos } = await sairSaldo({
+    produto, depositoId: depositoOrigemId, gavetaId: gavetaOrigemId, quantidade, lotes: lotesProduto, saldos,
+  });
+
+  // 2. Entrar no depósito de destino (preservando lotes)
+  for (const c of consumidos) {
+    await entrarSaldo({
+      produto, depositoId: depositoDestinoId, gavetaId: gavetaDestinoId, loteId: c.lote_id || '',
+      quantidade: c.quantidade, unidade: produto.unidade || 'un', saldos,
+    });
+
+    // Se o lote zerou na origem, atualiza depósito/gaveta do lote para o destino
+    if (c.lote_id) {
+      const saldoOrigem = (saldos || []).find(
+        (s) => s.produto_id === produto.id && s.deposito_id === depositoOrigemId && s.lote_id === c.lote_id
+      );
+      if (!saldoOrigem || (saldoOrigem.quantidade || 0) <= 0) {
+        const lote = lotesProduto.find((l) => l.id === c.lote_id);
+        if (lote) {
+          await base44.entities.Lote.update(lote.id, {
+            deposito_id: depositoDestinoId,
+            gaveta_id: gavetaDestinoId || '',
+          });
+          lote.deposito_id = depositoDestinoId;
+          lote.gaveta_id = gavetaDestinoId || '';
+        }
+      }
+    }
+  }
+
+  return { consumidos };
+}
+
 // Constrói árvore hierárquica: produto → depósitos → gavetas → lotes
 export function buildEstoqueTree(produtoId, { saldos = [], depositos = [], gavetas = [], lotes = [] }) {
   const saldosProduto = saldos.filter((s) => s.produto_id === produtoId && (s.quantidade || 0) > 0);
