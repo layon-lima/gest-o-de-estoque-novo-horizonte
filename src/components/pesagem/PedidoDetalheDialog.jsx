@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Unlink } from 'lucide-react';
+import { Pencil, Unlink, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,10 +8,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 
-export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, onClose, isAdmin, onEditPedido, onDesvincularTicket }) {
+export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, onClose, isAdmin, onEditPedido, onDesvincularTicket, onDeletePedido }) {
   const open = !!pedido;
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
@@ -40,9 +51,33 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                   <DialogDescription>Criado para <b>{clienteNome(pedido.cliente_id)}</b></DialogDescription>
                 </div>
                 {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => onEditPedido?.(pedido)}>
-                    <Pencil className="w-4 h-4 mr-1.5" /> Editar
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="outline" size="sm" onClick={() => onEditPedido?.(pedido)}>
+                      <Pencil className="w-4 h-4 mr-1.5" /> Editar
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="w-4 h-4 mr-1.5" /> Excluir
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir pedido?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. O pedido {pedido.numero} será removido permanentemente.
+                            {ticketsDoPedido.length > 0 && ` ${ticketsDoPedido.length} ticket(s) vinculado(s) será(ão) desvinculado(s).`}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => onDeletePedido?.(pedido)}>
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 )}
               </div>
             </DialogHeader>

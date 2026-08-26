@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { formatKg, formatMoeda, nextPedidoNumber } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
+import { base44 } from '@/api/base44Client';
 import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
 import DesvincularTicketDialog from './DesvincularTicketDialog';
@@ -84,6 +85,21 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
   function handleExportCSV() {
     const { cols, rows } = buildReport();
     exportCSV('Relatório de Pedidos de Pesagem', cols, rows);
+  }
+
+  async function handleDeletePedido(pedido) {
+    try {
+      const tks = (tickets || []).filter((t) => t.pedido_id === pedido.id);
+      if (tks.length > 0) {
+        await Promise.all(tks.map((t) => base44.entities.TicketPesagem.update(t.id, { pedido_id: '' })));
+      }
+      await base44.entities.PedidoPesagem.delete(pedido.id);
+      toast({ title: 'Pedido excluído', description: pedido.numero || 'Pedido removido.' });
+      setSelecionado(null);
+      onReload();
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: err?.message || '' });
+    }
   }
 
   return (
@@ -170,6 +186,7 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
         isAdmin={isAdmin}
         onEditPedido={(p) => { setSelecionado(null); setEditando(p); }}
         onDesvincularTicket={(t) => { setSelecionado(null); setDesvinc({ ticket: t, pedido: selecionado }); }}
+        onDeletePedido={handleDeletePedido}
       />
       <DesvincularTicketDialog
         ticket={desvinc?.ticket}
