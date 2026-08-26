@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, Search, User, Truck, PackageCheck } from 'lucide-react';
+import { Pencil, Trash2, Search, User, Truck, PackageCheck, Car } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 
-const empty = { nome: '', documento: '', telefone: '', cidade: '', is_cliente: true, is_fornecedor: false, is_transportadora: false, observacao: '' };
+const empty = { nome: '', documento: '', telefone: '', cidade: '', is_cliente: true, is_fornecedor: false, is_transportadora: false, is_motorista: false, observacao: '' };
 
 export default function PessoasManager() {
   const [form, setForm] = useState(empty);
@@ -30,7 +30,8 @@ export default function PessoasManager() {
       filtro === 'all' ||
       (filtro === 'cliente' && p.is_cliente) ||
       (filtro === 'fornecedor' && p.is_fornecedor) ||
-      (filtro === 'transportadora' && p.is_transportadora);
+      (filtro === 'transportadora' && p.is_transportadora) ||
+      (filtro === 'motorista' && p.is_motorista);
     return matchBusca && matchFiltro;
   });
 
@@ -61,6 +62,7 @@ export default function PessoasManager() {
       is_cliente: !!p.is_cliente,
       is_fornecedor: !!p.is_fornecedor,
       is_transportadora: !!p.is_transportadora,
+      is_motorista: !!p.is_motorista,
       observacao: p.observacao || '',
     });
     setEditingId(p.id);
@@ -108,6 +110,10 @@ export default function PessoasManager() {
               <Checkbox checked={form.is_transportadora} onCheckedChange={(v) => setForm({ ...form, is_transportadora: !!v })} />
               <span className="text-sm flex items-center gap-1"><PackageCheck className="w-3.5 h-3.5" /> Transportadora</span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={form.is_motorista} onCheckedChange={(v) => setForm({ ...form, is_motorista: !!v })} />
+              <span className="text-sm flex items-center gap-1"><Car className="w-3.5 h-3.5" /> Motorista</span>
+            </label>
           </div>
           <div className="space-y-1.5">
             <Label>Observação</Label>
@@ -134,6 +140,7 @@ export default function PessoasManager() {
               { v: 'cliente', l: 'Clientes' },
               { v: 'fornecedor', l: 'Fornec.' },
               { v: 'transportadora', l: 'Transp.' },
+              { v: 'motorista', l: 'Motorista' },
             ].map((opt) => (
               <button
                 key={opt.v}
@@ -159,6 +166,7 @@ export default function PessoasManager() {
                       {p.is_cliente && <Badge className="bg-blue-500 hover:bg-blue-500 text-[10px]"><User className="w-3 h-3 mr-0.5" /> Cliente</Badge>}
                       {p.is_fornecedor && <Badge className="bg-amber-600 hover:bg-amber-600 text-[10px]"><Truck className="w-3 h-3 mr-0.5" /> Fornecedor</Badge>}
                       {p.is_transportadora && <Badge className="bg-emerald-600 hover:bg-emerald-600 text-[10px]"><PackageCheck className="w-3 h-3 mr-0.5" /> Transportadora</Badge>}
+                      {p.is_motorista && <Badge className="bg-violet-600 hover:bg-violet-600 text-[10px]"><Car className="w-3 h-3 mr-0.5" /> Motorista</Badge>}
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                       {p.documento && <span className="font-mono">{p.documento}</span>}

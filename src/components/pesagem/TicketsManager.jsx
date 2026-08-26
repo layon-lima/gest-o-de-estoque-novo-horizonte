@@ -43,6 +43,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedidoDoTicket = (id) => pedidos.find((p) => p.id === id);
+  const motoristas = useMemo(() => pessoas.filter((p) => p.is_motorista), [pessoas]);
 
   const abertos = useMemo(
     () => tickets.filter((t) => t.status === 'aberto').sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
@@ -230,7 +231,15 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1 col-span-2">
                       <Label className="text-xs">Motorista *</Label>
-                      <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
+                      <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} list="motoristas-list" placeholder="Selecione um motorista cadastrado" required />
+                      <datalist id="motoristas-list">
+                        {motoristas.map((m) => (
+                          <option key={m.id} value={m.nome} />
+                        ))}
+                      </datalist>
+                      {motoristas.length === 0 && (
+                        <p className="text-xs text-destructive">Nenhum motorista cadastrado. Marque a flag "Motorista" em Cadastros › Pessoas.</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Placa *</Label>
