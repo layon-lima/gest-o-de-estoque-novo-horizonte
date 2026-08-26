@@ -29,6 +29,8 @@ import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import { proximoCodigoInterno } from '@/lib/produtoCodigo';
 import { formatQtd, parseQtd, formatInputQtd } from '@/lib/format';
 import { UNIDADES, convertQty, isConversivel } from '@/lib/units';
+import { entrarSaldo } from '@/lib/saldos';
+import { invalidateEntidade } from '@/lib/useEntidades';
 
 const empty = {
   codigo: '',
@@ -92,80 +94,37 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
     setSaving(true);
     try {
       const newQtd = controlaValidade ? 0 : parseQtd(form.quantidade);
-      const payload = { ...form, quantidade: newQtd, estoque_minimo: parseQtd(form.estoque_minimo), fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0 };
+      const payload = { ...form, quantidade: 0, estoque_minimo: parseQtd(form.estoque_minimo), fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0 };
       if (produto) {
-        const payloadFinal = newQtd <= 0 ? { ...payload, gaveta_id: '' } : payload;
-        await base44.entities.Produto.update(produto.id, payloadFinal);
-        if (!controlaValidade) {
-          const oldQtd = Number(produto.quantidade) || 0;
-          const diff = newQtd - oldQtd;
-          if (diff !== 0) {
-            await base44.entities.Movimentacao.create({
-              data: new Date().toISOString(),
-              produto_id: produto.id,
-              codigo: form.codigo,
-              nome_produto: form.nome,
-              quantidade: Math.abs(diff),
-              setor_id: form.setor_id,
-              maquina_id: form.maquina_id,
-              gaveta_id: newQtd <= 0 ? '' : form.gaveta_id,
-              tipo: diff > 0 ? 'entrada' : 'saida',
-              observacao: 'Ajuste via cadastro de produto',
-            });
-          }
-        }
-      } else {
-        const allProdutos = await base44.entities.Produto.list();
-        const duplicado = findProdutoDuplicado({ produtos: allProdutos, dados: form });
+        const duplicado = findProdutoDuplicado({ produtos, dados: form, excludeId: produto.id });
         if (duplicado) {
-          if (controlaValidade) {
-            toast({
-              title: 'Produto já existe',
-              description: 'Já existe um produto com este código e referência. Use Movimentações para registrar entradas de lote.',
-              variant: 'destructive',
-            });
-            return;
-          }
-          const novaQtd = (Number(duplicado.quantidade) || 0) + newQtd;
-          await base44.entities.Produto.update(duplicado.id, {
-            quantidade: novaQtd,
-            maquina_id: form.maquina_id || duplicado.maquina_id,
-            gaveta_id: form.gaveta_id || duplicado.gaveta_id,
+          toast({ variant: 'destructive', title: 'Código já existe', description: `Já existe outro produto com este código: ${duplicado.nome}.` });
+          return;
+        }
+        await base44.entities.Produto.update(produto.id, payload);
+      } else {
+        const duplicado = findProdutoDuplicado({ produtos, dados: form });
+        if (duplicado) {
+          toast({ variant: 'destructive', title: 'Código já existe', description: `Já existe um produto com este código: ${duplicado.nome}. Use Movimentações para dar entrada.` });
+          return;
+        }
+        const created = await base44.entities.Produto.create({ ...payload, codigo: proximoCodigoInterno(produtos) });
+        if (!controlaValidade && newQtd > 0 && form.deposito_id) {
+          await entrarSaldo({ produto: created, depositoId: form.deposito_id, gavetaId: form.gaveta_id || '', quantidade: newQtd, unidade: form.unidade || 'un', saldos: [] });
+          invalidateEntidade('SaldoEstoque');
+          await base44.entities.Movimentacao.create({
+            data: new Date().toISOString(),
+            produto_id: created.id,
+            codigo: created.codigo,
+            nome_produto: form.nome,
+            quantidade: newQtd,
+            setor_id: form.setor_id,
+            deposito_id: form.deposito_id,
+            maquina_id: form.maquina_id,
+            gaveta_id: form.gaveta_id,
+            tipo: 'entrada',
+            observacao: 'Cadastro inicial de produto',
           });
-          if (newQtd > 0) {
-            await base44.entities.Movimentacao.create({
-              data: new Date().toISOString(),
-              produto_id: duplicado.id,
-              codigo: duplicado.codigo,
-              nome_produto: duplicado.nome,
-              quantidade: newQtd,
-              setor_id: duplicado.setor_id,
-              maquina_id: form.maquina_id || duplicado.maquina_id,
-              gaveta_id: form.gaveta_id || duplicado.gaveta_id,
-              tipo: 'entrada',
-              observacao: 'Entrada via cadastro (produto existente)',
-            });
-          }
-          toast({
-            title: 'Quantidade somada ao produto existente',
-            description: `${duplicado.nome} — adicionadas ${formatQtd(newQtd)} ${form.unidade || 'un'}.`,
-          });
-        } else {
-          const created = await base44.entities.Produto.create({ ...payload, codigo: proximoCodigoInterno(allProdutos) });
-          if (!controlaValidade && newQtd > 0) {
-            await base44.entities.Movimentacao.create({
-              data: new Date().toISOString(),
-              produto_id: created.id,
-              codigo: form.codigo,
-              nome_produto: form.nome,
-              quantidade: newQtd,
-              setor_id: form.setor_id,
-              maquina_id: form.maquina_id,
-              gaveta_id: form.gaveta_id,
-              tipo: 'entrada',
-              observacao: 'Cadastro inicial de produto',
-            });
-          }
         }
       }
       onSaved();
@@ -259,8 +218,19 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="quantidade">Quantidade</Label>
-              <Input id="quantidade" type="text" inputMode="decimal" placeholder="0,00" value={controlaValidade ? 0 : form.quantidade} onChange={(e) => set('quantidade', e.target.value)} disabled={controlaValidade} />
-              {controlaValidade && <p className="text-xs text-amber-600">Gerenciada por lotes (Entradas e Saídas)</p>}
+              {produto ? (
+                <>
+                  <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm text-muted-foreground tabular-nums">
+                    {formatQtd(produto.quantidade || 0)} {produto.unidade || ''}
+                  </div>
+                  <p className="text-xs text-amber-600">Gerenciada por saldos/movimentações</p>
+                </>
+              ) : (
+                <>
+                  <Input id="quantidade" type="text" inputMode="decimal" placeholder="0,00" value={controlaValidade ? 0 : form.quantidade} onChange={(e) => set('quantidade', e.target.value)} disabled={controlaValidade} />
+                  {controlaValidade && <p className="text-xs text-amber-600">Gerenciada por lotes (Entradas e Saídas)</p>}
+                </>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unidade">Unidade</Label>

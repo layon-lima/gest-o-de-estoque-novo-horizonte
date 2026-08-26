@@ -33,6 +33,11 @@
       "type": "string",
       "title": "Setor"
     },
+    "deposito_id": {
+      "type": "string",
+      "title": "Dep\u00f3sito",
+      "description": "Dep\u00f3sito onde a movimenta\u00e7\u00e3o ocorreu (origem ou destino do saldo)."
+    },
     "maquina_id": {
       "type": "string",
       "title": "M\u00e1quina"
@@ -79,8 +84,8 @@
     },
     "lotes_consumidos": {
       "type": "string",
-      "title": "Lotes Consumidos (FEFO)",
-      "description": "JSON com os lotes consumidos em uma sa\u00edda"
+      "title": "Lotes/Saldos Consumidos (FEFO)",
+      "description": "JSON com os saldos consumidos em uma sa\u00edda"
     },
     "estornada": {
       "type": "boolean",

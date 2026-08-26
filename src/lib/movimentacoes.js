@@ -1,6 +1,7 @@
 import { base44 } from '@/api/base44Client';
 import { parseQtd } from '@/lib/format';
-import { consumirFefo, proximoCodigoLote } from '@/lib/lotes';
+import { proximoCodigoLote } from '@/lib/lotes';
+import { entrarSaldo, sairSaldo, reverterSaldoMov } from '@/lib/saldos';
 
 // Reverte o efeito de uma movimentação no estoque (produto e lotes),
 // sem criar registro de auditoria. Usado tanto pelo estorno (que depois
@@ -22,21 +23,15 @@ export function formatarNumeroMov(n) {
 }
 
 // Limpa o vínculo de gaveta (endereço físico) quando o saldo zera.
-// O estoque pertence ao Produto/Lote; a Gaveta é só o endereço. Sem saldo,
-// a gaveta fica livre para receber outro produto.
-// `novaQtdProduto` e `lotesAtualizados` permitem passar os saldos já calculados
-// (evita releitura do banco). Retorna o produto atualizado (localmente).
 export async function liberarGavetaSeZerado(produto, lotesDoProduto, novaQtdProduto) {
   if (!produto) return;
   const updates = [];
-  // Lotes zerados perdem o endereço físico.
   for (const l of lotesDoProduto) {
     if ((l.quantidade || 0) <= 0 && l.gaveta_id) {
       updates.push(base44.entities.Lote.update(l.id, { gaveta_id: '' }));
       l.gaveta_id = '';
     }
   }
-  // Produto sem saldo total também perde o endereço físico.
   if ((novaQtdProduto ?? produto.quantidade ?? 0) <= 0 && produto.gaveta_id) {
     updates.push(base44.entities.Produto.update(produto.id, { gaveta_id: '' }));
     produto.gaveta_id = '';
@@ -44,9 +39,12 @@ export async function liberarGavetaSeZerado(produto, lotesDoProduto, novaQtdProd
   if (updates.length) await Promise.all(updates);
 }
 
-export async function reverterEstoqueMov(mov, { produtos, lotes }) {
-  const produto = produtos.find((p) => p.id === mov.produto_id);
+// Reverte o efeito de uma movimentação no saldo + lotes.
+export async function reverterEstoqueMov(mov, { produtos, lotes, saldos }) {
+  // 1. Reverter saldos (atualiza SaldoEstoque + recalcula Produto.quantidade)
+  await reverterSaldoMov(mov, { saldos });
 
+  // 2. Reverter lotes (denormalizado, para compatibilidade com views de validade)
   if (mov.lote_id || mov.lotes_consumidos) {
     if (mov.tipo === 'entrada') {
       const lote = lotes.find((l) => l.id === mov.lote_id);
@@ -71,42 +69,23 @@ export async function reverterEstoqueMov(mov, { produtos, lotes }) {
         }
       }
     }
-    if (produto) {
-      const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
-      let total = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
-      total = mov.tipo === 'entrada' ? total - (mov.quantidade || 0) : total + (mov.quantidade || 0);
-      total = Math.max(0, total);
-      await base44.entities.Produto.update(produto.id, {
-        quantidade: total,
-        ...(total <= 0 ? { gaveta_id: '' } : {}),
-      });
-      produto.quantidade = total;
-      if (total <= 0) produto.gaveta_id = '';
-    }
-  } else {
-    if (produto) {
-      const qtdAtual = produto.quantidade || 0;
-      const novaQtd =
-        mov.tipo === 'entrada'
-          ? Math.max(0, qtdAtual - (mov.quantidade || 0))
-          : qtdAtual + (mov.quantidade || 0);
-      await base44.entities.Produto.update(produto.id, {
-        quantidade: novaQtd,
-        ...(novaQtd <= 0 ? { gaveta_id: '' } : {}),
-      });
-      produto.quantidade = novaQtd;
-      if (novaQtd <= 0) produto.gaveta_id = '';
-    }
+  }
+
+  // 3. Sincronizar produto localmente
+  const produto = produtos.find((p) => p.id === mov.produto_id);
+  if (produto) {
+    const saldosProduto = (saldos || []).filter((s) => s.produto_id === produto.id);
+    produto.quantidade = saldosProduto.reduce((s, sl) => s + (sl.quantidade || 0), 0);
+    if (produto.quantidade <= 0) produto.gaveta_id = '';
   }
 }
 
 // Registra uma movimentação de estoque (entrada/saída) com toda a lógica de
-// lotes (FEFO), atualização de saldo do produto e numeração sequencial.
-// Reutilizada pela aba Movimentações e pela aba mobile de Setores.
-// `produto` e `lotes` são mutados localmente para refletir o novo estado.
+// saldos multi-depósito + lotes (FEFO) + numeração sequencial.
+// `produto`, `lotes` e `saldos` são mutados localmente para refletir o novo estado.
 // Lança erros sinalizadores: 'NF_DUPLICADA', 'VALIDADE_OBRIGATORIA',
-// 'SALDO_INSUFICIENTE:<disp>' e 'Quantidade inválida.'.
-export async function registrarMovimentacao({ form, produto, lotes, movimentacoes, controlaValidade }) {
+// 'DEPOSITO_OBRIGATORIO', 'SALDO_INSUFICIENTE:<disp>' e 'Quantidade inválida.'.
+export async function registrarMovimentacao({ form, produto, lotes, saldos, movimentacoes, controlaValidade }) {
   const qtd = parseQtd(form.quantidade);
   if (!(qtd > 0)) throw new Error('Quantidade inválida.');
 
@@ -115,6 +94,10 @@ export async function registrarMovimentacao({ form, produto, lotes, movimentacoe
     const ativas = existentes.filter((m) => m.tipo === 'entrada' && m.estornada !== true);
     if (ativas.length > 0) throw new Error('NF_DUPLICADA');
   }
+
+  const depositoId = form.deposito_id || produto.deposito_id || '';
+  const gavetaId = form.gaveta_id || produto.gaveta_id || '';
+  if (!depositoId) throw new Error('DEPOSITO_OBRIGATORIO');
 
   const now = new Date().toISOString();
   const baseMov = {
@@ -125,8 +108,9 @@ export async function registrarMovimentacao({ form, produto, lotes, movimentacoe
     nome_produto: produto.nome,
     quantidade: qtd,
     setor_id: produto.setor_id,
+    deposito_id: depositoId,
     maquina_id: produto.maquina_id,
-    gaveta_id: produto.gaveta_id,
+    gaveta_id: gavetaId,
     tipo: form.tipo,
     observacao: form.observacao,
     numero_nf: form.tipo === 'entrada' ? (form.numero_nf || '') : '',
@@ -137,19 +121,21 @@ export async function registrarMovimentacao({ form, produto, lotes, movimentacoe
   if (controlaValidade) {
     if (form.tipo === 'entrada') {
       if (!form.data_validade) throw new Error('VALIDADE_OBRIGATORIA');
-      let lote = lotes.find((l) => l.produto_id === produto.id && l.data_validade === form.data_validade);
+      let lote = lotes.find((l) => l.produto_id === produto.id && l.data_validade === form.data_validade && (l.deposito_id || '') === depositoId);
       let loteId;
       if (lote) {
         loteId = lote.id;
-        await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + qtd });
+        await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + qtd, deposito_id: depositoId, gaveta_id: gavetaId || lote.gaveta_id });
         lote.quantidade = (lote.quantidade || 0) + qtd;
+        lote.deposito_id = depositoId;
       } else {
         const created = await base44.entities.Lote.create({
           produto_id: produto.id,
           codigo_referencia: produto.codigo_referencia || '',
           setor_id: produto.setor_id,
+          deposito_id: depositoId,
           maquina_id: produto.maquina_id || '',
-          gaveta_id: produto.gaveta_id || '',
+          gaveta_id: gavetaId || '',
           codigo_lote: proximoCodigoLote(produto, lotes),
           data_validade: form.data_validade,
           quantidade: qtd,
@@ -158,52 +144,42 @@ export async function registrarMovimentacao({ form, produto, lotes, movimentacoe
         loteId = created.id;
         lotes.push(created);
       }
+      await entrarSaldo({ produto, depositoId, gavetaId, loteId, quantidade: qtd, unidade: produto.unidade || 'un', saldos });
       await base44.entities.Movimentacao.create({ ...baseMov, lote_id: loteId, data_validade: form.data_validade });
-      const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
-      const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
-      await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
-      produto.quantidade = novaQtd;
     } else {
       const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
-      const { alocacoes, totalDisponivel, suficiente } = consumirFefo(lotesProduto, qtd);
+      const { consumidos, totalDisponivel, suficiente } = await sairSaldo({ produto, depositoId, gavetaId, quantidade: qtd, lotes: lotesProduto, saldos });
       if (!suficiente) throw new Error(`SALDO_INSUFICIENTE:${totalDisponivel}`);
-      for (const a of alocacoes) {
-        const l = lotesProduto.find((x) => x.id === a.lote_id);
-        const novaQtdLote = (l.quantidade || 0) - a.quantidade;
-        await base44.entities.Lote.update(a.lote_id, {
-          quantidade: novaQtdLote,
-          ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}),
-        });
-        l.quantidade = novaQtdLote;
-        if (novaQtdLote <= 0) l.gaveta_id = '';
+      for (const c of consumidos) {
+        const l = lotesProduto.find((x) => x.id === c.lote_id);
+        if (l) {
+          const novaQtdLote = (l.quantidade || 0) - c.quantidade;
+          await base44.entities.Lote.update(l.id, { quantidade: novaQtdLote, ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}) });
+          l.quantidade = novaQtdLote;
+          if (novaQtdLote <= 0) l.gaveta_id = '';
+        }
       }
+      const primeiroLote = lotesProduto.find((l) => l.id === consumidos[0]?.lote_id);
       await base44.entities.Movimentacao.create({
         ...baseMov,
-        lote_id: alocacoes[0]?.lote_id || '',
-        data_validade: alocacoes[0]?.data_validade || '',
-        lotes_consumidos: JSON.stringify(alocacoes),
+        lote_id: consumidos[0]?.lote_id || '',
+        data_validade: primeiroLote?.data_validade || '',
+        lotes_consumidos: JSON.stringify(consumidos),
       });
-      const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) - qtd;
-      const totalFinal = Math.max(0, novaQtd);
-      await base44.entities.Produto.update(produto.id, {
-        quantidade: totalFinal,
-        ...(totalFinal <= 0 ? { gaveta_id: '' } : {}),
-      });
-      produto.quantidade = totalFinal;
-      if (totalFinal <= 0) produto.gaveta_id = '';
     }
   } else {
+    if (form.tipo === 'entrada') {
+      await entrarSaldo({ produto, depositoId, gavetaId, quantidade: qtd, unidade: produto.unidade || 'un', saldos });
+    } else {
+      const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
+      const { totalDisponivel, suficiente } = await sairSaldo({ produto, depositoId, gavetaId, quantidade: qtd, lotes: lotesProduto, saldos });
+      if (!suficiente) throw new Error(`SALDO_INSUFICIENTE:${totalDisponivel}`);
+    }
     await base44.entities.Movimentacao.create(baseMov);
-    const novaQtd =
-      form.tipo === 'entrada'
-        ? (produto.quantidade || 0) + qtd
-        : Math.max(0, (produto.quantidade || 0) - qtd);
-    await base44.entities.Produto.update(produto.id, {
-      quantidade: novaQtd,
-      ...(novaQtd <= 0 ? { gaveta_id: '' } : {}),
-    });
-    produto.quantidade = novaQtd;
-    if (novaQtd <= 0) produto.gaveta_id = '';
   }
+
+  // Sincroniza produto localmente
+  const saldosProduto = (saldos || []).filter((s) => s.produto_id === produto.id);
+  produto.quantidade = saldosProduto.reduce((s, sl) => s + (sl.quantidade || 0), 0);
   return { produto };
 }

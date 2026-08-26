@@ -14,14 +14,14 @@ import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 export default function ProdutosManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
+  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', deposito_id: '', maquina_id: '', gaveta_id: '' });
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
 
   const { data, loading, reload: load } = useEntidades({
-    Produto: {}, Setor: {}, Deposito: {}, Maquina: {}, Gaveta: {},
+    Produto: {}, Setor: {}, Deposito: {}, Maquina: {}, Gaveta: {}, SaldoEstoque: {},
   });
-  const { Produto: produtos, Setor: setores, Deposito: depositos, Maquina: maquinas, Gaveta: gavetas } = data;
+  const { Produto: produtos, Setor: setores, Deposito: depositos, Maquina: maquinas, Gaveta: gavetas, SaldoEstoque: saldos } = data;
 
   const filtered = useMemo(() => {
     const porFiltros = filterProdutos(produtos, filtros);
@@ -67,9 +67,9 @@ export default function ProdutosManager() {
       ) : (
         <>
           <div className="flex items-center gap-3 flex-wrap">
-            <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} />
+            <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
             <div className="flex items-center gap-2 flex-wrap">
-              <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} />
+              <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
             </div>
           </div>
 
@@ -79,6 +79,7 @@ export default function ProdutosManager() {
               setores={setores}
               maquinas={maquinas}
               gavetas={gavetas}
+              depositos={depositos}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

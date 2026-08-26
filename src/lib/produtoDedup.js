@@ -1,21 +1,16 @@
-// Deduplicação de produtos pela chave composta:
-// codigo + codigo_referencia (+ lote quando o setor controla validade)
+// Anti-duplicidade de produtos pelo código interno (único globalmente).
 
 const norm = (v) => String(v ?? '').trim();
 const normDate = (d) => String(d ?? '').slice(0, 10);
 
-// Busca produto existente com mesmo código + código de referência.
+// Busca produto existente com mesmo código interno.
 // excludeId ignora o próprio registro em edições.
 export function findProdutoDuplicado({ produtos, dados, excludeId = null }) {
   const codigo = norm(dados.codigo);
   if (!codigo) return null;
-  const ref = norm(dados.codigo_referencia);
   return (
     produtos.find(
-      (p) =>
-        p.id !== excludeId &&
-        norm(p.codigo) === codigo &&
-        norm(p.codigo_referencia) === ref
+      (p) => p.id !== excludeId && norm(p.codigo) === codigo
     ) || null
   );
 }

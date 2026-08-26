@@ -36,13 +36,14 @@ export default function SetorDetail() {
     Maquina: {},
     Gaveta: {},
     Lote: {},
+    SaldoEstoque: {},
     Movimentacao: { sort: '-data', limit: 100 },
     Pessoa: { sort: '-created_date', limit: 500 },
     Deposito: {},
   });
   const {
     Setor: setores, Produto: produtos, Maquina: maquinas, Gaveta: gavetas, Lote: lotes,
-    Movimentacao: movimentacoes, Pessoa: pessoas, Deposito: depositos,
+    SaldoEstoque: saldos, Movimentacao: movimentacoes, Pessoa: pessoas, Deposito: depositos,
   } = data;
 
   // Voltar do sistema (mobile) ponto a ponto: recolhe produto → fecha modal → fecha inventário.
@@ -178,7 +179,9 @@ export default function SetorDetail() {
             produtos={produtos}
             maquinas={maquinas}
             gavetas={gavetas}
+            depositos={depositos}
             lotes={lotes}
+            saldos={saldos}
             movimentacoes={movimentacoes}
             pessoas={pessoas}
             onSaved={load}

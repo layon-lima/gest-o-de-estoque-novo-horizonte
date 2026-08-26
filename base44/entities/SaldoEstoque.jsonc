@@ -1,44 +1,26 @@
 {
-  "name": "Lote",
+  "name": "SaldoEstoque",
   "type": "object",
   "properties": {
     "produto_id": {
       "type": "string",
       "title": "Produto",
-      "description": "Refer\u00eancia ao Produto"
-    },
-    "codigo_referencia": {
-      "type": "string",
-      "title": "C\u00f3digo de Refer\u00eancia",
-      "description": "Refer\u00eancia do produto ao qual o lote est\u00e1 atrelado (espelha o codigo_referencia do Produto)."
-    },
-    "setor_id": {
-      "type": "string",
-      "title": "Setor"
+      "description": "Refer\u00eancia ao Produto."
     },
     "deposito_id": {
       "type": "string",
       "title": "Dep\u00f3sito",
-      "description": "Dep\u00f3sito onde o lote est\u00e1 guardado."
-    },
-    "maquina_id": {
-      "type": "string",
-      "title": "M\u00e1quina"
+      "description": "Dep\u00f3sito onde a quantidade est\u00e1 armazenada."
     },
     "gaveta_id": {
       "type": "string",
       "title": "Gaveta",
-      "description": "Endere\u00e7o f\u00edsico onde o lote est\u00e1 guardado. \u00c9 limpo automaticamente quando o lote zera."
+      "description": "Gaveta dentro do dep\u00f3sito (opcional)."
     },
-    "codigo_lote": {
+    "lote_id": {
       "type": "string",
-      "title": "C\u00f3digo Interno do Lote",
-      "description": "Gerado automaticamente pelo sistema, sequencial por produto (ex.: P0001-L01). Garante unicidade entre produtos."
-    },
-    "data_validade": {
-      "type": "string",
-      "format": "date",
-      "title": "Data de Validade"
+      "title": "Lote",
+      "description": "Lote vinculado (apenas setores com controle de validade)."
     },
     "quantidade": {
       "type": "number",
@@ -53,8 +35,7 @@
   },
   "required": [
     "produto_id",
-    "codigo_lote",
-    "data_validade",
+    "deposito_id",
     "quantidade"
   ],
   "rls": {

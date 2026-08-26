@@ -25,7 +25,8 @@ import { useEntidades } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
-import { reverterEstoqueMov, maxNumeroMovimento, formatarNumeroMov, liberarGavetaSeZerado } from '@/lib/movimentacoes';
+import { sortGavetas } from '@/lib/gavetas';
+import { reverterEstoqueMov, maxNumeroMovimento, formatarNumeroMov, registrarMovimentacao } from '@/lib/movimentacoes';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
@@ -45,7 +46,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
+const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id: '', gaveta_id: '', observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
 export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
@@ -59,14 +60,16 @@ export default function Movimentacoes() {
     Setor: {},
     Maquina: {},
     Gaveta: {},
+    Deposito: {},
     Lote: {},
+    SaldoEstoque: {},
     Movimentacao: { sort: '-data', limit: 50 },
     Pessoa: { sort: '-created_date', limit: 500 },
     User: {},
   });
   const {
-    Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Lote: lotes,
-    Movimentacao: movimentacoes, Pessoa: pessoas, User: usuarios,
+    Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Deposito: depositos, Lote: lotes,
+    SaldoEstoque: saldos, Movimentacao: movimentacoes, Pessoa: pessoas, User: usuarios,
   } = data;
   const nfe = useNfeImport({ produtos, setores, maquinas, gavetas, onImported: load });
 
@@ -88,7 +91,7 @@ export default function Movimentacoes() {
   async function handleUndo(mov) {
     setSaving(true);
     try {
-      await reverterEstoqueMov(mov, { produtos, lotes });
+      await reverterEstoqueMov(mov, { produtos, lotes, saldos });
       await base44.entities.Movimentacao.create({
         data: new Date().toISOString(),
         numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
@@ -119,7 +122,7 @@ export default function Movimentacoes() {
   async function handleDelete(mov) {
     setSaving(true);
     try {
-      await reverterEstoqueMov(mov, { produtos, lotes });
+      await reverterEstoqueMov(mov, { produtos, lotes, saldos });
       await base44.entities.Movimentacao.delete(mov.id);
       toast({ title: 'Movimentação excluída', description: `${mov.nome_produto} — estoque revertido e registro removido.` });
       if (selectedId === mov.id) setSelectedId(null);
@@ -136,127 +139,26 @@ export default function Movimentacoes() {
     if (!produto) return;
     setSaving(true);
     try {
-      const qtd = parseQtd(form.quantidade);
-      if (!(qtd > 0)) {
-        toast({ title: 'Quantidade inválida', description: 'Informe uma quantidade maior que zero.', variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-      if (form.tipo === 'entrada' && form.chave_acesso) {
-        const existentes = await base44.entities.Movimentacao.filter({ chave_acesso: form.chave_acesso });
-        const ativas = existentes.filter((m) => m.tipo === 'entrada' && m.estornada !== true);
-        if (ativas.length > 0) {
-          toast({ title: 'Nota fiscal duplicada', description: 'Esta NF-e já está ativa no estoque. Estorne a entrada anterior para lançá-la novamente.', variant: 'destructive' });
-          setSaving(false);
-          return;
-        }
-      }
-      const now = new Date().toISOString();
-      const baseMov = {
-        data: now,
-        numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
-        produto_id: produto.id,
-        codigo: produto.codigo,
-        nome_produto: produto.nome,
-        quantidade: qtd,
-        setor_id: produto.setor_id,
-        maquina_id: produto.maquina_id,
-        gaveta_id: produto.gaveta_id,
-        tipo: form.tipo,
-        observacao: form.observacao,
-        numero_nf: form.tipo === 'entrada' ? (form.numero_nf || '') : '',
-        fornecedor: form.tipo === 'entrada' ? (form.fornecedor || '') : '',
-        chave_acesso: form.tipo === 'entrada' ? (form.chave_acesso || '') : '',
-      };
-
-      if (controlaValidade) {
-        if (form.tipo === 'entrada') {
-          if (!form.data_validade) {
-            toast({ title: 'Validade obrigatória', description: 'Este setor controla validade. O código do lote é gerado automaticamente.', variant: 'destructive' });
-            return;
-          }
-          // Lote interno: soma a um lote existente do mesmo produto com a mesma
-          // validade; se não houver, cria novo lote com código interno automático
-          // (sequencial por produto, ex.: P0001-L01).
-          let lote = lotes.find(
-            (l) => l.produto_id === produto.id && l.data_validade === form.data_validade
-          );
-          let loteId;
-          if (lote) {
-            loteId = lote.id;
-            await base44.entities.Lote.update(lote.id, { quantidade: (lote.quantidade || 0) + qtd });
-            lote.quantidade = (lote.quantidade || 0) + qtd;
-          } else {
-            const created = await base44.entities.Lote.create({
-              produto_id: produto.id,
-              codigo_referencia: produto.codigo_referencia || '',
-              setor_id: produto.setor_id,
-              maquina_id: produto.maquina_id || '',
-              gaveta_id: produto.gaveta_id || '',
-              codigo_lote: proximoCodigoLote(produto, lotes),
-              data_validade: form.data_validade,
-              quantidade: qtd,
-              unidade: produto.unidade || 'un',
-            });
-            loteId = created.id;
-            lotes.push(created);
-          }
-          await base44.entities.Movimentacao.create({ ...baseMov, lote_id: loteId, data_validade: form.data_validade });
-          const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
-          const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) + qtd;
-          await base44.entities.Produto.update(produto.id, { quantidade: novaQtd });
-        } else {
-          const lotesProduto = lotes.filter((l) => l.produto_id === produto.id);
-          const { alocacoes, totalDisponivel, suficiente } = consumirFefo(lotesProduto, qtd);
-          if (!suficiente) {
-            toast({
-              title: 'Saldo insuficiente em lotes válidos',
-              description: `Disponível: ${formatQtd(totalDisponivel)} ${produto.unidade || 'un'}.`,
-              variant: 'destructive',
-            });
-            return;
-          }
-          for (const a of alocacoes) {
-            const l = lotesProduto.find((x) => x.id === a.lote_id);
-            const novaQtdLote = (l.quantidade || 0) - a.quantidade;
-            await base44.entities.Lote.update(a.lote_id, {
-              quantidade: novaQtdLote,
-              ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}),
-            });
-            l.quantidade = novaQtdLote;
-            if (novaQtdLote <= 0) l.gaveta_id = '';
-          }
-          await base44.entities.Movimentacao.create({
-            ...baseMov,
-            lote_id: alocacoes[0]?.lote_id || '',
-            data_validade: alocacoes[0]?.data_validade || '',
-            lotes_consumidos: JSON.stringify(alocacoes),
-          });
-          const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) - qtd;
-          const totalFinal = Math.max(0, novaQtd);
-          await base44.entities.Produto.update(produto.id, {
-            quantidade: totalFinal,
-            ...(totalFinal <= 0 ? { gaveta_id: '' } : {}),
-          });
-          produto.quantidade = totalFinal;
-          if (totalFinal <= 0) produto.gaveta_id = '';
-        }
-      } else {
-        await base44.entities.Movimentacao.create(baseMov);
-        const novaQtd =
-          form.tipo === 'entrada'
-            ? (produto.quantidade || 0) + qtd
-            : Math.max(0, (produto.quantidade || 0) - qtd);
-        await base44.entities.Produto.update(produto.id, {
-          quantidade: novaQtd,
-          ...(novaQtd <= 0 ? { gaveta_id: '' } : {}),
-        });
-        produto.quantidade = novaQtd;
-        if (novaQtd <= 0) produto.gaveta_id = '';
-      }
+      await registrarMovimentacao({ form, produto, lotes, saldos, movimentacoes, controlaValidade });
       toast({ title: 'Movimentação registrada com sucesso' });
       setForm(emptyForm);
       load();
+    } catch (err) {
+      const msg = err?.message || '';
+      if (msg.startsWith('NF_DUPLICADA')) {
+        toast({ variant: 'destructive', title: 'Nota fiscal duplicada', description: 'Esta NF-e já está ativa no estoque.' });
+      } else if (msg.startsWith('VALIDADE_OBRIGATORIA')) {
+        toast({ variant: 'destructive', title: 'Validade obrigatória', description: 'Este setor controla validade. Informe a data de validade.' });
+      } else if (msg.startsWith('DEPOSITO_OBRIGATORIO')) {
+        toast({ variant: 'destructive', title: 'Depósito obrigatório', description: 'Selecione o depósito onde o estoque será movimentado.' });
+      } else if (msg.startsWith('SALDO_INSUFICIENTE')) {
+        const disp = Number(msg.split(':')[1] || 0);
+        toast({ variant: 'destructive', title: 'Saldo insuficiente', description: `Disponível: ${formatQtd(disp)} ${produto.unidade || 'un'}.` });
+      } else if (msg === 'Quantidade inválida.') {
+        toast({ variant: 'destructive', title: 'Quantidade inválida', description: 'Informe uma quantidade maior que zero.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Erro ao registrar', description: msg });
+      }
     } finally {
       setSaving(false);
     }
@@ -312,6 +214,29 @@ export default function Movimentacoes() {
               <div className="space-y-1.5">
                 <Label htmlFor="mv-qtd">Quantidade *</Label>
                 <Input id="mv-qtd" type="text" inputMode="decimal" placeholder="0,00" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Depósito *</Label>
+                <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v, gaveta_id: '' })}>
+                  <SelectTrigger><SelectValue placeholder="Onde?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Nenhum —</SelectItem>
+                    {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+                <Select value={form.gaveta_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_id: v === 'none' ? '' : v })} disabled={!form.deposito_id}>
+                  <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Nenhum —</SelectItem>
+                    {sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

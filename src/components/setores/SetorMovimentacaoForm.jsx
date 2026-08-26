@@ -17,11 +17,14 @@ import FornecedorCombobox from '@/components/FornecedorCombobox';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd } from '@/lib/format';
 import { registrarMovimentacao } from '@/lib/movimentacoes';
+import { sortGavetas } from '@/lib/gavetas';
 
 const emptyForm = {
   produto_id: '',
   tipo: 'entrada',
   quantidade: 1,
+  deposito_id: '',
+  gaveta_id: '',
   observacao: '',
   data_validade: '',
   numero_nf: '',
@@ -29,7 +32,7 @@ const emptyForm = {
   chave_acesso: '',
 };
 
-export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavetas, lotes, movimentacoes, pessoas, onSaved, onClose, tipoForcado }) {
+export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavetas, depositos = [], lotes, saldos = [], movimentacoes, pessoas, onSaved, onClose, tipoForcado }) {
   const [form, setForm] = useState(() => (tipoForcado ? { ...emptyForm, tipo: tipoForcado } : emptyForm));
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -50,7 +53,7 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
     if (!produtoSelecionado) return;
     setSaving(true);
     try {
-      await registrarMovimentacao({ form, produto: produtoSelecionado, lotes, movimentacoes, controlaValidade });
+      await registrarMovimentacao({ form, produto: produtoSelecionado, lotes, saldos, movimentacoes, controlaValidade });
       toast({ title: 'Movimentação registrada com sucesso' });
       setForm(tipoForcado ? { ...emptyForm, tipo: tipoForcado } : emptyForm);
       onSaved?.();
@@ -63,7 +66,9 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
         toast({ variant: 'destructive', title: 'Validade obrigatória', description: 'Este setor controla validade. Informe a data de validade.' });
       } else if (msg.startsWith('SALDO_INSUFICIENTE')) {
         const disp = Number(msg.split(':')[1] || 0);
-        toast({ variant: 'destructive', title: 'Saldo insuficiente em lotes válidos', description: `Disponível: ${formatQtd(disp)}.` });
+        toast({ variant: 'destructive', title: 'Saldo insuficiente', description: `Disponível: ${formatQtd(disp)}.` });
+      } else if (msg.startsWith('DEPOSITO_OBRIGATORIO')) {
+        toast({ variant: 'destructive', title: 'Depósito obrigatório', description: 'Selecione o depósito onde o estoque será movimentado.' });
       } else if (msg === 'Quantidade inválida.') {
         toast({ variant: 'destructive', title: 'Quantidade inválida', description: 'Informe uma quantidade maior que zero.' });
       } else {
@@ -113,6 +118,28 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
           <div className={tipoForcado ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
             <Label htmlFor="sf-qtd">Quantidade *</Label>
             <Input id="sf-qtd" type="text" inputMode="decimal" placeholder="0,00" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Depósito *</Label>
+            <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v, gaveta_id: '' })}>
+              <SelectTrigger><SelectValue placeholder="Onde?" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+            <Select value={form.gaveta_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_id: v === 'none' ? '' : v })} disabled={!form.deposito_id}>
+              <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         {controlaValidade && form.tipo === 'entrada' && (
