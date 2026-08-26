@@ -11,11 +11,12 @@ export default function Pesagem() {
 
   const { data, loading, reload: load } = useEntidades({
     Pessoa: { sort: '-created_date', limit: 500 },
+    Transportadora: { sort: '-created_date', limit: 500 },
     Produto: {},
     PedidoPesagem: { sort: '-created_date', limit: 500 },
     TicketPesagem: { sort: '-data_abertura', limit: 500 },
   });
-  const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets } = data;
+  const { Pessoa: pessoas, Transportadora: transportadoras, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets } = data;
 
   const abertosCount = tickets.filter((t) => t.status === 'aberto').length;
 
@@ -39,18 +40,18 @@ export default function Pesagem() {
           </TabsList>
 
           <TabsContent value="tickets" className="mt-4">
-            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} isAdmin={isAdmin} />
+            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} transportadoras={transportadoras} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
           <TabsContent value="pedidos" className="mt-4 hidden sm:block">
-            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} onReload={load} isAdmin={isAdmin} />
+            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} transportadoras={transportadoras} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="naovinculados" className="mt-4 hidden sm:block">
-              <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} mode="naovinculados" isAdmin={isAdmin} />
+              <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} transportadoras={transportadoras} onReload={load} mode="naovinculados" isAdmin={isAdmin} />
             </TabsContent>
           )}
           <TabsContent value="historico" className="mt-4">
-            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} onReload={load} mode="historico" isAdmin={isAdmin} />
+            <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} transportadoras={transportadoras} onReload={load} mode="historico" isAdmin={isAdmin} />
           </TabsContent>
         </Tabs>
       )}

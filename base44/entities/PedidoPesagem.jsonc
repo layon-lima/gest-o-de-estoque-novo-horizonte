@@ -17,6 +17,16 @@
       "title": "Produto",
       "description": "Refer\u00eancia ao Produto comercializado"
     },
+    "transportadora_ids": {
+      "type": "string",
+      "title": "Transportadoras",
+      "description": "IDs das transportadoras vinculadas ao pedido, separados por v\u00edrgula. Em tickets de venda, a transportadora do ticket vem daqui."
+    },
+    "transportadora_nomes": {
+      "type": "string",
+      "title": "Transportadoras (nomes)",
+      "description": "Nomes das transportadoras espelhados para exibi\u00e7\u00e3o r\u00e1pida."
+    },
     "peso_saca_kg": {
       "type": "number",
       "title": "Peso de 1 Saca (kg)",

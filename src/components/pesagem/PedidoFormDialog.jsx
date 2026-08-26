@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil } from 'lucide-react';
+import { Plus, Pencil, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,9 +17,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
 import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, statusPorSaldo, round3, nextPedidoNumber } from '@/lib/pesagem';
 
-const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', observacao: '' };
+const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', transportadora_ids: [], observacao: '' };
 
-export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, pedido, tickets, pedidos }) {
+export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, transportadoras, pedido, tickets, pedidos }) {
   const isEdit = !!pedido;
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
@@ -34,6 +34,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         peso_saca_kg: String(pedido.peso_saca_kg ?? '60'),
         valor_saca: String(pedido.valor_saca ?? '0'),
         qtd_sacas: String(pedido.qtd_sacas ?? '0'),
+        transportadora_ids: (pedido.transportadora_ids || '').split(',').map((s) => s.trim()).filter(Boolean),
         observacao: pedido.observacao || '',
       });
     } else {
@@ -71,6 +72,8 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
     }
     setSaving(true);
     try {
+      const transpIds = form.transportadora_ids || [];
+      const transpNomes = transpIds.map((id) => transportadoras.find((t) => t.id === id)?.nome).filter(Boolean).join(', ');
       const payload = {
         cliente_id: form.cliente_id,
         produto_id: form.produto_id,
@@ -79,6 +82,8 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         qtd_sacas: parseQtd(form.qtd_sacas),
         total_kg: totalKg,
         valor_total: valorTotal,
+        transportadora_ids: transpIds.join(','),
+        transportadora_nomes: transpNomes,
         observacao: form.observacao || '',
       };
       if (isEdit) {
@@ -145,6 +150,37 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
           <div className="space-y-1.5">
             <Label>Quantidade de sacas *</Label>
             <Input type="text" inputMode="decimal" value={form.qtd_sacas} onChange={(e) => setForm({ ...form, qtd_sacas: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Transportadora(s)</Label>
+            <p className="text-xs text-muted-foreground -mt-1">Vincule uma ou mais transportadoras. Em tickets de venda com mais de uma, o usuário escolhe no fechamento.</p>
+            {transportadoras.length === 0 ? (
+              <p className="text-sm text-destructive">Nenhuma transportadora cadastrada. Cadastre em Cadastros → Transportadoras.</p>
+            ) : (
+              <div className="max-h-40 overflow-auto scrollbar-thin rounded-lg border p-2 space-y-1">
+                {transportadoras.map((t) => {
+                  const checked = form.transportadora_ids.includes(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setForm((f) => ({
+                        ...f,
+                        transportadora_ids: checked
+                          ? f.transportadora_ids.filter((id) => id !== t.id)
+                          : [...f.transportadora_ids, t.id],
+                      }))}
+                      className={`w-full flex items-center gap-2 text-left rounded-md px-2 py-1.5 text-sm transition-colors ${checked ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                    >
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-primary border-primary' : 'border-input'}`}>
+                        {checked && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                      </span>
+                      <span className="truncate">{t.nome}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Total equivalente:</span><span className="font-semibold">{formatKg(totalKg)}</span></div>

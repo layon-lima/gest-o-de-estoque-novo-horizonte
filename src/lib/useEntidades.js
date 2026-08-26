@@ -14,6 +14,7 @@ export const DEFAULTS = {
   Lote: {},
   Deposito: {},
   Pessoa: { sort: '-created_date', limit: 500 },
+  Transportadora: { sort: '-created_date', limit: 500 },
   Movimentacao: { sort: '-data', limit: 100 },
   Abastecimento: { sort: '-data', limit: 200 },
   Inventario: { sort: '-data', limit: 200 },
@@ -26,7 +27,7 @@ export const DEFAULTS = {
 // Entidades pré-carregadas já no login (as mais usadas entre telas).
 export const PREFETCH = [
   'Produto', 'Setor', 'Maquina', 'Gaveta', 'Lote',
-  'Pessoa', 'PedidoPesagem', 'TicketPesagem', 'Movimentacao', 'Deposito',
+  'Pessoa', 'Transportadora', 'PedidoPesagem', 'TicketPesagem', 'Movimentacao', 'Deposito',
 ];
 
 export const keyOf = (name, opts = {}) => ['ent', name, opts.sort ?? null, opts.limit ?? null];

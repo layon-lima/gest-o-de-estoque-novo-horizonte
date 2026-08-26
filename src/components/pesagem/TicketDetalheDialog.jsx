@@ -14,9 +14,9 @@ import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 
-const TIPO_LABEL = { venda: 'Venda', lavoura: 'Lavoura', avulsa: 'Avulsa' };
+const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
 
-export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, onClose, onExcluir }) {
+export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, transportadoras, onClose, onExcluir }) {
   const open = !!ticket;
   const [gerandoPdf, setGerandoPdf] = useState(null);
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -72,6 +72,13 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
                       <p className="font-medium truncate">{ticket.destino}</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {ticket.transportadora_nome && (
+                <div className="rounded-lg border p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">Transportadora</p>
+                  <p className="font-medium truncate">{ticket.transportadora_nome}</p>
                 </div>
               )}
 

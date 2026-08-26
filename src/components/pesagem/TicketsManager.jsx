@@ -16,15 +16,16 @@ import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
 import VincularTicketDialog from './VincularTicketDialog';
 
-const empty = { tipo: '', motorista: '', placa: '', peso_tara: '', produto_id: '', origem: '', destino: '', observacao: '' };
+const empty = { tipo: '', motorista: '', placa: '', peso_tara: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
 
 const TIPOS = [
-  { value: 'venda', label: 'Saída para Venda' },
-  { value: 'lavoura', label: 'Saída para Lavoura' },
-  { value: 'avulsa', label: 'Pesagem Avulsa' },
+  { value: 'venda', label: 'Venda' },
+  { value: 'lavoura', label: 'Saída Para Lavoura' },
+  { value: 'compra', label: 'Entrada Por Compra' },
+  { value: 'entrada_saida', label: 'Entrada e Saída' },
 ];
 
-export default function TicketsManager({ tickets, pedidos, pessoas, produtos, onReload, mode = 'ativos', isAdmin }) {
+export default function TicketsManager({ tickets, pedidos, pessoas, produtos, transportadoras, onReload, mode = 'ativos', isAdmin }) {
   const historico = mode === 'historico';
   const naovinculados = mode === 'naovinculados';
   const [form, setForm] = useState(empty);
@@ -90,7 +91,11 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
       return;
     }
     if (form.tipo !== 'venda' && !form.produto_id) {
-      toast({ variant: 'destructive', title: 'Selecione o produto', description: 'Para lavoura ou avulsa, o produto é obrigatório.' });
+      toast({ variant: 'destructive', title: 'Selecione o produto', description: 'Para lavoura, compra ou entrada e saída, o produto é obrigatório.' });
+      return;
+    }
+    if (form.tipo !== 'venda' && !form.transportadora_id) {
+      toast({ variant: 'destructive', title: 'Selecione a transportadora' });
       return;
     }
     const placaNorm = normalizePlaca(form.placa);
@@ -102,6 +107,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
     setSaving(true);
     try {
       const numero = nextTicketNumber(tickets);
+      const transp = transportadoras.find((t) => t.id === form.transportadora_id);
       await base44.entities.TicketPesagem.create({
         numero,
         tipo: form.tipo,
@@ -109,6 +115,8 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         motorista: form.motorista.trim(),
         placa: placaNorm,
         produto_id: form.tipo !== 'venda' ? form.produto_id || '' : '',
+        transportadora_id: form.tipo !== 'venda' ? form.transportadora_id || '' : '',
+        transportadora_nome: form.tipo !== 'venda' ? transp?.nome || '' : '',
         origem: form.origem.trim(),
         destino: form.tipo === 'venda' ? '' : form.destino.trim(),
         peso_tara: parseQtd(form.peso_tara),
@@ -185,20 +193,18 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
               {step === 'tipo' ? (
                 <div className="pt-3 space-y-3">
                   <Label className="text-xs">Escolha o tipo de ticket *</Label>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    value={form.tipo}
+                    onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                  >
+                    <option value="">Selecione...</option>
                     {TIPOS.map((t) => (
-                      <button
-                        key={t.value}
-                        type="button"
-                        onClick={() => setForm({ ...form, tipo: t.value })}
-                        className={`text-xs font-medium rounded-md border px-2 py-2 transition-colors text-center ${form.tipo === t.value ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'}`}
-                      >
-                        {t.label}
-                      </button>
+                      <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
-                  </div>
+                  </select>
                   {form.tipo === 'venda' && (
-                    <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
+                    <p className="text-xs text-muted-foreground">Na venda, o produto, o cliente e a transportadora vêm do pedido selecionado no fechamento.</p>
                   )}
                   <div className="flex gap-2">
                     <Button type="button" className="flex-1" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
@@ -240,13 +246,27 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
                             ))}
                           </select>
                         </div>
+                        <div className="space-y-1 col-span-2">
+                          <Label className="text-xs">Transportadora *</Label>
+                          <select
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                            value={form.transportadora_id}
+                            onChange={(e) => setForm({ ...form, transportadora_id: e.target.value })}
+                            required
+                          >
+                            <option value="">Selecione...</option>
+                            {transportadoras.map((t) => (
+                              <option key={t.id} value={t.id}>{t.nome}</option>
+                            ))}
+                          </select>
+                        </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Origem</Label>
-                          <Input value={form.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} placeholder="Ex.: Sede" />
+                          <Input value={form.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} placeholder={form.tipo === 'compra' ? 'Ex.: Fornecedor' : 'Ex.: Sede'} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Destino</Label>
-                          <Input value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })} placeholder={form.tipo === 'lavoura' ? 'Ex.: Talhão 07' : ''} />
+                          <Input value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })} placeholder={form.tipo === 'lavoura' ? 'Ex.: Talhão 07' : form.tipo === 'compra' ? 'Ex.: Armazém' : ''} />
                         </div>
                       </>
                     )}
@@ -418,6 +438,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
           pedidos={pedidos}
           pessoas={pessoas}
           produtos={produtos}
+          transportadoras={transportadoras}
           open={!!fecharTicket}
           onClose={() => setFecharTicket(null)}
           onClosed={() => { setFecharTicket(null); onReload(); }}

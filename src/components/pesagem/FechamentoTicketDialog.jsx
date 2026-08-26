@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,9 +27,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 
-export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, open, onClose, onClosed }) {
+export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed }) {
   const [pesoBruto, setPesoBruto] = useState('');
   const [pedidoId, setPedidoId] = useState('');
+  const [transportadoraId, setTransportadoraId] = useState('');
   const [observacao, setObservacao] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -48,10 +49,24 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const excede = pedidoSel && liquido > saldo;
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
+  const transpNome = (id) => transportadoras.find((t) => t.id === id)?.nome || '—';
+
+  const transpsDoPedido = useMemo(() => {
+    if (!pedidoSel) return [];
+    const ids = (pedidoSel.transportadora_ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+    return ids.map((id) => transportadoras.find((t) => t.id === id)).filter(Boolean);
+  }, [pedidoSel, transportadoras]);
+
+  // Pré-seleciona a transportadora quando há apenas uma no pedido.
+  useEffect(() => {
+    if (transpsDoPedido.length === 1) setTransportadoraId(transpsDoPedido[0].id);
+    else if (transpsDoPedido.length === 0) setTransportadoraId('');
+  }, [transpsDoPedido]);
 
   function reset() {
     setPesoBruto('');
     setPedidoId('');
+    setTransportadoraId('');
     setObservacao('');
     setConfirmOpen(false);
   }
@@ -60,10 +75,13 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     setSaving(true);
     try {
       const novoSaldo = Math.round((saldo - liquido) * 1000) / 1000;
+      const transpId = isVenda ? transportadoraId : '';
       await base44.entities.TicketPesagem.update(ticket.id, {
         peso_bruto: parseQtd(pesoBruto),
         peso_liquido: liquido,
         pedido_id: isVenda ? pedidoId : '',
+        transportadora_id: transpId,
+        transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
         status: 'fechado',
         data_fechamento: new Date().toISOString(),
         observacao: observacao || '',
@@ -95,6 +113,10 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     }
     if (isVenda && !pedidoId) {
       toast({ variant: 'destructive', title: 'Selecione um pedido' });
+      return;
+    }
+    if (isVenda && transpsDoPedido.length > 1 && !transportadoraId) {
+      toast({ variant: 'destructive', title: 'Selecione a transportadora' });
       return;
     }
     if (excede) {
@@ -205,6 +227,25 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
               </div>
             );
           })()}
+
+          {isVenda && transpsDoPedido.length > 1 && (
+            <div className="space-y-1.5">
+              <Label>Transportadora *</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                value={transportadoraId}
+                onChange={(e) => setTransportadoraId(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {transpsDoPedido.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {isVenda && pedidoSel && transpsDoPedido.length === 1 && (
+            <p className="text-xs text-muted-foreground">Transportadora: <b className="text-foreground">{transpsDoPedido[0].nome}</b></p>
+          )}
 
           <div className="space-y-1.5">
             <Label>Observação</Label>
