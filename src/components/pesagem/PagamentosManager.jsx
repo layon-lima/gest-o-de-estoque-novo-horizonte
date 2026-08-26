@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Search, Wallet } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Wallet, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { base44 } from '@/api/base44Client';
 import { formatQtd } from '@/lib/format';
 import { formatMoeda, round3 } from '@/lib/pesagem';
 import PagamentoFormDialog from './PagamentoFormDialog';
+import PagamentoRelatorioDialog from './PagamentoRelatorioDialog';
 
 const FORMA_LABELS = {
   pix: 'Pix', dinheiro: 'Dinheiro', transferencia: 'Transferência',
@@ -30,6 +31,7 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
   const [formOpen, setFormOpen] = useState(false);
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir] = useState(null);
+  const [relatorioOpen, setRelatorioOpen] = useState(false);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -95,6 +97,7 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
 
       <div className="flex items-center gap-2">
         <Button className="shrink-0" onClick={() => setFormOpen(true)}><Plus className="w-4 h-4 mr-2" /> Registrar Pagamento</Button>
+        <Button variant="outline" className="shrink-0" onClick={() => setRelatorioOpen(true)}><FileSpreadsheet className="w-4 h-4 mr-2" /> Relatório</Button>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, pedido ou forma..." className="pl-9 h-9" />
@@ -167,6 +170,14 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PagamentoRelatorioDialog
+        open={relatorioOpen}
+        onClose={() => setRelatorioOpen(false)}
+        pagamentos={pagamentos}
+        pedidos={pedidos}
+        pessoas={pessoas}
+      />
     </div>
   );
 }

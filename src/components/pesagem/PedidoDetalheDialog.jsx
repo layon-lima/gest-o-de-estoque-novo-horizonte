@@ -19,10 +19,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
+import { formatKg, formatMoeda, formatPlaca, round3 } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 
-export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, onClose, isAdmin, onEditPedido, onDesvincularTicket, onDeletePedido }) {
+export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, pagamentos, onClose, isAdmin, onEditPedido, onDesvincularTicket, onDeletePedido }) {
   const open = !!pedido;
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
@@ -38,6 +38,10 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
   const carregadoSacas = pedido ? emSacas(carregadoKg) : 0;
   const totalSacas = pedido ? emSacas(pedido.total_kg || 0) : 0;
   const restanteSacas = pedido ? emSacas(pedido.saldo_kg || 0) : 0;
+
+  const valorPesado = pedido ? round3(emSacas(carregadoKg) * (pedido.valor_saca || 0)) : 0;
+  const totalPago = pedido ? (pagamentos || []).filter((pg) => pg.pedido_id === pedido.id).reduce((s, pg) => s + (Number(pg.valor) || 0), 0) : 0;
+  const saldoReceber = round3(valorPesado - totalPago);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.(); }}>
@@ -126,6 +130,12 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                   <p className="text-xs text-muted-foreground">Valor total</p>
                   <p className="font-semibold">{formatMoeda(pedido.valor_total)}</p>
                 </div>
+              </div>
+
+              <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Valor já pesado:</span><span className="font-semibold">{formatMoeda(valorPesado)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Já pago:</span><span className="font-semibold text-green-600">{formatMoeda(totalPago)}</span></div>
+                <div className="flex justify-between border-t pt-1 mt-0.5"><span className="text-muted-foreground font-medium">Saldo a receber:</span><span className="font-bold text-primary">{formatMoeda(saldoReceber)}</span></div>
               </div>
 
               <div className="h-2 rounded-full bg-muted overflow-hidden">

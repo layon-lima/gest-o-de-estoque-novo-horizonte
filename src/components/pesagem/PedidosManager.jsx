@@ -13,7 +13,7 @@ import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
 import DesvincularTicketDialog from './DesvincularTicketDialog';
 
-export default function PedidosManager({ pedidos, pessoas, produtos, tickets, transportadoras, onReload, isAdmin }) {
+export default function PedidosManager({ pedidos, pessoas, produtos, tickets, transportadoras, pagamentos, onReload, isAdmin }) {
   const [busca, setBusca] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [selecionado, setSelecionado] = useState(null);
@@ -182,6 +182,7 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
         pessoas={pessoas}
         produtos={produtos}
         tickets={tickets}
+        pagamentos={pagamentos}
         onClose={() => setSelecionado(null)}
         isAdmin={isAdmin}
         onEditPedido={(p) => { setSelecionado(null); setEditando(p); }}

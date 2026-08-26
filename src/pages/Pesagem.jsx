@@ -46,7 +46,7 @@ export default function Pesagem() {
             <TicketsManager tickets={tickets} pedidos={pedidos} pessoas={pessoas} produtos={produtos} transportadoras={transportadoras} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
           <TabsContent value="pedidos" className="mt-4">
-            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} transportadoras={transportadoras} onReload={load} isAdmin={isAdmin} />
+            <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} transportadoras={transportadoras} pagamentos={pagamentos} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
           <TabsContent value="pagamentos" className="mt-4">
             <PagamentosManager pagamentos={pagamentos} pedidos={pedidos} pessoas={pessoas} tickets={tickets} onReload={load} />
