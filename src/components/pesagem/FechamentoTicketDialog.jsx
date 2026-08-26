@@ -41,10 +41,12 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto') : [];
 
   const pedidosVisiveis = useMemo(() => {
+    const selecionado = pedidosAbertos.find((p) => p.id === pedidoId);
+    if (selecionado) return [selecionado];
     const q = buscaPedido.toLowerCase().trim();
     if (!q) return pedidosAbertos;
     return pedidosAbertos.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q) || produtoNome(p.produto_id).toLowerCase().includes(q));
-  }, [pedidosAbertos, buscaPedido]);
+  }, [pedidosAbertos, buscaPedido, pedidoId]);
 
   const liquido = useMemo(
     () => calcLiquido(pesoBruto, ticket?.peso_tara || 0),
