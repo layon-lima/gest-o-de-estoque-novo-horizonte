@@ -151,17 +151,17 @@ function drawTicket(doc, ticket, ctx, logoImg) {
 
   // ===== Número =====
   let y = logoY + logoSize + 16;
-  text(doc, ML, y, 'Nº', { size: 10, color: MUTED });
-  text(doc, ML + 14, y, ticket.numero || '—', { size: 13, bold: true });
+  text(doc, ML, y, 'Nº', { size: 11, color: MUTED });
+  text(doc, ML + 16, y, ticket.numero || '—', { size: 16, bold: true });
   hline(doc, ML, 210 - MR, y + 4);
 
   // ===== Linhas de informação (rótulo à esquerda, valor à direita) =====
   const labelX = ML;
-  const valueX = ML + 42;
+  const valueX = ML + 48;
   function infoRow(label, value, opts = {}) {
-    y += opts.gap || 14;
-    text(doc, labelX, y, label, { size: 9, color: MUTED });
-    text(doc, valueX, y, value, { size: 12, bold: true });
+    y += opts.gap || 16;
+    text(doc, labelX, y, label, { size: 10, color: MUTED });
+    text(doc, valueX, y, value, { size: 15, bold: true });
     hline(doc, ML, 210 - MR, y + 4);
   }
 
@@ -181,9 +181,9 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   boxes.forEach((b, i) => {
     const bx = ML + i * (boxW + 4);
     doc.setDrawColor(...LINE); doc.setLineWidth(0.3);
-    doc.roundedRect(bx, y - 10, boxW, 34, 2, 2, 'S');
-    text(doc, bx + boxW / 2, y - 3, b.label, { size: 9, color: MUTED, align: 'center' });
-    text(doc, bx + boxW / 2, y + 16, fmtNum(b.val), { size: 22, bold: true, align: 'center' });
+    doc.roundedRect(bx, y - 10, boxW, 36, 2, 2, 'S');
+    text(doc, bx + boxW / 2, y - 3, b.label, { size: 10, color: MUTED, align: 'center' });
+    text(doc, bx + boxW / 2, y + 17, fmtNum(b.val), { size: 26, bold: true, align: 'center' });
   });
 
   // ===== Observações (somente se houver) =====
