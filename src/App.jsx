@@ -7,6 +7,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import { useUppercaseInputs } from '@/hooks/useUppercaseInputs';
 // Add page imports here
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
@@ -63,6 +64,7 @@ const AuthenticatedApp = () => {
 
 
 function App() {
+  useUppercaseInputs();
 
   return (
     <AuthProvider>
