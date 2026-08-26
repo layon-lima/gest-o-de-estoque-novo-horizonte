@@ -31,6 +31,12 @@
       "description": "Marca esta pessoa como fornecedor.",
       "default": false
     },
+    "is_transportadora": {
+      "type": "boolean",
+      "title": "Transportadora",
+      "description": "Marca esta pessoa como transportadora.",
+      "default": false
+    },
     "observacao": {
       "type": "string",
       "title": "Observa\u00e7\u00e3o"
