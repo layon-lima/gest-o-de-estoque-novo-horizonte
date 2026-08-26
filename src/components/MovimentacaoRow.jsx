@@ -81,11 +81,11 @@ export default function MovimentacaoRow({
         <div className="flex flex-col gap-1">
           {mov.tipo === 'entrada' ? (
             <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit">
-              <ArrowDownCircle className="w-3 h-3" /> Entrada
+              <ArrowDownCircle className="w-3 h-3" /> Entrada NF
             </Badge>
           ) : mov.tipo === 'saida' ? (
             <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">
-              <ArrowUpCircle className="w-3 h-3" /> Saída
+              <ArrowUpCircle className="w-3 h-3" /> Baixa Estoque
             </Badge>
           ) : (
             <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">

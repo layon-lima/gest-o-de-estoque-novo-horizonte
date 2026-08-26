@@ -236,12 +236,12 @@ export default function Movimentacoes() {
                 <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '' })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="entrada">Entrada</SelectItem>
-                    <SelectItem value="saida">Saída</SelectItem>
+                    <SelectItem value="entrada">Entrada Nota Fiscal</SelectItem>
+                    <SelectItem value="saida">Baixa Estoque</SelectItem>
                     <SelectItem value="transferencia">
                       <span className="flex items-center gap-2">
                         <ArrowRightLeft className="w-3.5 h-3.5" />
-                        Transferência
+                        Transferência de Depósito
                       </span>
                     </SelectItem>
                   </SelectContent>
