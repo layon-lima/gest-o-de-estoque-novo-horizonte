@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Download, Loader2 } from 'lucide-react';
+import { Printer, Download, Loader2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +16,7 @@ import { gerarTicketPDF } from '@/lib/ticketPdf';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Lavoura', avulsa: 'Avulsa' };
 
-export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, onClose }) {
+export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, onClose, onExcluir }) {
   const open = !!ticket;
   const [gerandoPdf, setGerandoPdf] = useState(null);
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -128,6 +128,12 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
                 {gerandoPdf === 'download' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} Baixar PDF
               </Button>
             </div>
+
+            {onExcluir && (
+              <Button variant="outline" className="w-full text-destructive hover:text-destructive" onClick={() => onExcluir(ticket)}>
+                <Trash2 className="w-4 h-4 mr-2" /> Excluir Ticket
+              </Button>
+            )}
           </>
         )}
       </DialogContent>

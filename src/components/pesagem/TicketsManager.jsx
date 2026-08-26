@@ -16,7 +16,7 @@ import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
 import VincularTicketDialog from './VincularTicketDialog';
 
-const empty = { tipo: 'avulsa', motorista: '', placa: '', peso_tara: '', produto_id: '', origem: '', destino: '', observacao: '' };
+const empty = { tipo: '', motorista: '', placa: '', peso_tara: '', produto_id: '', origem: '', destino: '', observacao: '' };
 
 const TIPOS = [
   { value: 'venda', label: 'Saída para Venda' },
@@ -28,6 +28,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   const historico = mode === 'historico';
   const naovinculados = mode === 'naovinculados';
   const [form, setForm] = useState(empty);
+  const [step, setStep] = useState('tipo');
   const [busca, setBusca] = useState('');
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
@@ -66,11 +67,20 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
       return [t.numero, t.motorista, t.placa, ped ? clienteNome(ped.cliente_id) : ''].filter(Boolean).join(' ').toLowerCase().includes(q);
     };
     if (!historico && !q) return [];
-    return base.filter(match).sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
+    return base.filter(match).sort((a, b) => {
+      if (historico) return new Date(a.data_fechamento || a.data_abertura) - new Date(b.data_fechamento || b.data_abertura);
+      return new Date(b.data_abertura) - new Date(a.data_abertura);
+    });
   }, [tickets, busca, historico, naovinculados, naoVinculados]);
+
+  function resetForm() { setForm(empty); setStep('tipo'); }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!form.tipo) {
+      toast({ variant: 'destructive', title: 'Escolha o tipo do ticket' });
+      return;
+    }
     if (!form.motorista.trim() || !form.placa.trim()) {
       toast({ variant: 'destructive', title: 'Motorista e placa são obrigatórios' });
       return;
@@ -108,7 +118,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         observacao: form.observacao || '',
       });
       toast({ title: 'Ticket aberto', description: numero });
-      setForm(empty);
+      resetForm();
       setFormAberto(false);
       onReload();
     } catch (err) {
@@ -164,7 +174,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         <Card className="overflow-hidden">
           <button
             type="button"
-            onClick={() => setFormAberto((v) => !v)}
+            onClick={() => setFormAberto((v) => { if (!v) { setForm(empty); setStep('tipo'); } return !v; })}
             className="w-full flex items-center justify-between p-4 hover:bg-accent/40 transition-colors"
           >
             <span className="flex items-center gap-2 font-semibold text-sm sm:text-base"><Plus className="w-4 h-4 text-primary" /> Abrir Novo Ticket</span>
@@ -172,71 +182,87 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
           </button>
           {formAberto && (
             <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t">
-              <div className="grid grid-cols-2 gap-2 pt-3">
-                <div className="space-y-1 col-span-2">
-                  <Label className="text-xs">Tipo de Ticket *</Label>
+              {step === 'tipo' ? (
+                <div className="pt-3 space-y-3">
+                  <Label className="text-xs">Escolha o tipo de ticket *</Label>
                   <div className="grid grid-cols-3 gap-1.5">
                     {TIPOS.map((t) => (
                       <button
                         key={t.value}
                         type="button"
                         onClick={() => setForm({ ...form, tipo: t.value })}
-                        className={`text-xs font-medium rounded-md border px-2 py-1.5 transition-colors text-center ${form.tipo === t.value ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                        className={`text-xs font-medium rounded-md border px-2 py-2 transition-colors text-center ${form.tipo === t.value ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'}`}
                       >
                         {t.label}
                       </button>
                     ))}
                   </div>
+                  {form.tipo === 'venda' && (
+                    <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button type="button" className="flex-1" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
+                    <Button type="button" variant="outline" onClick={() => { setFormAberto(false); resetForm(); }}><X className="w-4 h-4" /></Button>
+                  </div>
                 </div>
-                <div className="space-y-1 col-span-2">
-                  <Label className="text-xs">Motorista *</Label>
-                  <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Placa *</Label>
-                  <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Tara (kg) *</Label>
-                  <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
-                </div>
-                {form.tipo !== 'venda' && (
-                  <>
+              ) : (
+                <div className="pt-3 space-y-3">
+                  <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+                    <span className="text-xs text-muted-foreground">Tipo: <b className="text-foreground">{TIPOS.find((t) => t.value === form.tipo)?.label}</b></span>
+                    <button type="button" className="text-xs text-primary underline" onClick={() => setStep('tipo')}>Alterar</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1 col-span-2">
-                      <Label className="text-xs">Produto *</Label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                        value={form.produto_id}
-                        onChange={(e) => setForm({ ...form, produto_id: e.target.value })}
-                        required
-                      >
-                        <option value="">Selecione...</option>
-                        {produtos.map((p) => (
-                          <option key={p.id} value={p.id}>{p.nome}</option>
-                        ))}
-                      </select>
+                      <Label className="text-xs">Motorista *</Label>
+                      <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} required />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Origem</Label>
-                      <Input value={form.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} placeholder="Ex.: Sede" />
+                      <Label className="text-xs">Placa *</Label>
+                      <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Destino</Label>
-                      <Input value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })} placeholder={form.tipo === 'lavoura' ? 'Ex.: Talhão 07' : ''} />
+                      <Label className="text-xs">Tara (kg) *</Label>
+                      <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
                     </div>
-                  </>
-                )}
-                <div className="space-y-1 col-span-2">
-                  <Label className="text-xs">Observação</Label>
-                  <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                    {form.tipo !== 'venda' && (
+                      <>
+                        <div className="space-y-1 col-span-2">
+                          <Label className="text-xs">Produto *</Label>
+                          <select
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                            value={form.produto_id}
+                            onChange={(e) => setForm({ ...form, produto_id: e.target.value })}
+                            required
+                          >
+                            <option value="">Selecione...</option>
+                            {produtos.map((p) => (
+                              <option key={p.id} value={p.id}>{p.nome}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Origem</Label>
+                          <Input value={form.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} placeholder="Ex.: Sede" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Destino</Label>
+                          <Input value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })} placeholder={form.tipo === 'lavoura' ? 'Ex.: Talhão 07' : ''} />
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Observação</Label>
+                      <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
+                    <Button type="button" variant="outline" onClick={() => { setFormAberto(false); resetForm(); }}><X className="w-4 h-4" /></Button>
+                  </div>
+                  {form.tipo === 'venda' && (
+                    <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
+                  )}
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
-                <Button type="button" variant="outline" onClick={() => { setFormAberto(false); setForm(empty); }}><X className="w-4 h-4" /></Button>
-              </div>
-              {form.tipo === 'venda' && (
-                <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
               )}
             </form>
           )}
@@ -404,12 +430,13 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         pessoas={pessoas}
         produtos={produtos}
         onClose={() => setDetalheTicket(null)}
+        onExcluir={(t) => { setDetalheTicket(null); setExcluirTicket(t); }}
       />
 
       <AlertDialog open={!!excluirTicket} onOpenChange={(o) => !o && setExcluirTicket(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir ticket aberto?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir ticket?</AlertDialogTitle>
             <AlertDialogDescription>
               {excluirTicket && (
                 <>Tem certeza que deseja excluir o ticket <b className="font-mono">{excluirTicket.numero}</b> ({excluirTicket.motorista} / {formatPlaca(excluirTicket.placa)})? Esta ação não pode ser desfeita.</>

@@ -7,6 +7,30 @@
       "title": "N\u00famero do Ticket",
       "description": "Identificador \u00fanico sequencial (ex.: PES-000001). Gerado automaticamente."
     },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "venda",
+        "lavoura",
+        "avulsa"
+      ],
+      "title": "Tipo de Pesagem",
+      "description": "venda = sa\u00edda para venda (vincula pedido); lavoura = sa\u00edda para lavoura; avulsa = pesagem avulsa.",
+      "default": "avulsa"
+    },
+    "produto_id": {
+      "type": "string",
+      "title": "Produto",
+      "description": "Produto vinculado ao ticket (lavoura/avulsa). Em venda, vem do pedido no fechamento."
+    },
+    "origem": {
+      "type": "string",
+      "title": "Origem"
+    },
+    "destino": {
+      "type": "string",
+      "title": "Destino"
+    },
     "data_abertura": {
       "type": "string",
       "format": "date-time",

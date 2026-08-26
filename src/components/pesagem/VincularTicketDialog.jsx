@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Link2 } from 'lucide-react';
+import { Link2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -9,7 +10,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { formatKg, formatMoeda, formatPlaca, round3, statusPorSaldo } from '@/lib/pesagem';
@@ -18,6 +18,7 @@ import { formatKg, formatMoeda, formatPlaca, round3, statusPorSaldo } from '@/li
 export default function VincularTicketDialog({ ticket, pedidos, pessoas, onClose, onDone }) {
   const open = !!ticket;
   const [pedidoId, setPedidoId] = useState('');
+  const [busca, setBusca] = useState('');
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
@@ -27,6 +28,12 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, onClose
     () => (pedidos || []).filter((p) => p.status === 'aberto' && (Number(p.saldo_kg) || 0) > 0),
     [pedidos]
   );
+
+  const visiveis = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (!q) return pedidosAbertos;
+    return pedidosAbertos.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q));
+  }, [pedidosAbertos, busca]);
 
   const pedidoSelecionado = pedidosAbertos.find((p) => p.id === pedidoId) || null;
   const liq = Number(ticket?.peso_liquido) || 0;
@@ -50,6 +57,8 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, onClose
       });
       await base44.entities.TicketPesagem.update(ticket.id, { pedido_id: pedidoSelecionado.id });
       toast({ title: 'Ticket vinculado', description: `Saldo do pedido atualizado.` });
+      setPedidoId('');
+      setBusca('');
       onDone?.();
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao vincular', description: String(err?.message || err) });
@@ -59,7 +68,7 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, onClose
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) onClose?.(); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) { setPedidoId(''); setBusca(''); onClose?.(); } }}>
       <DialogContent className="max-w-md p-4 sm:p-6">
         {ticket && (
           <>
@@ -74,16 +83,39 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, onClose
             <div className="space-y-3 pt-2">
               <div className="space-y-1.5">
                 <Label>Pedido aberto *</Label>
-                <SearchSelect
-                  value={pedidoId}
-                  onChange={setPedidoId}
-                  options={pedidosAbertos.map((p) => ({
-                    value: p.id,
-                    label: `${clienteNome(p.cliente_id)} — saldo ${formatKg(p.saldo_kg)} de ${formatKg(p.total_kg)}`,
-                  }))}
-                  placeholder="Buscar pedido aberto..."
+                <Input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar pedido por cliente..."
+                  autoFocus
                 />
               </div>
+
+              {pedidosAbertos.length === 0 ? (
+                <p className="text-sm text-destructive">Nenhum pedido aberto com saldo disponível. Cadastre/abra um pedido antes de vincular.</p>
+              ) : (
+                <div className="max-h-64 overflow-auto scrollbar-thin space-y-2 rounded-lg border p-2">
+                  {visiveis.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground text-center">Nenhum pedido encontrado.</p>
+                  ) : visiveis.map((p) => {
+                    const selected = p.id === pedidoId;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPedidoId(p.id)}
+                        className={`w-full text-left rounded-lg border p-3 transition-colors ${selected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
+                      >
+                        <div className="flex justify-between gap-2">
+                          <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
+                          {selected && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Saldo {formatKg(p.saldo_kg)} de {formatKg(p.total_kg)} · {formatMoeda(p.valor_total)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {pedidoSelecionado && (
                 <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
