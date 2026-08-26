@@ -168,7 +168,11 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   function infoRow(label, value, opts = {}) {
     y += opts.gap || 12;
     text(doc, labelX, y, label, { size: UNI, bold: true, color: INK });
-    text(doc, valueX, y, value, { size: UNI, bold: true, color: INK });
+    // Valor posicionado depois do rótulo (com folga mínima), evitando sobreposição mesmo em rótulos longos.
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(UNI);
+    const labelW = doc.getTextWidth(label);
+    const vx = Math.max(valueX, labelX + labelW + 4);
+    text(doc, vx, y, value, { size: UNI, bold: true, color: INK });
     hline(doc, ML, 210 - MR, y + 3);
   }
 
