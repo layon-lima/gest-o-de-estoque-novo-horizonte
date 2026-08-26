@@ -11,8 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import { useEntidades } from '@/lib/useEntidades';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { readUiState, writeUiState } from '@/lib/uiStateStore';
@@ -23,15 +23,6 @@ import InventarioConference from '@/components/inventario/InventarioConference';
 export default function SetorDetail() {
   const { setorId } = useParams();
   const { user } = useAuth();
-  const [setores, setSetores] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [gavetas, setGavetas] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [pessoas, setPessoas] = useState([]);
-  const [depositos, setDepositos] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [busca, setBusca] = usePersistentState(`setor:busca:${setorId}`, '');
   const [expandedId, setExpandedId] = usePersistentState(`setor:exp:${setorId}`, null);
   const [modalTipo, setModalTipo] = useState(null);
@@ -39,22 +30,20 @@ export default function SetorDetail() {
   const [inventarioId, setInventarioId] = usePersistentState(`setor:inv:id:${setorId}`, null);
   const listRef = useRef(null);
 
-  async function load() {
-    setLoading(true);
-    const [s, p, m, g, l, movs, ps, d] = await Promise.all([
-      base44.entities.Setor.list(),
-      base44.entities.Produto.list(),
-      base44.entities.Maquina.list(),
-      base44.entities.Gaveta.list(),
-      base44.entities.Lote.list(),
-      base44.entities.Movimentacao.list('-data', 100),
-      base44.entities.Pessoa.list('-created_date', 500),
-      base44.entities.Deposito.list(),
-    ]);
-    setSetores(s); setProdutos(p); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps); setDepositos(d);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
+  const { data, loading, reload: load } = useEntidades({
+    Setor: {},
+    Produto: {},
+    Maquina: {},
+    Gaveta: {},
+    Lote: {},
+    Movimentacao: { sort: '-data', limit: 100 },
+    Pessoa: { sort: '-created_date', limit: 500 },
+    Deposito: {},
+  });
+  const {
+    Setor: setores, Produto: produtos, Maquina: maquinas, Gaveta: gavetas, Lote: lotes,
+    Movimentacao: movimentacoes, Pessoa: pessoas, Deposito: depositos,
+  } = data;
 
   // Voltar do sistema (mobile) ponto a ponto: recolhe produto → fecha modal → fecha inventário.
   useBackHandler(!!expandedId, () => setExpandedId(null));

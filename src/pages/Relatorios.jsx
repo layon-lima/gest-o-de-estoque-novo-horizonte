@@ -20,43 +20,33 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
-import { base44 } from '@/api/base44Client';
 import ProductsTable from '@/components/ProductsTable';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
 import { formatQtd } from '@/lib/format';
+import { useEntidades } from '@/lib/useEntidades';
 import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
 import SearchSelect from '@/components/SearchSelect';
 import { sortGavetas } from '@/lib/gavetas';
 
 export default function Relatorios() {
-  const [produtos, setProdutos] = useState([]);
-  const [setores, setSetores] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [gavetas, setGavetas] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [lotes, setLotes] = useState([]);
   const [filtroValidade, setFiltroValidade] = useState({ setor_id: 'all', faixa: 'all' });
   const [filtroMov, setFiltroMov] = useState({ tipo: 'all', busca: '' });
 
-  useEffect(() => {
-    async function load() {
-      const [p, s, m, g, movs, l] = await Promise.all([
-        base44.entities.Produto.list(),
-        base44.entities.Setor.list(),
-        base44.entities.Maquina.list(),
-        base44.entities.Gaveta.list(),
-        base44.entities.Movimentacao.list('-data', 200),
-        base44.entities.Lote.list(),
-      ]);
-      setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setMovimentacoes(movs); setLotes(l);
-      setLoading(false);
-    }
-    load();
-  }, []);
+  const { data, loading } = useEntidades({
+    Produto: {},
+    Setor: {},
+    Maquina: {},
+    Gaveta: {},
+    Movimentacao: { sort: '-data', limit: 200 },
+    Lote: {},
+  });
+  const {
+    Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas,
+    Movimentacao: movimentacoes, Lote: lotes,
+  } = data;
 
   const filtered = useMemo(() => {
     return produtos.filter((p) => {

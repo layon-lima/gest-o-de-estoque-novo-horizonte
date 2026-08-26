@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Pencil, Trash2, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,19 +14,22 @@ import {
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import SearchInput from './SearchInput';
 import { nextDepositoNumber } from '@/lib/depositos';
 
 const emptyForm = { nome: '', setor_id: '', descricao: '' };
 
 export default function DepositoManager() {
-  const [items, setItems] = useState([]);
-  const [setores, setSetores] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
+
+  const { data } = useEntidades({ Deposito: {}, Setor: {} });
+  const items = data.Deposito || [];
+  const setores = data.Setor || [];
+  const loading = false;
 
   const nomeSetor = (id) => setores.find((s) => s.id === id)?.nome || '—';
 
@@ -41,18 +44,6 @@ export default function DepositoManager() {
       nomeSetor(d.setor_id).toLowerCase().includes(q)
     );
   }, [items, busca, setores]);
-
-  async function load() {
-    setLoading(true);
-    const [d, s] = await Promise.all([
-      base44.entities.Deposito.list(),
-      base44.entities.Setor.list(),
-    ]);
-    setItems(d);
-    setSetores(s);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -69,7 +60,7 @@ export default function DepositoManager() {
       }
       setForm(emptyForm);
       setEditingId(null);
-      load();
+      invalidateEntidade('Deposito');
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao salvar depósito', description: err?.message });
     }
@@ -78,7 +69,7 @@ export default function DepositoManager() {
   async function handleDelete(id) {
     try {
       await base44.entities.Deposito.delete(id);
-      load();
+      invalidateEntidade('Deposito');
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: err?.message });
     }

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { prefetchEntidades } from '@/lib/useEntidades';
 
 const AuthContext = createContext();
 
@@ -18,6 +19,7 @@ export const AuthProvider = ({ children }) => {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
         setIsAuthenticated(true);
+        prefetchEntidades();
       } else {
         setAuthError({ type: 'auth_required' });
       }

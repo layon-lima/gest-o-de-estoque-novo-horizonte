@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Undo2, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { base44 } from '@/api/base44Client';
+import { useEntidades } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
@@ -47,38 +48,27 @@ import {
 const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
 
 export default function Movimentacoes() {
-  const [produtos, setProdutos] = useState([]);
-  const [setores, setSetores] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [gavetas, setGavetas] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [pessoas, setPessoas] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [movToDelete, setMovToDelete] = useState(null);
   const { toast } = useToast();
-  const nfe = useNfeImport({ produtos, setores, maquinas, gavetas, onImported: load });
 
-  async function load() {
-    setLoading(true);
-    const [p, s, m, g, l, movs, ps, us] = await Promise.all([
-      base44.entities.Produto.list(),
-      base44.entities.Setor.list(),
-      base44.entities.Maquina.list(),
-      base44.entities.Gaveta.list(),
-      base44.entities.Lote.list(),
-      base44.entities.Movimentacao.list('-data', 50),
-      base44.entities.Pessoa.list('-created_date', 500),
-      base44.entities.User.list(),
-    ]);
-    setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l); setMovimentacoes(movs); setPessoas(ps); setUsuarios(us);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
+  const { data, loading, reload: load } = useEntidades({
+    Produto: {},
+    Setor: {},
+    Maquina: {},
+    Gaveta: {},
+    Lote: {},
+    Movimentacao: { sort: '-data', limit: 50 },
+    Pessoa: { sort: '-created_date', limit: 500 },
+    User: {},
+  });
+  const {
+    Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Lote: lotes,
+    Movimentacao: movimentacoes, Pessoa: pessoas, User: usuarios,
+  } = data;
+  const nfe = useNfeImport({ produtos, setores, maquinas, gavetas, onImported: load });
 
   const fornecedores = useMemo(() => {
     const nomes = new Set();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,33 +9,19 @@ import SearchBar from '@/components/SearchBar';
 import FilterBar from '@/components/FilterBar';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 
 export default function ProdutosManager() {
-  const [produtos, setProdutos] = useState([]);
-  const [setores, setSetores] = useState([]);
-  const [depositos, setDepositos] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [gavetas, setGavetas] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
 
-  async function load() {
-    setLoading(true);
-    const [p, s, dep, m, g] = await Promise.all([
-      base44.entities.Produto.list(),
-      base44.entities.Setor.list(),
-      base44.entities.Deposito.list(),
-      base44.entities.Maquina.list(),
-      base44.entities.Gaveta.list(),
-    ]);
-    setProdutos(p); setSetores(s); setDepositos(dep); setMaquinas(m); setGavetas(g);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
+  const { data, loading, reload: load } = useEntidades({
+    Produto: {}, Setor: {}, Deposito: {}, Maquina: {}, Gaveta: {},
+  });
+  const { Produto: produtos, Setor: setores, Deposito: depositos, Maquina: maquinas, Gaveta: gavetas } = data;
 
   const filtered = useMemo(() => {
     const porFiltros = filterProdutos(produtos, filtros);
@@ -51,7 +37,7 @@ export default function ProdutosManager() {
   async function handleDelete(produto) {
     await base44.entities.Produto.delete(produto.id);
     toast({ title: 'Produto excluído' });
-    load();
+    invalidateEntidade('Produto');
   }
 
   return (

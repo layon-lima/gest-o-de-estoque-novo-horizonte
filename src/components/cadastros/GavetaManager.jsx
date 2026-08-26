@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Pencil, Trash2, MapPin, PackageCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import SearchInput from './SearchInput';
 import { sortGavetas } from '@/lib/gavetas';
 import { formatQtd } from '@/lib/format';
@@ -65,15 +66,17 @@ function ocupacaoPorGaveta(gavetas, produtos, lotes) {
 }
 
 export default function GavetaManager() {
-  const [items, setItems] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [depositos, setDepositos] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ codigo: '', descricao: '', deposito_id: '' });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
+
+  const { data } = useEntidades({ Gaveta: {}, Produto: {}, Lote: {}, Deposito: {} });
+  const items = data.Gaveta || [];
+  const produtos = data.Produto || [];
+  const lotes = data.Lote || [];
+  const depositos = data.Deposito || [];
+  const loading = false;
 
   const ocupacao = useMemo(
     () => ocupacaoPorGaveta(items, produtos, lotes),
@@ -90,22 +93,6 @@ export default function GavetaManager() {
     );
   }, [items, busca]);
 
-  async function load() {
-    setLoading(true);
-    const [g, p, l, d] = await Promise.all([
-      base44.entities.Gaveta.list(),
-      base44.entities.Produto.list(),
-      base44.entities.Lote.list(),
-      base44.entities.Deposito.list(),
-    ]);
-    setItems(g);
-    setProdutos(p);
-    setLotes(l);
-    setDepositos(d);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
-
   async function handleSubmit(e) {
     e.preventDefault();
     const duplicado = items.some((g) => norm(g.codigo) === norm(form.codigo) && g.id !== editingId);
@@ -121,7 +108,7 @@ export default function GavetaManager() {
     else await base44.entities.Gaveta.create(form);
     setForm({ codigo: '', descricao: '', deposito_id: '' });
     setEditingId(null);
-    load();
+    invalidateEntidade('Gaveta');
   }
 
   async function handleDelete(id) {
@@ -135,7 +122,7 @@ export default function GavetaManager() {
       return;
     }
     await base44.entities.Gaveta.delete(id);
-    load();
+    invalidateEntidade('Gaveta');
   }
 
   function handleEdit(item) {

@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Fuel, Search, Clock, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import { useEntidades } from '@/lib/useEntidades';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { useToast } from '@/components/ui/use-toast';
@@ -21,13 +21,6 @@ import AbastecimentoPendentes from '@/components/abastecimento/AbastecimentoPend
 export default function Abastecimento() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [maquinas, setMaquinas] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [setores, setSetores] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [abastecimentos, setAbastecimentos] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [sucesso, setSucesso] = useState(false);
@@ -36,6 +29,19 @@ export default function Abastecimento() {
   const [buscaMaquina, setBuscaMaquina] = usePersistentState('abast:busca', '');
   const [maquinaId, setMaquinaId] = usePersistentState('abast:maquinaId', null);
   const [aba, setAba] = useState('abastecer');
+
+  const { data, loading, reload: load } = useEntidades({
+    Maquina: {},
+    Produto: {},
+    Setor: {},
+    Lote: {},
+    Movimentacao: { sort: '-data', limit: 100 },
+    Abastecimento: { sort: '-data', limit: 200 },
+  });
+  const {
+    Maquina: maquinas, Produto: produtos, Setor: setores, Lote: lotes,
+    Movimentacao: movimentacoes, Abastecimento: abastecimentos,
+  } = data;
 
   const podeConfirmar = user?.role === 'admin' || user?.pode_confirmar_abastecimento === true;
 
@@ -69,26 +75,6 @@ export default function Abastecimento() {
     () => abastecimentos.filter((a) => (a.status || 'pendente') !== 'pendente'),
     [abastecimentos]
   );
-
-  async function load() {
-    setLoading(true);
-    const [m, p, s, l, movs, abs] = await Promise.all([
-      base44.entities.Maquina.list(),
-      base44.entities.Produto.list(),
-      base44.entities.Setor.list(),
-      base44.entities.Lote.list(),
-      base44.entities.Movimentacao.list('-data', 100),
-      base44.entities.Abastecimento.list('-data', 200),
-    ]);
-    setMaquinas(m);
-    setProdutos(p);
-    setSetores(s);
-    setLotes(l);
-    setMovimentacoes(movs);
-    setAbastecimentos(abs);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
 
   // Voltar do sistema (mobile): com máquina selecionada, volta para a lista em vez de sair.
   useBackHandler(!!maquinaSelecionada, () => { setMaquinaSelecionada(null); setMaquinaId(null); });

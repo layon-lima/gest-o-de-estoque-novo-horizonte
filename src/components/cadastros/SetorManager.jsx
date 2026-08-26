@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { SETOR_ICONS } from '@/lib/setorIcon';
 import SetorIcon from '@/components/setorIcon';
 import SearchInput from './SearchInput';
@@ -17,12 +18,14 @@ const norm = (v) => String(v || '').trim().toLowerCase();
 const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 
 export default function SetorManager() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
+
+  const { data } = useEntidades({ Setor: {} });
+  const items = data.Setor || [];
+  const loading = false;
 
   const filteredItems = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -32,13 +35,6 @@ export default function SetorManager() {
       (s.descricao || '').toLowerCase().includes(q)
     );
   }, [items, busca]);
-
-  async function load() {
-    setLoading(true);
-    setItems(await base44.entities.Setor.list());
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -55,12 +51,12 @@ export default function SetorManager() {
     else await base44.entities.Setor.create(form);
     setForm({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false });
     setEditingId(null);
-    load();
+    invalidateEntidade('Setor');
   }
 
   async function handleDelete(id) {
     await base44.entities.Setor.delete(id);
-    load();
+    invalidateEntidade('Setor');
   }
 
   function handleEdit(item) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Pencil, Trash2, Search, User, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,21 +9,19 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 
 const empty = { nome: '', documento: '', telefone: '', cidade: '', is_cliente: true, is_fornecedor: false, observacao: '' };
 
 export default function PessoasManager() {
-  const [pessoas, setPessoas] = useState([]);
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('all');
   const { toast } = useToast();
 
-  async function load() {
-    setPessoas(await base44.entities.Pessoa.list('-created_date', 500));
-  }
-  useEffect(() => { load(); }, []);
+  const { data } = useEntidades({ Pessoa: { sort: '-created_date', limit: 500 } });
+  const pessoas = data.Pessoa || [];
 
   const filtered = pessoas.filter((p) => {
     const q = busca.toLowerCase().trim();
@@ -50,7 +48,7 @@ export default function PessoasManager() {
     }
     setForm(empty);
     setEditingId(null);
-    load();
+    invalidateEntidade('Pessoa');
   }
 
   function handleEdit(p) {
@@ -69,7 +67,7 @@ export default function PessoasManager() {
   async function handleDelete(id) {
     await base44.entities.Pessoa.delete(id);
     toast({ title: 'Pessoa removida' });
-    load();
+    invalidateEntidade('Pessoa');
   }
 
   return (

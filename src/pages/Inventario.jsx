@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,9 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades } from '@/lib/useEntidades';
 import InventarioConference from '@/components/inventario/InventarioConference';
 import InventarioDetalhe from '@/components/inventario/InventarioDetalhe';
 
@@ -24,39 +24,24 @@ function fmtData(iso) {
 export default function Inventario() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [setores, setSetores] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [depositos, setDepositos] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [gavetas, setGavetas] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [registros, setRegistros] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [setorId, setSetorId] = useState('');
   const [conferenceOpen, setConferenceOpen] = useState(false);
   const [resumeId, setResumeId] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const [s, p, d, m, g, l, inv] = await Promise.all([
-        base44.entities.Setor.list(),
-        base44.entities.Produto.list(),
-        base44.entities.Deposito.list(),
-        base44.entities.Maquina.list(),
-        base44.entities.Gaveta.list(),
-        base44.entities.Lote.list(),
-        base44.entities.Inventario.list('-data', 200),
-      ]);
-      setSetores(s); setProdutos(p); setDepositos(d); setMaquinas(m); setGavetas(g); setLotes(l); setRegistros(inv);
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao carregar', description: err?.message });
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => { load(); }, []);
+  const { data, loading, reload: load } = useEntidades({
+    Setor: {},
+    Produto: {},
+    Deposito: {},
+    Maquina: {},
+    Gaveta: {},
+    Lote: {},
+    Inventario: { sort: '-data', limit: 200 },
+  });
+  const {
+    Setor: setores, Produto: produtos, Deposito: depositos, Maquina: maquinas,
+    Gaveta: gavetas, Lote: lotes, Inventario: registros,
+  } = data;
 
   const setor = setores.find((s) => s.id === setorId);
 

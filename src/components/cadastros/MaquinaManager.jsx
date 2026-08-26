@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Fuel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
+import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { findSetorCombustivel, produtosCombustivel } from '@/lib/abastecimento';
 import SearchInput from './SearchInput';
 import { nextMaquinaCodigo } from '@/lib/maquinas';
@@ -22,14 +23,21 @@ import { nextMaquinaCodigo } from '@/lib/maquinas';
 const emptyForm = { codigo: '', nome: '', descricao: '', deposito_id: '', permite_abastecimento: false, combustivel_id: '', combustivel_nome: '' };
 
 export default function MaquinaManager() {
-  const [items, setItems] = useState([]);
-  const [depositos, setDepositos] = useState([]);
-  const [combustiveis, setCombustiveis] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
+
+  const { data } = useEntidades({ Maquina: {}, Deposito: {}, Produto: {}, Setor: {} });
+  const items = data.Maquina || [];
+  const depositos = data.Deposito || [];
+  const produtos = data.Produto || [];
+  const setores = data.Setor || [];
+  const combustiveis = useMemo(
+    () => produtosCombustivel(produtos, findSetorCombustivel(setores)?.id),
+    [produtos, setores]
+  );
+  const loading = false;
 
   const depositoLabel = (id) => {
     const d = depositos.find((x) => x.id === id);
@@ -50,21 +58,6 @@ export default function MaquinaManager() {
       (m.descricao || '').toLowerCase().includes(q)
     );
   }, [items, busca]);
-
-  async function load() {
-    setLoading(true);
-    const [m, d, p, s] = await Promise.all([
-      base44.entities.Maquina.list(),
-      base44.entities.Deposito.list(),
-      base44.entities.Produto.list(),
-      base44.entities.Setor.list(),
-    ]);
-    setItems(m);
-    setDepositos(d);
-    setCombustiveis(produtosCombustivel(p, findSetorCombustivel(s)?.id));
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -90,12 +83,12 @@ export default function MaquinaManager() {
     }
     setForm(emptyForm);
     setEditingId(null);
-    await load();
+    invalidateEntidade('Maquina');
   }
 
   async function handleDelete(id) {
     await base44.entities.Maquina.delete(id);
-    load();
+    invalidateEntidade('Maquina');
   }
 
   function handleEdit(item) {

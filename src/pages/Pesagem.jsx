@@ -1,35 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
 import { Users, ClipboardList, Scale, History, Unlink } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import { useEntidades } from '@/lib/useEntidades';
 import PedidosManager from '@/components/pesagem/PedidosManager';
 import TicketsManager from '@/components/pesagem/TicketsManager';
 
 export default function Pesagem() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [pessoas, setPessoas] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [pedidos, setPedidos] = useState([]);
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    const [ps, p, ped, t] = await Promise.all([
-      base44.entities.Pessoa.list('-created_date', 500),
-      base44.entities.Produto.list(),
-      base44.entities.PedidoPesagem.list('-created_date', 500),
-      base44.entities.TicketPesagem.list('-data_abertura', 500),
-    ]);
-    setPessoas(ps);
-    setProdutos(p);
-    setPedidos(ped);
-    setTickets(t);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, loading, reload: load } = useEntidades({
+    Pessoa: { sort: '-created_date', limit: 500 },
+    Produto: {},
+    PedidoPesagem: { sort: '-created_date', limit: 500 },
+    TicketPesagem: { sort: '-data_abertura', limit: 500 },
+  });
+  const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets } = data;
 
   const abertosCount = tickets.filter((t) => t.status === 'aberto').length;
 

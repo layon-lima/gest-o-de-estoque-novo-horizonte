@@ -1,36 +1,19 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
-import { base44 } from '@/api/base44Client';
 import FilterBar from '@/components/FilterBar';
 import ProductsTable from '@/components/ProductsTable';
 import SearchBar from '@/components/SearchBar';
+import { useEntidades } from '@/lib/useEntidades';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 
 export default function Dashboard() {
-  const [produtos, setProdutos] = useState([]);
-  const [setores, setSetores] = useState([]);
-  const [maquinas, setMaquinas] = useState([]);
-  const [gavetas, setGavetas] = useState([]);
-  const [lotes, setLotes] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', maquina_id: '', gaveta_id: '' });
   const [busca, setBusca] = useState('');
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const [p, s, m, g, l] = await Promise.all([
-        base44.entities.Produto.list(),
-        base44.entities.Setor.list(),
-        base44.entities.Maquina.list(),
-        base44.entities.Gaveta.list(),
-        base44.entities.Lote.list(),
-      ]);
-      setProdutos(p); setSetores(s); setMaquinas(m); setGavetas(g); setLotes(l);
-      setLoading(false);
-    }
-    load();
-  }, []);
+  const { data, loading } = useEntidades({
+    Produto: {}, Setor: {}, Maquina: {}, Gaveta: {}, Lote: {},
+  });
+  const { Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Lote: lotes } = data;
 
   const filtered = useMemo(() => {
     const porFiltros = filterProdutos(produtos, filtros);
