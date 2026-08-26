@@ -1,6 +1,6 @@
 // Geração do Ticket de Pesagem em PDF — layout leve e simples, um ticket por folha A4.
 // jsPDF é carregado sob demanda (import dinâmico) só ao gerar o documento.
-const TIPO_LABEL = { venda: 'VENDA', lavoura: 'LAVOURA', avulsa: 'AVULSA' };
+const TIPO_LABEL = { venda: 'VENDA', lavoura: 'SAÍDA P/ LAVOURA', compra: 'ENTRADA POR COMPRA', entrada_saida: 'ENTRADA E SAÍDA', avulsa: 'AVULSA' };
 
 const XLSX_URL =
   'https://media.base44.com/files/public/6a84b445f638bd5605381437/faca5668c_ticket001.xlsx';
@@ -19,6 +19,12 @@ function fmtDateTime(iso) {
 function fmtNum(n) {
   const num = Number(n) || 0;
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+}
+function fmtHoraCurta(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // --- Extração do logo (image1.jpg) embutido no xlsx, feita no navegador ---
@@ -121,13 +127,14 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   const dataTxt = fmtDateTime(ticket.data_fechamento || ticket.data_abertura);
 
   const ML = 16, MR = 16, LW = 210 - ML - MR; // margens e largura útil
+  const UNI = 13; // tamanho unificado de rótulos e valores (preto)
 
   // Fundo branco
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, 210, 297, 'F');
 
   // ===== Cabeçalho: logo + título =====
-  const logoX = ML, logoY = 14, logoSize = 26;
+  const logoX = ML, logoY = 12, logoSize = 22;
   if (logoImg) {
     const iw = logoImg.naturalWidth || logoImg.width;
     const ih = logoImg.naturalHeight || logoImg.height;
@@ -140,29 +147,29 @@ function drawTicket(doc, ticket, ctx, logoImg) {
     drawLogo(doc, logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 - 2);
   }
 
-  text(doc, ML + logoSize + 8, logoY + 10, 'NOVO HORIZONTE', { size: 18, bold: true });
-  text(doc, ML + logoSize + 8, logoY + 18, 'TICKET DE PESAGEM', { size: 11, color: MUTED });
+  text(doc, ML + logoSize + 7, logoY + 9, 'NOVO HORIZONTE', { size: 14, bold: true });
+  text(doc, ML + logoSize + 7, logoY + 16, 'TICKET DE PESAGEM', { size: 10, color: MUTED });
 
   // Rótulo do tipo à direita
-  text(doc, 210 - MR, logoY + 10, tipo, { size: 14, bold: true, align: 'right' });
+  text(doc, 210 - MR, logoY + 9, tipo, { size: 13, bold: true, align: 'right' });
 
   // Linha de separação do cabeçalho
-  hline(doc, ML, 210 - MR, logoY + logoSize + 4);
+  hline(doc, ML, 210 - MR, logoY + logoSize + 3);
 
   // ===== Número =====
-  let y = logoY + logoSize + 16;
-  text(doc, ML, y, 'Nº', { size: 11, color: MUTED });
-  text(doc, ML + 16, y, ticket.numero || '—', { size: 16, bold: true });
-  hline(doc, ML, 210 - MR, y + 4);
+  let y = logoY + logoSize + 12;
+  text(doc, ML, y, 'Nº', { size: UNI, bold: true, color: INK });
+  text(doc, ML + 12, y, ticket.numero || '—', { size: UNI, bold: true, color: INK });
+  hline(doc, ML, 210 - MR, y + 3);
 
-  // ===== Linhas de informação (rótulo à esquerda, valor à direita) =====
+  // ===== Linhas de informação (rótulo e valor no mesmo tamanho/cor preta) =====
   const labelX = ML;
-  const valueX = ML + 48;
+  const valueX = ML + 44;
   function infoRow(label, value, opts = {}) {
-    y += opts.gap || 16;
-    text(doc, labelX, y, label, { size: 10, color: MUTED });
-    text(doc, valueX, y, value, { size: 15, bold: true });
-    hline(doc, ML, 210 - MR, y + 4);
+    y += opts.gap || 12;
+    text(doc, labelX, y, label, { size: UNI, bold: true, color: INK });
+    text(doc, valueX, y, value, { size: UNI, bold: true, color: INK });
+    hline(doc, ML, 210 - MR, y + 3);
   }
 
   infoRow('MOTORISTA', ticket.motorista || '—');
@@ -170,40 +177,44 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   infoRow('PRODUTO', resolveProduto(ticket, pedido, produtoNome));
   infoRow('DATA - HORA', dataTxt);
 
-  // ===== Pesos: três caixas leves =====
-  y += 18;
+  // Horários de pesagem (tara = abertura, bruto = fechamento)
+  const horaTara = ticket.data_abertura ? fmtHoraCurta(ticket.data_abertura) : '—';
+  const horaBruto = ticket.data_fechamento ? fmtHoraCurta(ticket.data_fechamento) : '—';
+
+  // ===== Pesos: três caixas compactas =====
+  y += 12;
   const boxW = (LW - 8) / 3;
   const boxes = [
-    { label: 'TARA (kg)', val: ticket.peso_tara },
-    { label: 'BRUTO (kg)', val: ticket.peso_bruto },
-    { label: 'LÍQUIDO (kg)', val: ticket.peso_liquido },
+    { label: 'TARA (kg)', val: ticket.peso_tara, hora: horaTara },
+    { label: 'BRUTO (kg)', val: ticket.peso_bruto, hora: horaBruto },
+    { label: 'LÍQUIDO (kg)', val: ticket.peso_liquido, hora: null },
   ];
   boxes.forEach((b, i) => {
     const bx = ML + i * (boxW + 4);
     doc.setDrawColor(...LINE); doc.setLineWidth(0.3);
-    doc.roundedRect(bx, y - 10, boxW, 36, 2, 2, 'S');
-    text(doc, bx + boxW / 2, y - 3, b.label, { size: 10, color: MUTED, align: 'center' });
-    text(doc, bx + boxW / 2, y + 17, fmtNum(b.val), { size: 26, bold: true, align: 'center' });
+    doc.roundedRect(bx, y - 8, boxW, 30, 2, 2, 'S');
+    text(doc, bx + boxW / 2, y - 2, b.label, { size: UNI, bold: true, color: INK, align: 'center' });
+    text(doc, bx + boxW / 2, y + 14, fmtNum(b.val), { size: 22, bold: true, color: INK, align: 'center' });
+    if (b.hora) text(doc, bx + boxW / 2, y + 20, b.hora, { size: 8, color: MUTED, align: 'center' });
   });
 
   // ===== Observações (somente se houver) =====
   if (ticket.observacao && ticket.observacao.trim()) {
-    y += 44;
-    text(doc, ML, y, 'Observações', { size: 9, color: MUTED });
-    y += 5;
-    hline(doc, ML, 210 - MR, y, LINE, 0.2);
+    y += 28;
+    text(doc, ML, y, 'Observações', { size: UNI, bold: true, color: INK });
+    hline(doc, ML, 210 - MR, y + 3, LINE, 0.2);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...INK);
     const obsLines = doc.splitTextToSize(ticket.observacao, LW);
-    doc.text(obsLines.slice(0, 3), ML, y + 6);
+    doc.text(obsLines.slice(0, 2), ML, y + 9);
   }
 
-  // ===== Assinaturas =====
-  const sigY = 254;
+  // ===== Assinaturas (agrupadas na parte superior) =====
+  const sigY = y + 40;
   doc.setDrawColor(...INK); doc.setLineWidth(0.3);
-  doc.line(ML + 6, sigY, ML + 76, sigY);
-  doc.line(210 - MR - 76, sigY, 210 - MR - 6, sigY);
-  text(doc, ML + 41, sigY + 5, 'Assinatura do Motorista', { size: 9, align: 'center' });
-  text(doc, 210 - MR - 41, sigY + 5, 'Assinatura do Balanceiro', { size: 9, align: 'center' });
+  doc.line(ML + 6, sigY, ML + 80, sigY);
+  doc.line(210 - MR - 80, sigY, 210 - MR - 6, sigY);
+  text(doc, ML + 43, sigY + 4, 'Assinatura do Motorista', { size: 9, color: INK, align: 'center' });
+  text(doc, 210 - MR - 43, sigY + 4, 'Assinatura do Balanceiro', { size: 9, color: INK, align: 'center' });
 }
 
 /**
