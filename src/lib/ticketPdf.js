@@ -104,8 +104,8 @@ function drawLogo(doc, cx, cy, r) {
 }
 
 function resolveProduto(ticket, pedido, produtoNome) {
-  if (ticket.tipo === 'venda' && pedido && produtoNome) return produtoNome(pedido.produto_id) || '—';
   if (ticket.produto_id && produtoNome) return produtoNome(ticket.produto_id) || '—';
+  if (ticket.tipo === 'venda' && pedido && produtoNome) return produtoNome(pedido.produto_id) || '—';
   return '—';
 }
 
@@ -175,6 +175,7 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   infoRow('MOTORISTA', ticket.motorista || '—');
   infoRow('PLACA', (ticket.placa || '—').toUpperCase());
   infoRow('PRODUTO', resolveProduto(ticket, pedido, produtoNome));
+  infoRow('TRANSPORTADORA', ticket.transportadora_nome || (pedido ? pedido.transportadora_nomes : '') || '—');
   infoRow('DATA - HORA', dataTxt);
 
   // Horários de pesagem (tara = abertura, bruto = fechamento)
@@ -198,14 +199,18 @@ function drawTicket(doc, ticket, ctx, logoImg) {
     if (b.hora) text(doc, bx + boxW / 2, y + 20, b.hora, { size: 8, color: MUTED, align: 'center' });
   });
 
-  // ===== Observações (somente se houver) =====
-  if (ticket.observacao && ticket.observacao.trim()) {
+  // ===== Observações (consolida observação + origem + destino, se houver) =====
+  const obsParts = [];
+  if (ticket.observacao && ticket.observacao.trim()) obsParts.push(ticket.observacao.trim());
+  if (ticket.origem && String(ticket.origem).trim()) obsParts.push(`Origem: ${String(ticket.origem).trim()}`);
+  if (ticket.destino && String(ticket.destino).trim()) obsParts.push(`Destino: ${String(ticket.destino).trim()}`);
+  if (obsParts.length) {
     y += 28;
     text(doc, ML, y, 'Observações', { size: UNI, bold: true, color: INK });
     hline(doc, ML, 210 - MR, y + 3, LINE, 0.2);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(...INK);
-    const obsLines = doc.splitTextToSize(ticket.observacao, LW);
-    doc.text(obsLines.slice(0, 2), ML, y + 9);
+    const obsLines = doc.splitTextToSize(obsParts.join('\n'), LW);
+    doc.text(obsLines.slice(0, 4), ML, y + 9);
   }
 
   // ===== Assinaturas (agrupadas na parte superior) =====

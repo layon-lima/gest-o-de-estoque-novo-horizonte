@@ -80,6 +80,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
         peso_bruto: parseQtd(pesoBruto),
         peso_liquido: liquido,
         pedido_id: isVenda ? pedidoId : '',
+        produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
         transportadora_id: transpId,
         transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
         status: 'fechado',
