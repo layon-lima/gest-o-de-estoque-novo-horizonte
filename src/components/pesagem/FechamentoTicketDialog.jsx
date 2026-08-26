@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,12 +32,19 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const [pedidoId, setPedidoId] = useState('');
   const [transportadoraId, setTransportadoraId] = useState('');
   const [observacao, setObservacao] = useState('');
+  const [buscaPedido, setBuscaPedido] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
   const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto') : [];
+
+  const pedidosVisiveis = useMemo(() => {
+    const q = buscaPedido.toLowerCase().trim();
+    if (!q) return pedidosAbertos;
+    return pedidosAbertos.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q) || produtoNome(p.produto_id).toLowerCase().includes(q));
+  }, [pedidosAbertos, buscaPedido]);
 
   const liquido = useMemo(
     () => calcLiquido(pesoBruto, ticket?.peso_tara || 0),
@@ -68,6 +75,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     setPedidoId('');
     setTransportadoraId('');
     setObservacao('');
+    setBuscaPedido('');
     setConfirmOpen(false);
   }
 
@@ -174,40 +182,59 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             <Label>Pedido *</Label>
             {pedidosAbertos.length === 0 ? (
               <p className="text-sm text-destructive">Nenhum pedido aberto disponível. Cadastre um pedido antes de fechar.</p>
-            ) : (
-              <div className="space-y-2">
-                {pedidosAbertos.map((p) => {
-                  const selected = p.id === pedidoId;
-                  const consumoExcede = liquido > (p.saldo_kg || 0);
-                  const pesoSaca = p.peso_saca_kg || 0;
-                  const saldoSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
-                  const liquidoSacas = pesoSaca > 0 ? liquido / pesoSaca : 0;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setPedidoId(p.id)}
-                      className={`w-full text-left rounded-lg border p-3 transition-colors ${selected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
-                    >
-                      <div className="flex justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                          <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
-                        </div>
-                        {selected && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
+            ) : pedidoSel ? (() => {
+              const consumoExcede = liquido > (pedidoSel.saldo_kg || 0);
+              const pesoSaca = pedidoSel.peso_saca_kg || 0;
+              const saldoSacas = pesoSaca > 0 ? (pedidoSel.saldo_kg || 0) / pesoSaca : 0;
+              const liquidoSacas = pesoSaca > 0 ? liquido / pesoSaca : 0;
+              return (
+                <div className="space-y-2">
+                  <div className="w-full text-left rounded-lg border border-primary bg-primary/5 ring-1 ring-primary p-3">
+                    <div className="flex justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{clienteNome(pedidoSel.cliente_id)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{produtoNome(pedidoSel.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
                       </div>
-                      {selected && (
-                        <div className="mt-2 flex items-center gap-2 text-xs">
-                          <Badge variant={consumoExcede ? 'destructive' : 'secondary'} className={consumoExcede ? '' : 'bg-green-100 text-green-700'}>
-                            {consumoExcede ? <><AlertTriangle className="w-3 h-3 mr-1" /> Excede saldo</> : 'Dentro do saldo'}
-                          </Badge>
-                          <span className="text-muted-foreground">Consumirá {formatQtd(liquidoSacas)} sacas</span>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                      <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs">
+                      <Badge variant={consumoExcede ? 'destructive' : 'secondary'} className={consumoExcede ? '' : 'bg-green-100 text-green-700'}>
+                        {consumoExcede ? <><AlertTriangle className="w-3 h-3 mr-1" /> Excede saldo</> : 'Dentro do saldo'}
+                      </Badge>
+                      <span className="text-muted-foreground">Consumirá {formatQtd(liquidoSacas)} sacas</span>
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { setPedidoId(''); setBuscaPedido(''); }}>
+                    <X className="w-3.5 h-3.5 mr-1" /> Trocar pedido
+                  </Button>
+                </div>
+              );
+            })() : (
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input value={buscaPedido} onChange={(e) => setBuscaPedido(e.target.value)} placeholder="Buscar pedido por cliente ou produto..." className="pl-9" autoFocus />
+                </div>
+                <div className="max-h-56 overflow-auto scrollbar-thin space-y-2 rounded-lg border p-2">
+                  {pedidosVisiveis.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground text-center">Nenhum pedido encontrado.</p>
+                  ) : pedidosVisiveis.map((p) => {
+                    const pesoSaca = p.peso_saca_kg || 0;
+                    const saldoSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPedidoId(p.id)}
+                        className="w-full text-left rounded-lg border p-3 transition-colors hover:bg-accent hover:border-primary/50"
+                      >
+                        <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
           )}
