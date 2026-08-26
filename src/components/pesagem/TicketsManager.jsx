@@ -49,7 +49,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
   );
 
   const naoVinculados = useMemo(
-    () => tickets.filter((t) => t.status === 'fechado' && !t.pedido_id).sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
+    () => tickets.filter((t) => t.status === 'fechado' && t.tipo === 'venda' && !t.pedido_id).sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
     [tickets]
   );
 
@@ -306,7 +306,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         {naovinculados && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Unlink className="w-4 h-4" />
-            <span>Tickets fechados sem pedido vinculado ({naoVinculados.length}).</span>
+            <span>Tickets de venda fechados sem pedido vinculado ({naoVinculados.length}).</span>
           </div>
         )}
         <div className="relative">
@@ -325,7 +325,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         <div className="sm:hidden max-h-[44vh] overflow-auto scrollbar-thin space-y-2 pr-1">
           {filtrados.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              {naovinculados ? 'Nenhum ticket não vinculado.' : historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
+              {naovinculados ? 'Nenhuma venda fechada sem pedido.' : historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
             </p>
           ) : filtrados.map((t) => {
             const ped = pedidoDoTicket(t.pedido_id);
@@ -359,7 +359,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, on
         {/* Desktop: tabela */}
         {filtrados.length === 0 ? (
           <p className="hidden sm:block text-sm text-muted-foreground text-center py-6">
-            {naovinculados ? 'Nenhum ticket não vinculado.' : historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
+            {naovinculados ? 'Nenhuma venda fechada sem pedido.' : historico ? 'Nenhum ticket fechado.' : semBusca ? 'Use a busca para encontrar tickets fechados.' : 'Nenhum ticket encontrado.'}
           </p>
         ) : (
           <div className="hidden sm:block rounded-lg border overflow-auto scrollbar-thin max-h-[50vh]">
