@@ -108,7 +108,7 @@ export default function BalancaConfig() {
       <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 border rounded-md p-3">
         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
         <div>
-          <p><strong>Configuração típica Toledo Prix:</strong> 9600 baud, 8 data bits, 1 stop bit, paridade Nenhuma.</p>
+          <p><strong>Configuração típica Toledo Prix:</strong> 4800 baud, 8 data bits, 1 stop bit, paridade Nenhuma, CKS habilitado.</p>
           <p className="mt-1"><strong>Máx. decimais:</strong> controla quantas casas decimais exibir no peso. Se o visor mostra 1000, o sistema mostra 1.000. Se mostra -10, mostra -10.</p>
         </div>
       </div>

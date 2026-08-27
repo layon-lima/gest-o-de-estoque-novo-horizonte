@@ -3,7 +3,21 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 const BalancaContext = createContext(null);
 
 const BAUD_KEY = 'balanca_baud_rate';
-const DEFAULT_BAUD = 9600;
+const DEFAULT_BAUD = 4800;
+const BAUD_VERSION_KEY = 'balanca_baud_version';
+const BAUD_VERSION = 2; // v1 = 9600 padrão, v2 = 4800 padrão
+
+// Migração: se o usuário tinha o padrão antigo (9600) salvo, reseta para o novo padrão (4800)
+try {
+  const version = localStorage.getItem(BAUD_VERSION_KEY);
+  if (!version || parseInt(version, 10) < BAUD_VERSION) {
+    const savedBaud = localStorage.getItem(BAUD_KEY);
+    if (!savedBaud || savedBaud === '9600') {
+      localStorage.removeItem(BAUD_KEY);
+    }
+    localStorage.setItem(BAUD_VERSION_KEY, String(BAUD_VERSION));
+  }
+} catch {}
 const DATABITS_KEY = 'balanca_data_bits';
 const STOPBITS_KEY = 'balanca_stop_bits';
 const PARITY_KEY = 'balanca_parity';
@@ -512,7 +526,7 @@ export function BalancaProvider({ children }) {
       if (msg === 'timeout') {
         const raw = rawDataRef.current || '';
         if (dadosRecebidosRef.current && raw) {
-          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (hex): ${raw}. Verifique se o protocolo da balança está configurado como P03 contínuo (C14=P03). Se o problema persistir, copie estes dados e entre em contato com o suporte.`);
+          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (hex): ${raw}. Verifique se o BAUD RATE da balança (${baudRateRef.current}) corresponde ao configurado na balança (ex.: 4800). Confira também se o protocolo está como P03 contínuo (C14=P03).`);
         } else {
           setErro('Tempo esgotado: a balança não enviou dados em 8 segundos. Verifique se está ligada, se o cabo está conectado e se o driver USB do conversor serial está instalado neste PC.');
         }
