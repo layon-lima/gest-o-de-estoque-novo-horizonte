@@ -174,21 +174,39 @@ const sanitizeFilename = (titulo) =>
   `${titulo}`.replace(/[^\w\- ]/g, '').trim() || 'relatorio';
 
 /**
- * Envia o arquivo para o storage do Base44 e abre a URL resultante.
- * No app nativo (APK/WebView), onde download via anchor e Web Share API
- * não funcionam, este é o caminho confiável: a URL pública é aberta no
- * navegador do sistema, onde o usuário pode visualizar, baixar e compartilhar.
+ * Envia o arquivo para o storage do Base44 e devolve a URL pública.
+ * No app nativo (APK/WebView) o download via anchor não funciona, então
+ * usamos a URL hospedada para abrir no navegador do sistema ou compartilhar.
  */
-async function uploadAndOpen(blob, filename) {
+async function uploadToStorage(blob, filename) {
   const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
   const { file_url } = await base44.integrations.Core.UploadFile({ file });
   if (!file_url) throw new Error('Não foi possível obter a URL do arquivo.');
-  const win = window.open(file_url, '_blank');
-  if (!win) {
-    // Popup bloqueado — navega na própria janela (WebView abre no sistema)
-    window.location.href = file_url;
-  }
   return file_url;
+}
+
+/** Abre a URL no navegador do sistema (download/visualização). */
+function openExternally(url) {
+  const win = window.open(url, '_blank');
+  if (!win) window.location.href = url;
+}
+
+/**
+ * Abre a folha de compartilhamento nativa do celular com o link do PDF.
+ * Usa a Web Share API (navigator.share), que abre o menu nativo de
+ * compartilhamento em APKs baseados em Chrome/TWA e na maioria dos celulares.
+ * Se não houver suporte, abre o PDF no navegador do sistema como fallback.
+ */
+async function shareUrl(url, title) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text: `${title}\n${url}`, url });
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return; // usuário cancelou
+    }
+  }
+  openExternally(url);
 }
 
 /** Gera e baixa o PDF. No APK, envia ao storage e abre no navegador do sistema. */
@@ -197,13 +215,13 @@ export async function exportPDF(titulo, colunas, linhas) {
   const filename = `${sanitizeFilename(titulo)}.pdf`;
   const file = new File([blob], filename, { type: 'application/pdf' });
 
-  // Mobile browser / PWA com Web Share API
+  // Mobile browser / PWA com Web Share API de arquivo
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: titulo });
       return;
     } catch (e) {
-      if (e?.name === 'AbortError') return; // usuário cancelou
+      if (e?.name === 'AbortError') return;
     }
   }
 
@@ -222,21 +240,16 @@ export async function exportPDF(titulo, colunas, linhas) {
   }
 
   // APK / WebView: envia ao storage e abre a URL externamente
-  await uploadAndOpen(blob, filename);
+  const file_url = await uploadToStorage(blob, filename);
+  openExternally(file_url);
 }
 
-/** Compartilha o PDF. No APK, envia ao storage e abre externamente. */
+/** Abre a folha de compartilhamento nativa do celular com o link do PDF. */
 export async function sharePDF(titulo, colunas, linhas) {
   const blob = gerarPDFDoc(titulo, colunas, linhas);
   const filename = `${sanitizeFilename(titulo)}.pdf`;
-  const file = new File([blob], filename, { type: 'application/pdf' });
-
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    await navigator.share({ files: [file], title: titulo, text: titulo });
-    return;
-  }
-
-  await uploadAndOpen(blob, filename);
+  const file_url = await uploadToStorage(blob, filename);
+  await shareUrl(file_url, titulo);
 }
 
 export function exportCSV(titulo, colunas, linhas) {
