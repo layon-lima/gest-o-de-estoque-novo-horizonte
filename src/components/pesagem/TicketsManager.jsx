@@ -15,6 +15,8 @@ import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
 import VincularTicketDialog from './VincularTicketDialog';
 
+const TIPO_LABEL = { venda: 'Venda', lavoura: 'Lavoura', compra: 'Compra', entrada_saida: 'Ent/Saída' };
+
 export default function TicketsManager({ tickets, pedidos, pessoas, produtos, transportadoras, onReload, mode = 'ativos', isAdmin }) {
   const historico = mode === 'historico';
   const naovinculados = mode === 'naovinculados';
@@ -30,6 +32,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedidoDoTicket = (id) => pedidos.find((p) => p.id === id);
+  const produtoDoTicket = (t) => t.produto_id ? produtoNome(t.produto_id) : (t.tipo === 'venda' ? 'A definir' : '—');
 
   const abertos = useMemo(
     () => tickets.filter((t) => t.status === 'aberto').sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
@@ -130,12 +133,15 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetalheTicket(t)}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-xs">{t.numero}</span>
-                      <span className="font-medium text-sm truncate">{t.motorista}</span>
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5">{TIPO_LABEL[t.tipo] || t.tipo}</Badge>
                       <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white border">{formatPlaca(t.placa)}</span>
+                      <span className="font-medium text-sm truncate">{t.motorista}</span>
                     </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-muted-foreground">Tara: <span className="font-semibold text-foreground">{formatKg(t.peso_tara)}</span></span>
-                      <span className="text-[10px] text-muted-foreground">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : ''}</span>
+                    <div className="flex items-center justify-between mt-1 gap-2">
+                      <span className="text-xs text-muted-foreground truncate min-w-0">
+                        {produtoDoTicket(t)} · Tara: <span className="font-semibold text-foreground">{formatKg(t.peso_tara)}</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : ''}</span>
                     </div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">

@@ -24,8 +24,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { parseQtd } from '@/lib/format';
-import { normalizePlaca, nextTicketNumber } from '@/lib/pesagem';
+import { parseQtd, formatQtd } from '@/lib/format';
+import { normalizePlaca, nextTicketNumber, formatKg } from '@/lib/pesagem';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
@@ -49,6 +49,18 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
   const podeDigitar = podeDigitarPeso(user);
 
   const motoristas = useMemo(() => pessoas.filter((p) => p.is_motorista), [pessoas]);
+
+  const taraSugerida = useMemo(() => {
+    const placaNorm = normalizePlaca(form.placa);
+    if (!placaNorm) return null;
+    const doMesmoCaminhao = tickets
+      .filter((t) => t.status === 'fechado' && normalizePlaca(t.placa) === placaNorm)
+      .sort((a, b) => new Date(b.data_abertura || 0) - new Date(a.data_abertura || 0));
+    const ultimo = doMesmoCaminhao[0];
+    if (!ultimo) return null;
+    const tara = Math.min(ultimo.peso_tara || 0, ultimo.peso_bruto || 0);
+    return tara > 0 ? tara : null;
+  }, [form.placa, tickets]);
 
   function resetForm() { setForm(empty); setStep('tipo'); }
 
@@ -193,6 +205,16 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                   <Label className="text-xs">Placa *</Label>
                   <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
                 </div>
+                {taraSugerida && !form.peso && (
+                  <div className="sm:col-span-2 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                    <Truck className="w-5 h-5 text-primary shrink-0" />
+                    <div className="flex-1 text-sm min-w-0">
+                      <span className="text-muted-foreground">Tara do último ticket desta placa: </span>
+                      <span className="font-semibold text-primary">{formatKg(taraSugerida)}</span>
+                    </div>
+                    <Button type="button" size="sm" className="shrink-0" onClick={() => setForm({ ...form, peso: formatQtd(taraSugerida) })}>Usar</Button>
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <PesoDisplay
                     label="Peso da 1ª Pesagem (kg) *"

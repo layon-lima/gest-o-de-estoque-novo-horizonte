@@ -52,28 +52,24 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
                 <span className="text-xs text-muted-foreground">Abertura: {ticket.data_abertura ? new Date(ticket.data_abertura).toLocaleString('pt-BR') : '—'}</span>
               </div>
 
-              {ticket.tipo !== 'venda' && (ticket.produto_id || ticket.origem || ticket.destino) && (
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {ticket.produto_id && (
-                    <div className="rounded-lg border p-3">
-                      <p className="text-xs text-muted-foreground">Produto</p>
-                      <p className="font-medium truncate">{produtoNome(ticket.produto_id)}</p>
-                    </div>
-                  )}
-                  {ticket.origem && (
-                    <div className="rounded-lg border p-3">
-                      <p className="text-xs text-muted-foreground">Origem</p>
-                      <p className="font-medium truncate">{ticket.origem}</p>
-                    </div>
-                  )}
-                  {ticket.destino && (
-                    <div className="rounded-lg border p-3 col-span-2">
-                      <p className="text-xs text-muted-foreground">Destino</p>
-                      <p className="font-medium truncate">{ticket.destino}</p>
-                    </div>
-                  )}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Produto</p>
+                  <p className="font-medium truncate">{produtoNome(ticket.produto_id || pedido?.produto_id || '')}</p>
                 </div>
-              )}
+                {ticket.origem && (
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-muted-foreground">Origem</p>
+                    <p className="font-medium truncate">{ticket.origem}</p>
+                  </div>
+                )}
+                {ticket.destino && (
+                  <div className="rounded-lg border p-3 col-span-2">
+                    <p className="text-xs text-muted-foreground">Destino</p>
+                    <p className="font-medium truncate">{ticket.destino}</p>
+                  </div>
+                )}
+              </div>
 
               {ticket.transportadora_nome && (
                 <div className="rounded-lg border p-3 text-sm">

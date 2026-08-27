@@ -32,6 +32,8 @@ import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
 
+const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
+
 export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed, onReload }) {
   const [pesoBruto, setPesoBruto] = useState('');
   const [pedidoId, setPedidoId] = useState('');
@@ -229,6 +231,14 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
         ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Tipo</p>
+              <p className="font-medium">{TIPO_LABEL[ticket.tipo] || '—'}</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Produto</p>
+              <p className="font-medium truncate">{produtoNome(isVenda ? (pedidoSel?.produto_id || '') : (ticket.produto_id || ''))}</p>
+            </div>
             <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Motorista</p>
               <p className="font-medium truncate">{ticket.motorista}</p>
