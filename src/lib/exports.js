@@ -39,7 +39,7 @@ function drawCell(doc, value, colStart, colWidth, yText, baseFontSize, align) {
   doc.setFontSize(baseFontSize);
 }
 
-export async function exportPDF(titulo, colunas, linhas) {
+function gerarPDFDoc(titulo, colunas, linhas) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -166,12 +166,54 @@ export async function exportPDF(titulo, colunas, linhas) {
     rowIndex++;
   });
 
-  // Download via blob — mais confiável no mobile (doc.save() perde o gesto do usuário)
-  const blob = doc.output('blob');
+  return doc.output('blob');
+}
+
+const sanitizeFilename = (titulo) =>
+  `${titulo}`.replace(/[^\w\- ]/g, '').trim() || 'relatorio';
+
+/** Baixa o PDF (desktop) ou abre a folha de compartilhamento nativa (mobile). */
+export async function exportPDF(titulo, colunas, linhas) {
+  const blob = gerarPDFDoc(titulo, colunas, linhas);
+  const filename = `${sanitizeFilename(titulo)}.pdf`;
+  const file = new File([blob], filename, { type: 'application/pdf' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: titulo });
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return; // usuário cancelou
+      // senão, cai no fallback de download
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${titulo}.pdf`;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/** Compartilha o PDF via Web Share API (mobile). */
+export async function sharePDF(titulo, colunas, linhas) {
+  const blob = gerarPDFDoc(titulo, colunas, linhas);
+  const filename = `${sanitizeFilename(titulo)}.pdf`;
+  const file = new File([blob], filename, { type: 'application/pdf' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: titulo, text: titulo });
+    return;
+  }
+
+  // Sem suporte a compartilhamento — faz download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

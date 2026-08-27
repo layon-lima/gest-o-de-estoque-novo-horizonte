@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileSpreadsheet, FileDown, Truck, Wallet, Package } from 'lucide-react';
+import { FileSpreadsheet, FileDown, Share2, Truck, Wallet, Package } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { exportPDF, exportCSV } from '@/lib/exports';
+import { exportPDF, exportCSV, sharePDF } from '@/lib/exports';
 import { formatMoeda, formatKg, round3 } from '@/lib/pesagem';
 
 const FORMAS = [
@@ -211,6 +211,15 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
       toast({ title: 'Erro ao gerar PDF', description: e.message || String(e), variant: 'destructive' });
     }
   }
+  async function handleShare() {
+    try {
+      const { cols, rows } = buildReport();
+      await sharePDF('Relatório de Pagamentos e Carregamentos', cols, rows);
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      toast({ title: 'Erro ao compartilhar', description: e.message || String(e), variant: 'destructive' });
+    }
+  }
 
   const hasData = dadosPorPedido.length > 0;
 
@@ -263,10 +272,11 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
         </div>
 
         {/* Botões */}
-        <div className="flex gap-2 pt-1">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Fechar</Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={handlePDF} disabled={!hasData}><FileDown className="w-4 h-4 mr-2" /> PDF</Button>
-          <Button type="button" className="flex-1 hidden sm:flex" onClick={handleCSV} disabled={!hasData}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
+        <div className="flex gap-2 pt-1 flex-wrap">
+          <Button type="button" variant="outline" className="flex-1 min-w-[110px]" onClick={onClose}>Fechar</Button>
+          <Button type="button" variant="outline" className="flex-1 min-w-[110px]" onClick={handlePDF} disabled={!hasData}><FileDown className="w-4 h-4 mr-2" /> PDF</Button>
+          <Button type="button" variant="outline" className="flex-1 min-w-[110px] sm:hidden" onClick={handleShare} disabled={!hasData}><Share2 className="w-4 h-4 mr-2" /> Compartilhar</Button>
+          <Button type="button" className="flex-1 min-w-[110px] hidden sm:flex" onClick={handleCSV} disabled={!hasData}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
         </div>
       </DialogContent>
     </Dialog>
