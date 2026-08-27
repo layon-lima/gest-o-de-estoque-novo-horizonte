@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { FileSpreadsheet, FileDown, Truck, Wallet, Package } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ function valorTicket(ticket, pedido) {
 }
 
 export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pedidos, pessoas, tickets }) {
+  const { toast } = useToast();
   const [clienteId, setClienteId] = useState('todos');
   const [pedidoId, setPedidoId] = useState('todos');
   const [dataInicio, setDataInicio] = useState('');
@@ -186,7 +188,7 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
       fmtMoeda(totais.valorPago),
     ]);
     rows.push([
-      '', '', '', '', '', 'Saldo Total', '',
+      '', '', '', '', '', 'Pendente de Pagamento', '',
       fmtMoeda(round3(totais.valorCarregado - totais.valorPago)),
     ]);
 
@@ -197,9 +199,13 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
     const { cols, rows } = buildReport();
     exportCSV('Relatório de Pagamentos e Carregamentos', cols, rows);
   }
-  function handlePDF() {
-    const { cols, rows } = buildReport();
-    exportPDF('Relatório de Pagamentos e Carregamentos', cols, rows);
+  async function handlePDF() {
+    try {
+      const { cols, rows } = buildReport();
+      await exportPDF('Relatório de Pagamentos e Carregamentos', cols, rows);
+    } catch (e) {
+      toast({ title: 'Erro ao gerar PDF', description: e.message || String(e), variant: 'destructive' });
+    }
   }
 
   const hasData = dadosPorPedido.length > 0;
@@ -364,7 +370,7 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
         <div className="flex gap-2 pt-1">
           <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Fechar</Button>
           <Button type="button" variant="outline" className="flex-1" onClick={handlePDF} disabled={!hasData}><FileDown className="w-4 h-4 mr-2" /> PDF</Button>
-          <Button type="button" className="flex-1" onClick={handleCSV} disabled={!hasData}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
+          <Button type="button" className="flex-1 hidden sm:flex" onClick={handleCSV} disabled={!hasData}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,3 +1,5 @@
+import { jsPDF } from 'jspdf';
+
 // Trunca texto longo com "…" quando não cabe mesmo no tamanho mínimo de fonte.
 function fitText(doc, value, maxWidth) {
   const text = String(value ?? '');
@@ -38,7 +40,6 @@ function drawCell(doc, value, colStart, colWidth, yText, baseFontSize, align) {
 }
 
 export async function exportPDF(titulo, colunas, linhas) {
-  const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -165,7 +166,16 @@ export async function exportPDF(titulo, colunas, linhas) {
     rowIndex++;
   });
 
-  doc.save(`${titulo}.pdf`);
+  // Download via blob — mais confiável no mobile (doc.save() perde o gesto do usuário)
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${titulo}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 export function exportCSV(titulo, colunas, linhas) {
