@@ -44,7 +44,7 @@ function valorTicket(ticket, pedido) {
   return round3(sacas * valorSaca);
 }
 
-export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pedidos, pessoas, tickets }) {
+export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pedidos, pessoas, produtos, tickets }) {
   const { toast } = useToast();
   const [clienteId, setClienteId] = useState('todos');
   const [pedidoId, setPedidoId] = useState('todos');
@@ -53,6 +53,7 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const pedidoNumero = (id) => pedidos.find((p) => p.id === id)?.numero || '—';
+  const produtoNome = (id) => produtos?.find((p) => p.id === id)?.nome || '—';
 
   const clientes = useMemo(() => pessoas.filter((p) => p.is_cliente), [pessoas]);
   const pedidosAtivos = useMemo(() => pedidos.filter((p) => p.status !== 'cancelado'), [pedidos]);
@@ -127,7 +128,7 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
 
   function buildReport() {
     const cols = [
-      'Pedido', 'Cliente', 'Tipo', 'Número', 'Data',
+      'Pedido', 'Cliente', 'Produto', 'Tipo', 'Número', 'Data',
       'Detalhe', 'Peso Líq. (kg)', 'Valor (R$)',
     ];
     const rows = [];
@@ -135,12 +136,14 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
     dadosPorPedido.forEach((d) => {
       const { pedido: ped, carregamentos, pagamentos: pagtos } = d;
       const cliente = clienteNome(ped.cliente_id);
+      const produto = produtoNome(ped.produto_id);
 
       // Carregamentos
       carregamentos.forEach((t) => {
         rows.push([
           ped.numero || '—',
           cliente,
+          produto,
           'Carregamento',
           t.numero || '—',
           t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—',
@@ -155,6 +158,7 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
         rows.push([
           ped.numero || '—',
           cliente,
+          produto,
           'Pagamento',
           p.numero || '—',
           p.data_pagamento ? new Date(p.data_pagamento).toLocaleString('pt-BR') : '—',
@@ -166,29 +170,29 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
 
       // Subtotal do pedido
       rows.push([
-        '', '', 'Subtotal', '', '', '',
+        '', '', '', 'Subtotal', '', '', '',
         fmtKg(d.kgCarregado),
         fmtMoeda(d.valorCarregado),
       ]);
       rows.push([
-        '', '', '', '', '', 'Saldo a Receber', '',
+        '', '', '', '', '', '', 'Saldo a Receber', '',
         fmtMoeda(d.saldo),
       ]);
     });
 
     // Total geral
-    rows.push(['', '', '', '', '', '', '', '']);
+    rows.push(['', '', '', '', '', '', '', '', '']);
     rows.push([
-      '', '', 'TOTAL GERAL', '', '', 'Carregado',
+      '', '', '', 'TOTAL GERAL', '', '', 'Carregado',
       fmtKg(totais.kgCarregado),
       fmtMoeda(totais.valorCarregado),
     ]);
     rows.push([
-      '', '', '', '', '', 'Recebido', '',
+      '', '', '', '', '', '', 'Recebido', '',
       fmtMoeda(totais.valorPago),
     ]);
     rows.push([
-      '', '', '', '', '', 'Pendente de Pagamento', '',
+      '', '', '', '', '', '', 'Pendente de Pagamento', '',
       fmtMoeda(round3(totais.valorCarregado - totais.valorPago)),
     ]);
 

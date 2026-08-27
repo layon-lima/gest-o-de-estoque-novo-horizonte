@@ -49,7 +49,7 @@ export default function Pesagem() {
             <PedidosManager pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} transportadoras={transportadoras} pagamentos={pagamentos} onReload={load} isAdmin={isAdmin} />
           </TabsContent>
           <TabsContent value="pagamentos" className="mt-4">
-            <PagamentosManager pagamentos={pagamentos} pedidos={pedidos} pessoas={pessoas} tickets={tickets} onReload={load} />
+            <PagamentosManager pagamentos={pagamentos} pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} onReload={load} />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="naovinculados" className="mt-4 hidden sm:block">

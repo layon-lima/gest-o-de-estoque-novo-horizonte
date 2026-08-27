@@ -27,7 +27,7 @@ const FORMA_LABELS = {
   boleto: 'Boleto', cartao: 'Cartão', cheque: 'Cheque', outro: 'Outro',
 };
 
-export default function PagamentosManager({ pagamentos, pedidos, pessoas, tickets, onReload }) {
+export default function PagamentosManager({ pagamentos, pedidos, pessoas, produtos, tickets, onReload }) {
   const [busca, setBusca] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -243,6 +243,7 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
         pagamentos={pagamentos}
         pedidos={pedidos}
         pessoas={pessoas}
+        produtos={produtos}
         tickets={tickets}
       />
     </div>
