@@ -78,14 +78,11 @@ export default function Movimentacoes() {
     () => gavetasComSaldoDoProduto(form.produto_id, form.deposito_origem_id, saldos, gavetas),
     [form.produto_id, form.deposito_origem_id, saldos, gavetas]
   );
-  const tipoOptions = useMemo(() => {
-    const opts = [{ value: 'entrada', label: 'Entrada Nota Fiscal' }];
-    if (temSaldo) {
-      opts.push({ value: 'saida', label: 'Baixa Estoque' });
-      opts.push({ value: 'transferencia', label: 'Transferência de Depósito' });
-    }
-    return opts;
-  }, [temSaldo]);
+  const tipoOptions = [
+    { value: 'entrada', label: 'Entrada Nota Fiscal' },
+    { value: 'saida', label: 'Baixa Estoque' },
+    { value: 'transferencia', label: 'Transferência de Depósito' },
+  ];
 
   const saldoOrigem = useMemo(() => {
     if (!produtoSelecionado || !form.deposito_origem_id) return 0;
