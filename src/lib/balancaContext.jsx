@@ -61,6 +61,21 @@ function bytesToHex(str) {
   return Array.from(str).map(c => '0x' + c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase()).join(' ');
 }
 
+/** Verifica se um erro indica que o dispositivo físico foi removido. */
+function isDeviceLostError(e) {
+  const errName = e.name || '';
+  const errMsg = (e.message || String(e)).toLowerCase();
+  return (
+    errName === 'NetworkError' ||
+    errMsg.includes('device has been lost') ||
+    errMsg.includes('port is not open') ||
+    errMsg.includes('the port is no longer') ||
+    errMsg.includes('usb device')
+  );
+}
+
+const MAX_RETRIES = 5;
+
 export function BalancaProvider({ children }) {
   const [suportado, setSuportado] = useState(true);
   const [status, setStatus] = useState('desconectado'); // desconectado | conectando | conectado | erro | nao_suportado
@@ -77,7 +92,6 @@ export function BalancaProvider({ children }) {
   const [erro, setErro] = useState(null);
   const [lendo, setLendo] = useState(false);
   const [rawData, setRawData] = useState('');
-  // rawData mantido apenas para debug interno — não é exibido na UI
   const [dataBits, setDataBits] = useState(() => parseInt(loadSetting(DATABITS_KEY, '8'), 10));
   const [stopBits, setStopBits] = useState(() => parseInt(loadSetting(STOPBITS_KEY, '1'), 10));
   const [parity, setParity] = useState(() => loadSetting(PARITY_KEY, 'none'));
@@ -89,6 +103,8 @@ export function BalancaProvider({ children }) {
   const ultimaLeituraRef = useRef(null);
   const dadosRecebidosRef = useRef(false);
   const rawDataRef = useRef('');
+  const loopRunningRef = useRef(false);
+  const lastRawUpdateRef = useRef(0);
   const casasDecimaisRef = useRef(casasDecimais);
   const baudRateRef = useRef(baudRate);
   const dataBitsRef = useRef(dataBits);
@@ -104,98 +120,155 @@ export function BalancaProvider({ children }) {
   }, [casasDecimais, baudRate, dataBits, stopBits, parity]);
 
   /**
-   * Inicia o loop de leitura contínua do protocolo Cougar p03.
+   * Inicia o loop de leitura contínua do protocolo Cougar p03 com WATCHDOG.
+   * Se o loop morrer por qualquer motivo (sem shouldStop), reinicia automaticamente
+   * com backoff exponencial até MAX_RETRIES tentativas.
    * A balança envia frames continuamente — não é necessário enviar comandos.
    * Cada frame é delimitado por CR e/ou LF.
    */
   const iniciarLeituraContinua = useCallback(async () => {
     const port = portRef.current;
-    if (!port || !port.readable) return;
+    if (!port) return;
 
-    let reader;
+    // Guarda: não inicia loop duplicado
+    if (loopRunningRef.current) return;
+    loopRunningRef.current = true;
+
+    shouldStopRef.current = false;
+    let tentativas = 0;
+
     try {
-      reader = port.readable.getReader();
-      readerRef.current = reader;
-      const decoder = new TextDecoder();
-      let buffer = '';
+      while (!shouldStopRef.current && tentativas < MAX_RETRIES) {
+        // Se a porta não é mais legível, o dispositivo foi removido fisicamente
+        if (!port.readable) {
+          if (!shouldStopRef.current) {
+            setStatus('desconectado');
+            portRef.current = null;
+            setPortaInfo(null);
+            ultimaLeituraRef.current = null;
+          }
+          return;
+        }
 
-      while (!shouldStopRef.current) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        dadosRecebidosRef.current = true;
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-        rawDataRef.current = (rawDataRef.current + chunk).slice(-300);
-        setRawData(rawDataRef.current);
+        let reader;
+        try {
+          reader = port.readable.getReader();
+          readerRef.current = reader;
+          const decoder = new TextDecoder();
+          let buffer = '';
+          tentativas = 0; // Resetou — leitura está funcionando
 
-        // Processa frames completos (delimitados por CR ou LF)
-        let nlIdx;
-        while ((nlIdx = buffer.search(/[\r\n]/)) >= 0) {
-          const frame = buffer.substring(0, nlIdx);
-          let skip = 1;
-          if (buffer[nlIdx] === '\r' && buffer[nlIdx + 1] === '\n') skip = 2;
-          buffer = buffer.substring(nlIdx + skip);
+          while (!shouldStopRef.current) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            dadosRecebidosRef.current = true;
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+            rawDataRef.current = (rawDataRef.current + chunk).slice(-300);
 
-          if (frame.length > 0) {
-            const peso = parseFrameCougar(frame);
-            if (peso !== null) {
-              const anterior = ultimaLeituraRef.current;
-              // Só atualiza a tela quando o peso muda — espelha o visor físico da balança
-              if (!anterior || anterior.peso !== peso) {
+            // Throttle: atualiza estado de rawData no máximo 2x por segundo
+            const now = Date.now();
+            if (now - lastRawUpdateRef.current > 500) {
+              lastRawUpdateRef.current = now;
+              setRawData(rawDataRef.current);
+            }
+
+            // Processa frames completos (delimitados por CR ou LF)
+            let nlIdx;
+            while ((nlIdx = buffer.search(/[\r\n]/)) >= 0) {
+              const frame = buffer.substring(0, nlIdx);
+              let skip = 1;
+              if (buffer[nlIdx] === '\r' && buffer[nlIdx + 1] === '\n') skip = 2;
+              buffer = buffer.substring(nlIdx + skip);
+
+              if (frame.length > 0) {
+                const peso = parseFrameCougar(frame);
+                if (peso !== null) {
+                  const anterior = ultimaLeituraRef.current;
+                  // Só atualiza a tela quando o peso muda — espelha o visor físico da balança
+                  if (!anterior || anterior.peso !== peso) {
+                    const leitura = { peso, timestamp: new Date().toISOString() };
+                    ultimaLeituraRef.current = leitura;
+                    setUltimaLeitura(leitura);
+                  } else {
+                    // Atualiza só o timestamp para que lerPeso saiba que a leitura é fresca
+                    ultimaLeituraRef.current = { ...anterior, timestamp: new Date().toISOString() };
+                  }
+                }
+              }
+            }
+
+            // Fallback: sem delimitador mas buffer com dados suficientes — tenta parsear direto
+            if (buffer.length >= 12 && !/[\r\n]/.test(buffer)) {
+              const peso = parseFrameCougar(buffer);
+              if (peso !== null) {
                 const leitura = { peso, timestamp: new Date().toISOString() };
                 ultimaLeituraRef.current = leitura;
                 setUltimaLeitura(leitura);
-              } else {
-                // Atualiza só o timestamp para que lerPeso saiba que a leitura é fresca
-                ultimaLeituraRef.current = { ...anterior, timestamp: new Date().toISOString() };
               }
+              buffer = '';
             }
-          }
-        }
 
-        // Fallback: sem delimitador mas buffer com dados suficientes — tenta parsear direto
-        if (buffer.length >= 12 && !/[\r\n]/.test(buffer)) {
-          const peso = parseFrameCougar(buffer);
-          if (peso !== null) {
-            const leitura = { peso, timestamp: new Date().toISOString() };
-            ultimaLeituraRef.current = leitura;
-            setUltimaLeitura(leitura);
+            if (buffer.length > 256) buffer = '';
           }
-          buffer = '';
-        }
+        } catch (e) {
+          if (shouldStopRef.current) break;
 
-        if (buffer.length > 256) buffer = '';
+          // Erro fatal: dispositivo foi removido fisicamente
+          if (isDeviceLostError(e) || !port.readable) {
+            setStatus('desconectado');
+            portRef.current = null;
+            setPortaInfo(null);
+            ultimaLeituraRef.current = null;
+            return;
+          }
+
+          // Erro recuperável: incrementa tentativas e tenta novamente
+          tentativas++;
+          console.warn(`[Balanca] Loop reiniciando após erro (tentativa ${tentativas}/${MAX_RETRIES}):`, e);
+          if (tentativas < MAX_RETRIES) {
+            // Backoff exponencial: 1s, 2s, 3s, 4s...
+            await new Promise(r => setTimeout(r, 1000 * tentativas));
+          }
+        } finally {
+          if (reader) {
+            try { reader.releaseLock(); } catch {}
+          }
+          readerRef.current = null;
+        }
       }
-    } catch (e) {
-      if (!shouldStopRef.current) {
-        if (e.name === 'NetworkError') {
-          setStatus('desconectado');
-          portRef.current = null;
-          setPortaInfo(null);
-          ultimaLeituraRef.current = null;
+
+      // Esgotou as tentativas sem shouldStop — sinaliza erro ao usuário
+      if (!shouldStopRef.current && tentativas >= MAX_RETRIES) {
+        setStatus('erro');
+        const raw = rawDataRef.current || '';
+        if (raw) {
+          setErro(`A balança parou de responder após ${MAX_RETRIES} tentativas. Últimos dados recebidos (hex): ${bytesToHex(raw)}. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
         } else {
-          // Outros erros não devem matar o loop silenciosamente
-          console.error('[Balanca] Erro no loop de leitura:', e);
+          setErro(`Não foi possível manter a comunicação com a balança após ${MAX_RETRIES} tentativas. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
         }
       }
     } finally {
-      if (reader) {
-        try { reader.releaseLock(); } catch {}
-      }
-      readerRef.current = null;
+      loopRunningRef.current = false;
     }
   }, []);
 
-  /** Para o loop de leitura contínua e libera o reader. */
+  /** Para o loop de leitura contínua e libera o reader (com timeout para não travar). */
   const pararLeitura = useCallback(async () => {
     shouldStopRef.current = true;
     const reader = readerRef.current;
     if (reader) {
-      try { await reader.cancel(); } catch {}
+      try {
+        // Timeout de 2s para não travar indefinidamente se o reader travou
+        await Promise.race([
+          reader.cancel(),
+          new Promise(r => setTimeout(r, 2000)),
+        ]);
+      } catch {}
     }
-    // Aguarda o loop terminar
+    // Aguarda o loop terminar (máx 2s)
     let attempts = 0;
-    while (readerRef.current && attempts < 20) {
+    while (loopRunningRef.current && attempts < 40) {
       await new Promise((r) => setTimeout(r, 50));
       attempts++;
     }
@@ -216,8 +289,16 @@ export function BalancaProvider({ children }) {
       setStatus('conectado');
       shouldStopRef.current = false;
       iniciarLeituraContinua();
-    } catch {
-      // Porta não autorizada ou em uso — ignora silenciosamente
+    } catch (e) {
+      // Porta não autorizada ou em uso — ignora silenciosamente na auto-conexão
+      // mas se for InvalidStateError (já aberta), reutiliza a porta
+      if (e.name === 'InvalidStateError') {
+        portRef.current = port;
+        setPortaInfo(port.getInfo());
+        setStatus('conectado');
+        shouldStopRef.current = false;
+        if (!loopRunningRef.current) iniciarLeituraContinua();
+      }
     }
   }, [iniciarLeituraContinua]);
 
@@ -274,6 +355,7 @@ export function BalancaProvider({ children }) {
       const port = portRef.current;
       if (port) { try { port.close(); } catch {} }
       portRef.current = null;
+      loopRunningRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -287,7 +369,6 @@ export function BalancaProvider({ children }) {
     setStatus('conectando');
     try {
       const port = await navigator.serial.requestPort();
-      // Para leitura existente e fecha porta antiga
       await pararLeitura();
       const oldPort = portRef.current;
       if (oldPort) {
@@ -305,8 +386,17 @@ export function BalancaProvider({ children }) {
       if (e.name === 'NotFoundError' || e.name === 'AbortError') {
         setStatus('desconectado');
       } else if (e.name === 'InvalidStateError') {
+        // Porta já aberta — reutiliza
+        portRef.current = portRef.current;
+        setStatus('conectado');
+        if (!loopRunningRef.current) {
+          shouldStopRef.current = false;
+          iniciarLeituraContinua();
+        }
+        return true;
+      } else if (e.name === 'SecurityError') {
         setStatus('erro');
-        setErro('A porta já está aberta por outro aplicativo. Feche o outro programa e tente novamente.');
+        setErro('Acesso negado pelo navegador. Use Chrome ou Edge em desktop via HTTPS.');
       } else {
         setStatus('erro');
         setErro(`Erro ao abrir porta: ${e.message || e}`);
@@ -332,12 +422,29 @@ export function BalancaProvider({ children }) {
   /**
    * Retorna o peso atual da balança.
    * No modo contínuo Cougar p03, a balança envia leituras continuamente,
-   * então este método retorna a leitura mais recente (se tiver < 2s) ou
-   * aguarda até 3s por uma nova leitura.
+   * então este método retorna a leitura mais recente (se tiver < 4s) ou
+   * aguarda até 8s por uma nova leitura.
    */
   const lerPeso = useCallback(async () => {
-    const port = portRef.current;
+    let port = portRef.current;
     if (!port) return null;
+
+    // Se a porta morreu (dispositivo removido), limpa e falha
+    if (!port.readable) {
+      setStatus('desconectado');
+      portRef.current = null;
+      setPortaInfo(null);
+      ultimaLeituraRef.current = null;
+      setErro('A balança foi desconectada. Conecte novamente.');
+      return null;
+    }
+
+    // Se o loop não está rodando (morreu por erro), reinicia
+    if (!loopRunningRef.current && !readerRef.current) {
+      shouldStopRef.current = false;
+      iniciarLeituraContinua();
+    }
+
     setLendo(true);
     setErro(null);
     try {
@@ -346,9 +453,9 @@ export function BalancaProvider({ children }) {
       if (atual && Date.now() - new Date(atual.timestamp).getTime() < 4000) {
         return atual.peso;
       }
-      // Aguarda até 6s por uma nova leitura do stream contínuo
+      // Aguarda até 8s por uma nova leitura do stream contínuo
       const startTime = Date.now();
-      while (Date.now() - startTime < 6000) {
+      while (Date.now() - startTime < 8000) {
         await new Promise((r) => setTimeout(r, 150));
         const leitura = ultimaLeituraRef.current;
         if (leitura && Date.now() - new Date(leitura.timestamp).getTime() < 4000) {
@@ -360,10 +467,10 @@ export function BalancaProvider({ children }) {
       const msg = e.message || String(e);
       if (msg === 'timeout') {
         const raw = rawDataRef.current || '';
-        if (raw) {
-          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (formato hexadecimal): ${bytesToHex(raw)}. Verifique se o protocolo da balança está como Cougar p03 contínuo. Se o problema persistir, copie estes dados e entre em contato com o suporte.`);
+        if (dadosRecebidosRef.current && raw) {
+          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (hex): ${bytesToHex(raw)}. Verifique se o protocolo da balança está como Cougar p03 contínuo. Se o problema persistir, copie estes dados e entre em contato com o suporte.`);
         } else {
-          setErro('Tempo esgotado: a balança não enviou dados em 6 segundos. Verifique se está ligada, se o cabo está conectado e se o protocolo está como Cougar p03 contínuo.');
+          setErro('Tempo esgotado: a balança não enviou dados em 8 segundos. Verifique se está ligada, se o cabo está conectado e se o driver USB do conversor serial está instalado neste PC.');
         }
       } else if (msg === 'porta_perdida') {
         setErro('A conexão com a balança foi perdida. Reconecte na página Balança.');
@@ -377,7 +484,65 @@ export function BalancaProvider({ children }) {
     } finally {
       setLendo(false);
     }
-  }, []);
+  }, [iniciarLeituraContinua]);
+
+  /** Tenta reconectar usando a última porta autorizada (sem pedir seleção ao usuário). */
+  const reconectar = useCallback(async () => {
+    if (!('serial' in navigator)) {
+      setSuportado(false);
+      return false;
+    }
+    setErro(null);
+    setStatus('conectando');
+
+    // Tenta usar portas já autorizadas
+    try {
+      const ports = await navigator.serial.getPorts();
+      if (ports.length > 0) {
+        const port = ports[0];
+        await pararLeitura();
+        const oldPort = portRef.current;
+        if (oldPort) {
+          try { await oldPort.close(); } catch {}
+          portRef.current = null;
+        }
+        try {
+          await port.open({
+            baudRate: baudRateRef.current,
+            dataBits: dataBitsRef.current,
+            stopBits: stopBitsRef.current,
+            parity: parityRef.current,
+          });
+          portRef.current = port;
+          setPortaInfo(port.getInfo());
+          shouldStopRef.current = false;
+          ultimaLeituraRef.current = null;
+          dadosRecebidosRef.current = false;
+          rawDataRef.current = '';
+          setUltimaLeitura(null);
+          setRawData('');
+          setStatus('conectado');
+          iniciarLeituraContinua();
+          return true;
+        } catch (e) {
+          if (e.name === 'InvalidStateError') {
+            portRef.current = port;
+            setPortaInfo(port.getInfo());
+            setStatus('conectado');
+            shouldStopRef.current = false;
+            if (!loopRunningRef.current) iniciarLeituraContinua();
+            return true;
+          }
+          throw e;
+        }
+      }
+    } catch (e) {
+      // Continua para requestPort
+    }
+
+    // Sem portas autorizadas — pede seleção ao usuário
+    return conectar();
+  }, [pararLeitura, iniciarLeituraContinua, conectar]);
 
   const trocarBaudRate = useCallback((novoBaud) => {
     setBaudRate(novoBaud);
@@ -413,13 +578,14 @@ export function BalancaProvider({ children }) {
   const conectarComAutoDeteccao = useCallback(async () => {
     if (!('serial' in navigator)) {
       setSuportado(false);
+      setStatus('nao_suportado');
       return false;
     }
     setErro(null);
 
     // Se a porta já está aberta e conectada, NÃO fecha — apenas garante leitura ativa
     if (portRef.current && portRef.current.readable) {
-      if (!readerRef.current) {
+      if (!loopRunningRef.current && !readerRef.current) {
         shouldStopRef.current = false;
         iniciarLeituraContinua();
       }
@@ -432,7 +598,12 @@ export function BalancaProvider({ children }) {
       const port = await navigator.serial.requestPort();
 
       // Abre UMA VEZ na taxa salva — sem ciclar entre baud rates
-      await port.open({ baudRate, dataBits, stopBits, parity });
+      await port.open({
+        baudRate: baudRateRef.current,
+        dataBits: dataBitsRef.current,
+        stopBits: stopBitsRef.current,
+        parity: parityRef.current,
+      });
       portRef.current = port;
       setPortaInfo(port.getInfo());
       shouldStopRef.current = false;
@@ -446,22 +617,32 @@ export function BalancaProvider({ children }) {
       return true;
     } catch (e) {
       if (e.name === 'NotFoundError' || e.name === 'AbortError') {
+        // Usuário cancelou a seleção de porta
         setStatus('desconectado');
       } else if (e.name === 'InvalidStateError') {
         // A porta já estava aberta — usa ela
         setStatus('conectado');
-        if (!readerRef.current) {
+        if (!loopRunningRef.current) {
           shouldStopRef.current = false;
           iniciarLeituraContinua();
         }
         return true;
+      } else if (e.name === 'SecurityError') {
+        setStatus('erro');
+        setErro('Acesso negado pelo navegador. Use Chrome ou Edge em desktop via HTTPS.');
+      } else if (e.name === 'NotSupportedError') {
+        setStatus('erro');
+        setErro('Combinação de parâmetros não suportada pelo adaptador. Tente 8 data bits, 1 stop bit, parity none.');
+      } else if (e.name === 'NetworkError') {
+        setStatus('erro');
+        setErro('A porta está ocupada por outro programa. Feche qualquer outro software de balança e tente novamente.');
       } else {
         setStatus('erro');
         setErro(`Erro ao abrir porta: ${e.message || e}`);
       }
       return false;
     }
-  }, [baudRate, dataBits, stopBits, parity, iniciarLeituraContinua]);
+  }, [iniciarLeituraContinua]);
 
   const value = {
     suportado,
@@ -478,6 +659,7 @@ export function BalancaProvider({ children }) {
     lendo,
     conectar,
     conectarComAutoDeteccao,
+    reconectar,
     desconectar,
     lerPeso,
     trocarBaudRate,

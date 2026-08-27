@@ -4,7 +4,7 @@ import { useBalanca } from '@/lib/balancaContext';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function LerPesoButton({ onPesoLido, className }) {
-  const { suportado, status, lendo, lerPeso, formatarPeso, conectarComAutoDeteccao, erro } = useBalanca();
+  const { suportado, status, lendo, lerPeso, formatarPeso, conectarComAutoDeteccao, reconectar, erro } = useBalanca();
   const { toast } = useToast();
 
   async function handleClick() {
@@ -17,13 +17,17 @@ export default function LerPesoButton({ onPesoLido, className }) {
       return;
     }
 
-    // Se a balança não está conectada, abre a porta UMA vez (sem cycling de baud rate)
+    // Se a balança não está conectada, tenta reconectar com porta já autorizada;
+    // se não houver, pede seleção da porta ao usuário
     if (status !== 'conectado') {
-      toast({
-        title: 'Conectando balança...',
-        description: 'Selecione a porta USB da balança na janela que abriu.',
-      });
-      const ok = await conectarComAutoDeteccao();
+      let ok = await reconectar();
+      if (!ok) {
+        toast({
+          title: 'Conectando balança...',
+          description: 'Selecione a porta USB da balança na janela que abriu.',
+        });
+        ok = await conectarComAutoDeteccao();
+      }
       if (!ok) {
         toast({
           variant: 'destructive',

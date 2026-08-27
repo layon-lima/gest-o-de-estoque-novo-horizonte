@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Scale, Loader2, Plug, PlugZap, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Scale, Loader2, Plug, PlugZap, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useBalanca } from '@/lib/balancaContext';
 
 export default function BalancaStatusBadge() {
-  const { suportado, status, erro, conectarComAutoDeteccao, desconectar } = useBalanca();
+  const { suportado, status, erro, conectarComAutoDeteccao, reconectar, desconectar } = useBalanca();
   const [open, setOpen] = useState(false);
   const [conectando, setConectando] = useState(false);
 
@@ -30,7 +30,11 @@ export default function BalancaStatusBadge() {
 
   async function handleConectar() {
     setConectando(true);
-    await conectarComAutoDeteccao();
+    // Tenta reconectar com porta já autorizada primeiro; se falhar, pede seleção
+    const ok = await reconectar();
+    if (!ok) {
+      await conectarComAutoDeteccao();
+    }
     setConectando(false);
   }
 
@@ -84,6 +88,8 @@ export default function BalancaStatusBadge() {
               <><Loader2 className="w-4 h-4 animate-spin" /> Conectando...</>
             ) : status === 'conectado' ? (
               <><PlugZap className="w-4 h-4" /> Desconectar</>
+            ) : status === 'erro' ? (
+              <><RefreshCw className="w-4 h-4" /> Reconectar</>
             ) : (
               <><Plug className="w-4 h-4" /> Conectar Balança</>
             )}
