@@ -255,3 +255,40 @@ export async function registrarTransferencia({ form, produto, lotes, saldos, mov
   produto.quantidade = saldosProduto.reduce((s, sl) => s + (sl.quantidade || 0), 0);
   return { produto };
 }
+
+// Move TODO o saldo de um produto do depósito/gaveta antigo para o novo quando
+// o endereço físico é alterado no cadastro do produto. Preserva lotes (FEFO) e
+// gera movimentações de transferência (saída + entrada) para auditoria.
+// Retorna { movido, quantidade }. Não faz nada se não houver saldo no local antigo.
+export async function relocarSaldoCadastro({ produto, oldDepositoId, oldGavetaId = '', newDepositoId, newGavetaId = '', controlaValidade, depositos = [] }) {
+  if (!oldDepositoId || !newDepositoId) return { movido: false, quantidade: 0 };
+  if (oldDepositoId === newDepositoId && (oldGavetaId || '') === (newGavetaId || '')) return { movido: false, quantidade: 0 };
+
+  const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: produto.id });
+  const totalMover = saldos
+    .filter((s) => s.deposito_id === oldDepositoId && (s.gaveta_id || '') === (oldGavetaId || '') && (s.quantidade || 0) > 0)
+    .reduce((sum, s) => sum + (s.quantidade || 0), 0);
+  if (totalMover <= 0) return { movido: false, quantidade: 0 };
+
+  const lotes = controlaValidade ? await base44.entities.Lote.filter({ produto_id: produto.id }) : [];
+  const movimentacoes = await base44.entities.Movimentacao.list('-created_date', 100);
+
+  await registrarTransferencia({
+    form: {
+      deposito_origem_id: oldDepositoId,
+      gaveta_origem_id: oldGavetaId,
+      deposito_destino_id: newDepositoId,
+      gaveta_destino_id: newGavetaId,
+      quantidade: totalMover,
+      observacao: 'Realocação via cadastro de produto',
+    },
+    produto,
+    lotes,
+    saldos,
+    movimentacoes,
+    controlaValidade,
+    depositos,
+  });
+
+  return { movido: true, quantidade: totalMover };
+}

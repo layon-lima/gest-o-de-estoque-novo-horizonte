@@ -21,6 +21,7 @@ import { proximoCodigoInterno } from '@/lib/produtoCodigo';
 import { formatQtd, parseQtd, formatInputQtd } from '@/lib/format';
 import { UNIDADES, convertQty, isConversivel } from '@/lib/units';
 import { entrarSaldo } from '@/lib/saldos';
+import { relocarSaldoCadastro } from '@/lib/movimentacoes';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
 const empty = {
@@ -85,21 +86,48 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
     setSaving(true);
     try {
       const newQtd = controlaValidade ? 0 : parseQtd(form.quantidade);
-      const payload = { ...form, quantidade: 0, estoque_minimo: parseQtd(form.estoque_minimo), fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0 };
+      const basePayload = {
+        ...form,
+        estoque_minimo: parseQtd(form.estoque_minimo),
+        fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0,
+      };
       if (produto) {
         const duplicado = findProdutoDuplicado({ produtos, dados: form, excludeId: produto.id });
         if (duplicado) {
           toast({ variant: 'destructive', title: 'Código já existe', description: `Já existe outro produto com este código: ${duplicado.nome}.` });
           return;
         }
-        await base44.entities.Produto.update(produto.id, payload);
+        // EDIT: nunca zera a quantidade — ela é gerenciada pelos saldos/movimentações.
+        await base44.entities.Produto.update(produto.id, { ...basePayload, quantidade: produto.quantidade });
+
+        // Se o endereço físico (depósito/gaveta) mudou, mover o saldo do local antigo para o novo.
+        const oldDep = produto.deposito_id || '';
+        const oldGav = produto.gaveta_id || '';
+        const newDep = form.deposito_id || '';
+        const newGav = form.gaveta_id || '';
+        if (oldDep && newDep && (oldDep !== newDep || oldGav !== newGav)) {
+          const res = await relocarSaldoCadastro({
+            produto,
+            oldDepositoId: oldDep,
+            oldGavetaId: oldGav,
+            newDepositoId: newDep,
+            newGavetaId: newGav,
+            controlaValidade,
+            depositos,
+          });
+          invalidateEntidade('SaldoEstoque');
+          invalidateEntidade('Movimentacao');
+          if (res.movido) {
+            toast({ title: 'Saldo realocado', description: `${formatQtd(res.quantidade)} ${form.unidade || ''} movido(s) para o novo endereço.` });
+          }
+        }
       } else {
         const duplicado = findProdutoDuplicado({ produtos, dados: form });
         if (duplicado) {
           toast({ variant: 'destructive', title: 'Código já existe', description: `Já existe um produto com este código: ${duplicado.nome}. Use Movimentações para dar entrada.` });
           return;
         }
-        const created = await base44.entities.Produto.create({ ...payload, codigo: proximoCodigoInterno(produtos) });
+        const created = await base44.entities.Produto.create({ ...basePayload, quantidade: 0, codigo: proximoCodigoInterno(produtos) });
         if (!controlaValidade && newQtd > 0 && form.deposito_id) {
           await entrarSaldo({ produto: created, depositoId: form.deposito_id, gavetaId: form.gaveta_id || '', quantidade: newQtd, unidade: form.unidade || 'un', saldos: [] });
           invalidateEntidade('SaldoEstoque');
@@ -173,10 +201,9 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
               onChange={(v) => set('deposito_id', v === 'all' ? '' : v)}
               allLabel="— Nenhum —"
               placeholder="Buscar depósito..."
-              options={depositos
-                .filter((d) => !form.setor_id || d.setor_id === form.setor_id)
-                .map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+              options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
             />
+            <p className="text-xs text-muted-foreground">Local físico. Pode ser de qualquer setor.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
