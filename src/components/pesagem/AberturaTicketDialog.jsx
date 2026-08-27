@@ -121,7 +121,11 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) tentarSair(); }}>
-      <DialogContent className="!left-0 !top-0 !translate-x-0 !translate-y-0 max-w-none h-full max-h-none rounded-none overflow-y-auto p-4 sm:p-6 content-start">
+      <DialogContent
+        className="!left-0 !top-0 !translate-x-0 !translate-y-0 max-w-none h-full max-h-none rounded-none overflow-y-auto p-4 sm:p-6 content-start"
+        onEscapeKeyDown={(e) => { e.preventDefault(); tentarSair(); }}
+        onInteractOutside={(e) => { e.preventDefault(); tentarSair(); }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Scale className="w-5 h-5 text-primary" /> Abrir Novo Ticket</DialogTitle>
           <DialogDescription>Preencha os dados do ticket de pesagem.</DialogDescription>
