@@ -25,9 +25,11 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
 import { normalizePlaca, nextTicketNumber } from '@/lib/pesagem';
+import { useAuth } from '@/lib/AuthContext';
+import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
 
-const empty = { tipo: '', sentido: 'saida', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
+const empty = { tipo: '', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
 
 const TIPOS = [
   { value: 'venda', label: 'Venda' },
@@ -42,6 +44,8 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
   const [saving, setSaving] = useState(false);
   const [sairOpen, setSairOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const podeDigitar = podeDigitarPeso(user);
 
   const motoristas = useMemo(() => pessoas.filter((p) => p.is_motorista), [pessoas]);
 
@@ -71,7 +75,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
       return;
     }
     if (parseQtd(form.peso) <= 0) {
-      toast({ variant: 'destructive', title: form.sentido === 'entrada' ? 'Informe o peso bruto' : 'Informe a tara' });
+      toast({ variant: 'destructive', title: 'Informe o peso da 1ª pesagem' });
       return;
     }
     if (form.tipo !== 'venda' && !form.produto_id) {
@@ -103,8 +107,8 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
         transportadora_nome: form.tipo !== 'venda' ? transp?.nome || '' : '',
         origem: form.origem.trim(),
         destino: form.tipo === 'venda' ? '' : form.destino.trim(),
-        peso_tara: form.sentido === 'entrada' ? 0 : parseQtd(form.peso),
-        peso_bruto: form.sentido === 'entrada' ? parseQtd(form.peso) : 0,
+        peso_tara: parseQtd(form.peso),
+        peso_bruto: 0,
         peso_liquido: 0,
         status: 'aberto',
         observacao: form.observacao || '',
@@ -179,33 +183,13 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                   <Label className="text-xs">Placa *</Label>
                   <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
                 </div>
-                <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs">Sentido da Pesagem *</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, sentido: 'saida' })}
-                      className={`text-left rounded-lg border p-3 transition-colors ${form.sentido === 'saida' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
-                    >
-                      <span className="font-medium text-sm">Saída (vazio → carregado)</span>
-                      <span className="block text-xs text-muted-foreground mt-0.5">Tara na abertura, bruto no fechamento</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, sentido: 'entrada' })}
-                      className={`text-left rounded-lg border p-3 transition-colors ${form.sentido === 'entrada' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
-                    >
-                      <span className="font-medium text-sm">Entrada / Descarga (carregado → vazio)</span>
-                      <span className="block text-xs text-muted-foreground mt-0.5">Bruto na abertura, tara no fechamento</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">{form.sentido === 'entrada' ? 'Peso Bruto (kg)' : 'Tara (kg)'} *</Label>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-sm font-semibold">Peso da 1ª Pesagem (kg) *</Label>
                   <div className="flex gap-2">
-                    <Input type="text" inputMode="decimal" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} placeholder="0,00" required />
-                    <LerPesoButton onPesoLido={(p) => setForm({ ...form, peso: p })} />
+                    <Input type="text" inputMode="decimal" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} placeholder="0,00" readOnly={!podeDigitar} className={`h-14 text-2xl font-bold text-center ${!podeDigitar ? 'bg-muted/50 cursor-not-allowed' : ''}`} required />
+                    <LerPesoButton onPesoLido={(p) => setForm({ ...form, peso: p })} className="h-14 px-6 text-base" />
                   </div>
+                  {!podeDigitar && <p className="text-xs text-muted-foreground">Peso preenchido pela balança. Digitação manual liberada apenas para usuários autorizados.</p>}
                 </div>
                 {form.tipo !== 'venda' && (
                   <>

@@ -66,9 +66,9 @@ export function calcValorTotal(qtdSacas, valorSaca) {
   return round3(parseQtd(qtdSacas) * parseQtd(valorSaca));
 }
 
-// Calcula peso líquido: bruto - tara.
+// Calcula peso líquido: |bruto - tara| (sempre positivo, independente da ordem de pesagem).
 export function calcLiquido(bruto, tara) {
-  return round3(parseQtd(bruto) - parseQtd(tara));
+  return round3(Math.abs(parseQtd(bruto) - parseQtd(tara)));
 }
 
 export function round3(n) {

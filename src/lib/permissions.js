@@ -37,3 +37,8 @@ export const allowedPagesForUser = (user) => {
 
 export const canAccessUsuarios = (user) => user?.role === 'admin';
 export const canAccessBalanca = (user) => user?.role === 'admin';
+export const podeDigitarPeso = (user) => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return user.pode_digitar_peso === true;
+};

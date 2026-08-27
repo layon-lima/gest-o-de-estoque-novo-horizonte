@@ -19,6 +19,12 @@
       "description": "Permite confirmar a baixa de abastecimentos pendentes. Administradores sempre podem confirmar.",
       "default": false
     },
+    "pode_digitar_peso": {
+      "type": "boolean",
+      "title": "Pode Digitar Peso",
+      "description": "Permite digitar o peso manualmente nos tickets de pesagem. Administradores sempre podem digitar. Quando falso, o peso s\u00f3 pode ser preenchido pela balan\u00e7a.",
+      "default": false
+    },
     "paginas_permitidas": {
       "type": "array",
       "title": "P\u00e1ginas Permitidas",

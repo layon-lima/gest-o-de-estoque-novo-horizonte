@@ -27,6 +27,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
+import { useAuth } from '@/lib/AuthContext';
+import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
 
 export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed, onReload }) {
@@ -41,6 +43,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const [fechado, setFechado] = useState(null);
   const [gerando, setGerando] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const podeDigitar = podeDigitarPeso(user);
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
   const isInverted = (ticket?.peso_bruto || 0) > 0 && (ticket?.peso_tara || 0) === 0;
@@ -169,16 +173,10 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       toast({ variant: 'destructive', title: isInverted ? 'Informe o peso tara' : 'Informe o peso bruto' });
       return;
     }
-    if (isInverted) {
-      if (parseQtd(pesoBruto) >= (ticket?.peso_bruto || 0)) {
-        toast({ variant: 'destructive', title: 'Tara maior ou igual ao bruto' });
-        return;
-      }
-    } else {
-      if (parseQtd(pesoBruto) < (ticket?.peso_tara || 0)) {
-        toast({ variant: 'destructive', title: 'Peso bruto menor que a tara' });
-        return;
-      }
+    // O líquido é sempre |bruto - tara| — não importa qual pesagem foi maior
+    if (liquido <= 0) {
+      toast({ variant: 'destructive', title: 'Pesagens iguais', description: 'A 2ª pesagem deve ser diferente da 1ª.' });
+      return;
     }
     if (isVenda && !pedidoId) {
       toast({ variant: 'destructive', title: 'Selecione um pedido' });
@@ -202,7 +200,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       <DialogContent className="inset-0 max-w-none h-full max-h-none translate-x-0 translate-y-0 rounded-none overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
-          <DialogDescription>Registre o {isInverted ? 'peso tara' : 'peso bruto'}{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
+          <DialogDescription>Registre o peso da 2ª pesagem{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
         </DialogHeader>
 
         {fechado ? (
@@ -239,7 +237,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
               <p className="font-medium font-mono">{formatPlaca(ticket.placa)}</p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">{isInverted ? 'Bruto' : 'Tara'}</p>
+              <p className="text-xs text-muted-foreground">1ª Pesagem</p>
               <p className="font-semibold">{formatKg(isInverted ? ticket.peso_bruto : ticket.peso_tara)}</p>
             </div>
             <div className="rounded-lg border p-3 bg-primary/5">
@@ -248,20 +246,22 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>{isInverted ? 'Tara (kg)' : 'Peso Bruto (kg)'} *</Label>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Peso da 2ª Pesagem (kg) *</Label>
             <div className="flex gap-2">
-              <Input type="text" inputMode="decimal" value={pesoBruto} onChange={(e) => setPesoBruto(e.target.value)} placeholder="0,00" autoFocus />
-              <LerPesoButton onPesoLido={(p) => setPesoBruto(p)} />
+              <Input type="text" inputMode="decimal" value={pesoBruto} onChange={(e) => setPesoBruto(e.target.value)} placeholder="0,00" readOnly={!podeDigitar} className={`h-14 text-2xl font-bold text-center ${!podeDigitar ? 'bg-muted/50 cursor-not-allowed' : ''}`} autoFocus />
+              <LerPesoButton onPesoLido={(p) => setPesoBruto(p)} className="h-14 px-6 text-base" />
             </div>
+            {!podeDigitar && <p className="text-xs text-muted-foreground">Peso preenchido pela balança. Digitação manual liberada apenas para usuários autorizados.</p>}
           </div>
 
-          {liquido > 0 && (
-            <div className="rounded-lg border bg-muted/40 p-3 flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Peso Líquido (calculado)</span>
-              <span className="text-lg font-bold text-primary">{formatKg(liquido)}</span>
+          <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 flex justify-between items-center">
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Peso Líquido</span>
+              <p className="text-xs text-muted-foreground/70">calculado automaticamente</p>
             </div>
-          )}
+            <span className="text-3xl font-bold text-primary">{formatKg(liquido)}</span>
+          </div>
 
           {isVenda && (
           <div className="space-y-1.5">

@@ -41,13 +41,13 @@ export default function LerPesoButton({ onPesoLido, className }) {
   return (
     <Button
       type="button"
-      variant="outline"
-      size="sm"
+      variant="default"
+      size="lg"
       onClick={handleClick}
       disabled={lendo}
-      className={`shrink-0 gap-1.5 ${className || ''}`}
+      className={`shrink-0 gap-2 ${className || ''}`}
     >
-      {lendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4" />}
+      {lendo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Scale className="w-5 h-5" />}
       {lendo ? 'Lendo...' : 'Ler Peso'}
     </Button>
   );

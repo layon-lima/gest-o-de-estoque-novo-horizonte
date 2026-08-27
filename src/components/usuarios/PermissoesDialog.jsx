@@ -12,12 +12,14 @@ export default function PermissoesDialog({ user, onClose, onSaved }) {
   const [selecionados, setSelecionados] = useState([]);
   const [setores, setSetores] = useState([]);
   const [setoresSel, setSetoresSel] = useState([]);
+  const [podeDigitarPeso, setPodeDigitarPeso] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     setSelecionados(Array.isArray(user?.paginas_permitidas) ? user.paginas_permitidas : []);
     setSetoresSel(Array.isArray(user?.setores_permitidos) ? user.setores_permitidos : []);
+    setPodeDigitarPeso(user?.pode_digitar_peso === true);
   }, [user]);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function PermissoesDialog({ user, onClose, onSaved }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await base44.entities.User.update(user.id, { paginas_permitidas: selecionados, setores_permitidos: setoresSel });
+      await base44.entities.User.update(user.id, { paginas_permitidas: selecionados, setores_permitidos: setoresSel, pode_digitar_peso: podeDigitarPeso });
       toast({ title: 'Permissões atualizadas', description: `${user.full_name || user.email} teve o acesso redefinido.` });
       onSaved?.();
       onClose?.();
@@ -62,6 +64,16 @@ export default function PermissoesDialog({ user, onClose, onSaved }) {
               <span className="text-sm font-medium">{p.label}</span>
             </label>
           ))}
+        </div>
+        <div className="space-y-2 pt-2 border-t">
+          <p className="text-sm font-semibold">Pesagem</p>
+          <label className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+            <Checkbox checked={podeDigitarPeso} onCheckedChange={setPodeDigitarPeso} />
+            <div>
+              <span className="text-sm font-medium">Digitar peso manualmente</span>
+              <p className="text-xs text-muted-foreground">Permite digitar o peso nos tickets em vez de usar apenas a balança.</p>
+            </div>
+          </label>
         </div>
         {setores.length > 0 && (
           <div className="space-y-2 pt-2">
