@@ -1,5 +1,4 @@
 import { Users, ClipboardList, Scale, History, Unlink, Wallet } from 'lucide-react';
-import BalancaStatusBadge from '@/components/balanca/BalancaStatusBadge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
@@ -27,7 +26,6 @@ export default function Pesagem() {
     <div className="p-3 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
       <header className="flex items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2"><Scale className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> Pesagem Rodoviária</h1>
-        <BalancaStatusBadge />
       </header>
 
       {loading ? (

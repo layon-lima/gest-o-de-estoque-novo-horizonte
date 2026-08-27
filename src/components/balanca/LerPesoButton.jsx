@@ -4,7 +4,7 @@ import { useBalanca } from '@/lib/balancaContext';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function LerPesoButton({ onPesoLido, className }) {
-  const { suportado, status, lendo, lerPeso, formatarPeso } = useBalanca();
+  const { suportado, status, lendo, lerPeso, formatarPeso, conectar } = useBalanca();
   const { toast } = useToast();
 
   async function handleClick() {
@@ -12,18 +12,28 @@ export default function LerPesoButton({ onPesoLido, className }) {
       toast({
         variant: 'destructive',
         title: 'Navegador não suportado',
-        description: 'Use o Microsoft Edge ou Google Chrome para ler o peso da balança.',
+        description: 'Use o Microsoft Edge ou Google Chrome no desktop para ler o peso da balança.',
       });
       return;
     }
+
+    // Se a balança não está conectada, tenta conectar automaticamente (o clique conta como gesto do usuário)
     if (status !== 'conectado') {
       toast({
-        variant: 'destructive',
-        title: 'Balança desconectada',
-        description: 'Vá em Menu › Balança para conectar a balança antes de ler o peso.',
+        title: 'Conectando balança...',
+        description: 'Selecione a porta USB da balança na janela que abriu.',
       });
-      return;
+      const ok = await conectar();
+      if (!ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Não foi possível conectar',
+          description: 'Clique no indicador de balança no topo da página para tentar novamente.',
+        });
+        return;
+      }
     }
+
     const peso = await lerPeso();
     if (peso !== null && peso !== undefined) {
       const formatado = formatarPeso(peso);
@@ -33,7 +43,7 @@ export default function LerPesoButton({ onPesoLido, className }) {
       toast({
         variant: 'destructive',
         title: 'Falha na leitura',
-        description: 'Não foi possível ler o peso. Verifique a balança na página Balança.',
+        description: 'Verifique se a balança está ligada e enviando dados (protocolo Cougar p03 contínuo).',
       });
     }
   }

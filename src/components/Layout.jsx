@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, ShieldX } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BottomTabBar from './BottomTabBar';
+import BalancaStatusBadge from '@/components/balanca/BalancaStatusBadge';
 import { useAuth } from '@/lib/AuthContext';
 import {
   allowedPagesForUser,
@@ -57,6 +58,12 @@ export default function Layout() {
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-bold">Controle de Estoque Novo Horizonte</span>
+          <div className="ml-auto">
+            <BalancaStatusBadge />
+          </div>
+        </header>
+        <header className="hidden lg:flex items-center justify-end gap-3 px-6 py-2 glass-clear rounded-none border-x-0 border-t-0">
+          <BalancaStatusBadge />
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-y-none scrollbar-thin pb-16 md:pb-0">
           {user && !canAccess ? (
