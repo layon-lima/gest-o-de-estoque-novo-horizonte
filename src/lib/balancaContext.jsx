@@ -27,38 +27,75 @@ function formatarPeso(peso, casasDecimais = 3) {
 }
 
 /**
- * Faz o parse de um frame do protocolo Cougar p03 (contínuo) da balança Toledo.
- * O frame contém status, sinal, valor do peso e unidade (kg).
- * Ex.: " +0012345k" ou "M +0012345k" (em movimento) ou "O +9999999k" (sobrecarga)
+ * Faz o parse de um frame do protocolo P03 (contínuo) da balança Toledo.
+ * Formato do frame: [STX][SWA][SWB][SWC][IIIIII][TTTTTT][CR][(CS)]
+ *   STX = 0x02 (início do frame)
+ *   SWA = byte de status A — bits 2,1,0 determinam o multiplicador decimal
+ *   SWB = byte de status B — bit 0=líquido, bit 1=negativo, bit 2=sobrecarga, bit 3=movimento
+ *   SWC = byte de status C
+ *   IIIIII = 6 dígitos ASCII do peso (0x30-0x39), SEM ponto decimal
+ *   TTTTTT = 6 dígitos ASCII da tara
+ *   CR = 0x0D (fim do frame)
+ *
+ * O peso real = valor dos 6 dígitos × multiplicador (definido por SWA).
+ * Ex.: visor 436.3 kg → frame "004363" com SWA=0x2B (bits 011 = ×0.1) → 4363 × 0.1 = 436.3
+ *
+ * @param {number[]|Uint8Array} bytes — bytes crus do frame (incluindo STX)
+ * @returns {number|null} — peso em kg, ou null se frame inválido/sobrecarga
  */
-function parseFrameCougar(frame) {
-  // Remove STX, ETX e outros caracteres de controle
-  let str = frame.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
-  if (!str || str.length < 2) return null;
+function parseFrameP03(bytes) {
+  if (!bytes || bytes.length < 10) return null;
 
-  // Cougar p03 contínuo: [status][+/-][peso][unidade]
-  // O peso é o número imediatamente após o sinal de polaridade (+ ou -)
-  // Ex.: " +001000k" → 1000, " -0000010k" → -10
-  const signMatch = str.match(/([+-])\s*(\d+[.,]?\d*)/);
-  if (signMatch) {
-    const sign = signMatch[1] === '-' ? -1 : 1;
-    const peso = parseFloat(signMatch[2].replace(',', '.')) * sign;
-    if (!isNaN(peso)) return peso;
+  // Encontra STX (0x02) no frame
+  let start = Array.from(bytes).indexOf(0x02);
+  if (start < 0 || bytes.length - start < 10) return null;
+
+  const swa = bytes[start + 1];
+  const swb = bytes[start + 2];
+
+  // SWA bits 2,1,0 → multiplicador decimal
+  const multBits = swa & 0x07;
+  const multiplicadores = {
+    0b001: 10,      // Display × 10
+    0b010: 1,       // Display × 1
+    0b011: 0.1,     // Display × 0.1
+    0b100: 0.01,    // Display × 0.01
+    0b101: 0.001,   // Display × 0.001
+    0b110: 0.0001,  // Display × 0.0001
+  };
+  const multiplicador = multiplicadores[multBits];
+  if (multiplicador === undefined) return null;
+
+  // SWB flags
+  const negativo = (swb & 0x02) !== 0;   // bit 1 = peso negativo
+  const sobrecarga = (swb & 0x04) !== 0;  // bit 2 = sobrecarga
+
+  if (sobrecarga) return null;
+
+  // Extrai 6 dígitos do peso (bytes 4-9 após STX)
+  let pesoRaw = 0;
+  let valido = true;
+  for (let i = 0; i < 6; i++) {
+    const b = bytes[start + 4 + i];
+    if (b >= 0x30 && b <= 0x39) {
+      pesoRaw = pesoRaw * 10 + (b - 0x30);
+    } else {
+      valido = false;
+      break;
+    }
   }
+  if (!valido) return null;
 
-  // Fallback: primeiro número encontrado (com sinal se houver)
-  const numMatch = str.match(/-?\d+[.,]?\d*/);
-  if (numMatch) {
-    const peso = parseFloat(numMatch[0].replace(',', '.'));
-    if (!isNaN(peso)) return peso;
-  }
+  let peso = pesoRaw * multiplicador;
+  if (negativo) peso = -peso;
 
-  return null;
+  return peso;
 }
 
-/** Converte string para representação hexadecimal para diagnóstico de protocolo. */
-function bytesToHex(str) {
-  return Array.from(str).map(c => '0x' + c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase()).join(' ');
+/** Converte array de bytes para representação hexadecimal para diagnóstico de protocolo. */
+function bytesToHex(bytes) {
+  if (!bytes || bytes.length === 0) return '';
+  return Array.from(bytes).map(b => '0x' + (b & 0xFF).toString(16).padStart(2, '0').toUpperCase()).join(' ');
 }
 
 /** Verifica se um erro indica que o dispositivo físico foi removido. */
@@ -120,11 +157,11 @@ export function BalancaProvider({ children }) {
   }, [casasDecimais, baudRate, dataBits, stopBits, parity]);
 
   /**
-   * Inicia o loop de leitura contínua do protocolo Cougar p03 com WATCHDOG.
+   * Inicia o loop de leitura contínua do protocolo P03 com WATCHDOG.
    * Se o loop morrer por qualquer motivo (sem shouldStop), reinicia automaticamente
    * com backoff exponencial até MAX_RETRIES tentativas.
    * A balança envia frames continuamente — não é necessário enviar comandos.
-   * Cada frame é delimitado por CR e/ou LF.
+   * Cada frame é delimitado por STX (0x02) no início e CR (0x0D) no fim.
    */
   const iniciarLeituraContinua = useCallback(async () => {
     const port = portRef.current;
@@ -154,17 +191,22 @@ export function BalancaProvider({ children }) {
         try {
           reader = port.readable.getReader();
           readerRef.current = reader;
-          const decoder = new TextDecoder();
-          let buffer = '';
+          // Acumula bytes CRUS (Uint8Array) — NÃO usa TextDecoder UTF-8, que corrompe
+          // bytes de status com bit 7 ligado (paridade) e quebra o alinhamento do frame.
+          let buffer = [];
           tentativas = 0; // Resetou — leitura está funcionando
 
           while (!shouldStopRef.current) {
             const { value, done } = await reader.read();
             if (done) break;
             dadosRecebidosRef.current = true;
-            const chunk = decoder.decode(value, { stream: true });
-            buffer += chunk;
-            rawDataRef.current = (rawDataRef.current + chunk).slice(-300);
+
+            // Acumula bytes crus no buffer
+            for (let i = 0; i < value.length; i++) buffer.push(value[i]);
+
+            // Mantém os últimos 100 bytes em hex para diagnóstico
+            const recentBytes = buffer.length > 100 ? buffer.slice(-100) : buffer;
+            rawDataRef.current = bytesToHex(recentBytes);
 
             // Throttle: atualiza estado de rawData no máximo 2x por segundo
             const now = Date.now();
@@ -173,43 +215,45 @@ export function BalancaProvider({ children }) {
               setRawData(rawDataRef.current);
             }
 
-            // Processa frames completos (delimitados por CR ou LF)
-            let nlIdx;
-            while ((nlIdx = buffer.search(/[\r\n]/)) >= 0) {
-              const frame = buffer.substring(0, nlIdx);
-              let skip = 1;
-              if (buffer[nlIdx] === '\r' && buffer[nlIdx + 1] === '\n') skip = 2;
-              buffer = buffer.substring(nlIdx + skip);
+            // Processa frames P03 completos: [STX] ... [CR]
+            // STX = 0x02, CR = 0x0D — não usa LF como delimitador (pode aparecer em bytes de status)
+            while (true) {
+              const stxIdx = buffer.indexOf(0x02);
+              if (stxIdx < 0) {
+                buffer = [];
+                break;
+              }
+              // Descarta bytes antes do STX (ruído/alinhamento)
+              if (stxIdx > 0) buffer = buffer.slice(stxIdx);
 
-              if (frame.length > 0) {
-                const peso = parseFrameCougar(frame);
-                if (peso !== null) {
-                  const anterior = ultimaLeituraRef.current;
-                  // Só atualiza a tela quando o peso muda — espelha o visor físico da balança
-                  if (!anterior || anterior.peso !== peso) {
-                    const leitura = { peso, timestamp: new Date().toISOString() };
-                    ultimaLeituraRef.current = leitura;
-                    setUltimaLeitura(leitura);
-                  } else {
-                    // Atualiza só o timestamp para que lerPeso saiba que a leitura é fresca
-                    ultimaLeituraRef.current = { ...anterior, timestamp: new Date().toISOString() };
-                  }
+              // Procura CR (0x0D) após o STX
+              const crIdx = buffer.indexOf(0x0D, 1);
+              if (crIdx < 0) {
+                // Frame incompleto — aguarda mais dados
+                if (buffer.length > 256) buffer = buffer.slice(-17);
+                break;
+              }
+
+              // Frame completo: bytes[0..crIdx] (STX ... CR)
+              const frame = buffer.slice(0, crIdx + 1);
+              buffer = buffer.slice(crIdx + 1);
+
+              const peso = parseFrameP03(frame);
+              if (peso !== null) {
+                const anterior = ultimaLeituraRef.current;
+                // Só atualiza a tela quando o peso muda — espelha o visor físico da balança
+                if (!anterior || anterior.peso !== peso) {
+                  const leitura = { peso, timestamp: new Date().toISOString() };
+                  ultimaLeituraRef.current = leitura;
+                  setUltimaLeitura(leitura);
+                } else {
+                  // Atualiza só o timestamp para que lerPeso saiba que a leitura é fresca
+                  ultimaLeituraRef.current = { ...anterior, timestamp: new Date().toISOString() };
                 }
               }
             }
 
-            // Fallback: sem delimitador mas buffer com dados suficientes — tenta parsear direto
-            if (buffer.length >= 12 && !/[\r\n]/.test(buffer)) {
-              const peso = parseFrameCougar(buffer);
-              if (peso !== null) {
-                const leitura = { peso, timestamp: new Date().toISOString() };
-                ultimaLeituraRef.current = leitura;
-                setUltimaLeitura(leitura);
-              }
-              buffer = '';
-            }
-
-            if (buffer.length > 256) buffer = '';
+            if (buffer.length > 256) buffer = buffer.slice(-17);
           }
         } catch (e) {
           if (shouldStopRef.current) break;
@@ -243,7 +287,7 @@ export function BalancaProvider({ children }) {
         setStatus('erro');
         const raw = rawDataRef.current || '';
         if (raw) {
-          setErro(`A balança parou de responder após ${MAX_RETRIES} tentativas. Últimos dados recebidos (hex): ${bytesToHex(raw)}. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
+          setErro(`A balança parou de responder após ${MAX_RETRIES} tentativas. Últimos dados recebidos (hex): ${raw}. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
         } else {
           setErro(`Não foi possível manter a comunicação com a balança após ${MAX_RETRIES} tentativas. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
         }
@@ -421,7 +465,7 @@ export function BalancaProvider({ children }) {
 
   /**
    * Retorna o peso atual da balança.
-   * No modo contínuo Cougar p03, a balança envia leituras continuamente,
+   * No modo contínuo P03, a balança envia leituras continuamente,
    * então este método retorna a leitura mais recente (se tiver < 4s) ou
    * aguarda até 8s por uma nova leitura.
    */
@@ -468,7 +512,7 @@ export function BalancaProvider({ children }) {
       if (msg === 'timeout') {
         const raw = rawDataRef.current || '';
         if (dadosRecebidosRef.current && raw) {
-          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (hex): ${bytesToHex(raw)}. Verifique se o protocolo da balança está como Cougar p03 contínuo. Se o problema persistir, copie estes dados e entre em contato com o suporte.`);
+          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (hex): ${raw}. Verifique se o protocolo da balança está configurado como P03 contínuo (C14=P03). Se o problema persistir, copie estes dados e entre em contato com o suporte.`);
         } else {
           setErro('Tempo esgotado: a balança não enviou dados em 8 segundos. Verifique se está ligada, se o cabo está conectado e se o driver USB do conversor serial está instalado neste PC.');
         }
