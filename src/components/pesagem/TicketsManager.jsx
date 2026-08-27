@@ -8,8 +8,9 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { formatPlaca, formatKg, round3, statusPorSaldo } from '@/lib/pesagem';
+import { formatPlaca, formatKg, round3, statusPorSaldo, normalizePlaca } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
+import SearchSelect from '@/components/SearchSelect';
 import AberturaTicketDialog from './AberturaTicketDialog';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
@@ -21,6 +22,11 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const historico = mode === 'historico';
   const naovinculados = mode === 'naovinculados';
   const [busca, setBusca] = useState('');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+  const [pedidoFiltro, setPedidoFiltro] = useState('all');
+  const [placaFiltro, setPlacaFiltro] = useState('all');
+  const [produtoFiltro, setProdutoFiltro] = useState('all');
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
   const [detalheTicket, setDetalheTicket] = useState(null);
@@ -33,6 +39,28 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedidoDoTicket = (id) => pedidos.find((p) => p.id === id);
   const produtoDoTicket = (t) => t.produto_id ? produtoNome(t.produto_id) : (t.tipo === 'venda' ? 'A definir' : '—');
+
+  const placasUnicas = useMemo(() => {
+    const set = new Set();
+    tickets.forEach((t) => { if (t.status !== 'aberto' && t.placa) set.add(t.placa); });
+    return Array.from(set).sort();
+  }, [tickets]);
+
+  const pedidosComTicket = useMemo(() => {
+    const ids = new Set();
+    tickets.filter((t) => t.status !== 'aberto' && t.pedido_id).forEach((t) => ids.add(t.pedido_id));
+    return pedidos.filter((p) => ids.has(p.id));
+  }, [tickets, pedidos]);
+
+  const produtosComTicket = useMemo(() => {
+    const ids = new Set();
+    tickets.filter((t) => t.status !== 'aberto').forEach((t) => {
+      const ped = pedidoDoTicket(t.pedido_id);
+      const pid = t.produto_id || (ped ? ped.produto_id : '');
+      if (pid) ids.add(pid);
+    });
+    return produtos.filter((p) => ids.has(p.id));
+  }, [tickets, produtos]);
 
   const abertos = useMemo(
     () => tickets.filter((t) => t.status === 'aberto').sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
@@ -52,17 +80,30 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
     }
     const q = busca.toLowerCase().trim();
     const base = tickets.filter((t) => t.status !== 'aberto');
-    const match = (t) => {
+    const matchBusca = (t) => {
       if (!q) return true;
       const ped = pedidoDoTicket(t.pedido_id);
       return [t.numero, t.motorista, t.placa, ped ? clienteNome(ped.cliente_id) : ''].filter(Boolean).join(' ').toLowerCase().includes(q);
     };
+    const matchFiltros = (t) => {
+      const dataRef = t.data_fechamento || t.data_abertura;
+      if (dataInicio && dataRef && new Date(dataRef) < new Date(dataInicio + 'T00:00:00')) return false;
+      if (dataFim && dataRef && new Date(dataRef) > new Date(dataFim + 'T23:59:59')) return false;
+      if (pedidoFiltro !== 'all' && t.pedido_id !== pedidoFiltro) return false;
+      if (placaFiltro !== 'all' && normalizePlaca(t.placa) !== normalizePlaca(placaFiltro)) return false;
+      if (produtoFiltro !== 'all') {
+        const ped = pedidoDoTicket(t.pedido_id);
+        const pid = t.produto_id || (ped ? ped.produto_id : '');
+        if (pid !== produtoFiltro) return false;
+      }
+      return true;
+    };
     if (!historico && !q) return [];
-    return base.filter(match).sort((a, b) => {
+    return base.filter((t) => matchBusca(t) && matchFiltros(t)).sort((a, b) => {
       // Mais recentes no topo, mais antigos para baixo
       return new Date(b.data_fechamento || b.data_abertura) - new Date(a.data_fechamento || a.data_abertura);
     });
-  }, [tickets, busca, historico, naovinculados, naoVinculados]);
+  }, [tickets, busca, historico, naovinculados, naoVinculados, dataInicio, dataFim, pedidoFiltro, placaFiltro, produtoFiltro]);
 
   async function handleExcluir() {
     if (!excluirTicket) return;
@@ -169,6 +210,34 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={naovinculados ? 'Buscar ticket, motorista ou placa...' : 'Buscar ticket, motorista, placa ou cliente...'} className="pl-9 h-9" />
         </div>
+
+        {historico && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Data Início</span>
+              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-8 text-xs" />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Data Fim</span>
+              <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-8 text-xs" />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Placa</span>
+              <select value={placaFiltro} onChange={(e) => setPlacaFiltro(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs">
+                <option value="all">Todas</option>
+                {placasUnicas.map((p) => <option key={p} value={p}>{formatPlaca(p)}</option>)}
+              </select>
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Pedido</span>
+              <SearchSelect value={pedidoFiltro} onChange={setPedidoFiltro} allLabel="Todos" placeholder="Pedido..." options={pedidosComTicket.map((p) => ({ value: p.id, label: p.numero || '—' }))} />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Produto</span>
+              <SearchSelect value={produtoFiltro} onChange={setProdutoFiltro} allLabel="Todos" placeholder="Produto..." options={produtosComTicket.map((p) => ({ value: p.id, label: p.nome }))} />
+            </div>
+          </div>
+        )}
 
         {historico && (
           <div className="hidden sm:flex gap-2">
