@@ -24,12 +24,12 @@ export default function ProdutosManager() {
   const { Produto: produtos, Setor: setores, Deposito: depositos, Maquina: maquinas, Gaveta: gavetas, SaldoEstoque: saldos } = data;
 
   const filtered = useMemo(() => {
-    const porFiltros = filterProdutos(produtos, filtros);
+    const porFiltros = filterProdutos(produtos, filtros, saldos);
     if (!busca.trim()) return porFiltros;
     const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
     if (termos.length === 0) return porFiltros;
-    return porFiltros.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas)));
-  }, [produtos, filtros, busca, maquinas, gavetas]);
+    return porFiltros.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos)));
+  }, [produtos, filtros, busca, maquinas, gavetas, depositos, saldos]);
 
   function handleNew() { setEditing(null); setFormOpen(true); }
   function handleEdit(produto) { setEditing(produto); setFormOpen(true); }
@@ -67,7 +67,7 @@ export default function ProdutosManager() {
       ) : (
         <>
           <div className="flex items-center gap-3 flex-wrap">
-            <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
+            <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} saldos={saldos} />
             <div className="flex items-center gap-2 flex-wrap">
               <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
             </div>

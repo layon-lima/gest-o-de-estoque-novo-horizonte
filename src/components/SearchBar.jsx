@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { matchTerm } from '@/lib/estoqueFilters';
 
-export default function SearchBar({ value, onChange, produtos, maquinas, gavetas, depositos }) {
+export default function SearchBar({ value, onChange, produtos, maquinas, gavetas, depositos, saldos = [] }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const containerRef = useRef(null);
@@ -13,9 +13,9 @@ export default function SearchBar({ value, onChange, produtos, maquinas, gavetas
 
   const suggestions = useMemo(() => {
     if (termos.length === 0) return [];
-    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos)));
+    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos)));
     return matches.slice(0, 8);
-  }, [produtos, value, maquinas, gavetas, depositos]);
+  }, [produtos, value, maquinas, gavetas, depositos, saldos]);
 
   useEffect(() => {
     setHighlightIndex(-1);

@@ -11,19 +11,19 @@ export default function Dashboard() {
   const [busca, setBusca] = useState('');
 
   const { data, loading } = useEntidades({
-    Produto: {}, Setor: {}, Maquina: {}, Gaveta: {}, Deposito: {}, Lote: {},
+    Produto: {}, Setor: {}, Maquina: {}, Gaveta: {}, Deposito: {}, Lote: {}, SaldoEstoque: {},
   });
-  const { Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Deposito: depositos, Lote: lotes } = data;
+  const { Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas, Deposito: depositos, Lote: lotes, SaldoEstoque: saldos } = data;
 
   const filtered = useMemo(() => {
-    const porFiltros = filterProdutos(produtos, filtros);
+    const porFiltros = filterProdutos(produtos, filtros, saldos);
     if (!busca.trim()) return porFiltros;
     const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
     if (termos.length === 0) return porFiltros;
     return porFiltros.filter((p) =>
-      termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos))
+      termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos))
     );
-  }, [produtos, filtros, busca, maquinas, gavetas, depositos]);
+  }, [produtos, filtros, busca, maquinas, gavetas, depositos, saldos]);
 
 
 
@@ -42,7 +42,7 @@ export default function Dashboard() {
       </header>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
+        <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} saldos={saldos} />
         <div className="flex items-center gap-2 flex-wrap">
           <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
         </div>
