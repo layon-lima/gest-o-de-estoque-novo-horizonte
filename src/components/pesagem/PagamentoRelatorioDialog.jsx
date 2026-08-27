@@ -258,28 +258,6 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
           </div>
         </div>
 
-        {/* Resumo geral */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-lg border bg-muted/40 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground text-xs uppercase tracking-wide font-semibold"><Package className="w-3 h-3" /> Carregado</div>
-            <p className="text-lg font-bold mt-0.5">{formatKg(totais.kgCarregado)}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/40 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground text-xs uppercase tracking-wide font-semibold"><Truck className="w-3 h-3" /> Valor Pesado</div>
-            <p className="text-lg font-bold mt-0.5">{formatMoeda(totais.valorCarregado)}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/40 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground text-xs uppercase tracking-wide font-semibold"><Wallet className="w-3 h-3" /> Recebido</div>
-            <p className="text-lg font-bold text-green-600 mt-0.5">{formatMoeda(totais.valorPago)}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/40 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground text-xs uppercase tracking-wide font-semibold"><Wallet className="w-3 h-3" /> Saldo</div>
-            <p className={`text-lg font-bold mt-0.5 ${totais.valorCarregado - totais.valorPago > 0 ? 'text-amber-600' : 'text-primary'}`}>
-              {formatMoeda(round3(totais.valorCarregado - totais.valorPago))}
-            </p>
-          </div>
-        </div>
-
         {/* Lista por pedido */}
         {hasData ? (
           <div className="space-y-4">
