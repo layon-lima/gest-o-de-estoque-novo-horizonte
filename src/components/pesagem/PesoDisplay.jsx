@@ -1,0 +1,27 @@
+import { Label } from '@/components/ui/label';
+import LerPesoButton from '@/components/balanca/LerPesoButton';
+
+export default function PesoDisplay({ label, value, onChange, onPesoLido, podeDigitar, placeholder = '0,00', autoFocus }) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-semibold">{label}</Label>
+      <div className="flex gap-2 items-stretch">
+        <div className="relative flex-1 rounded-xl bg-slate-900 border-2 border-slate-700 shadow-inner overflow-hidden">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => onChange?.(e.target.value)}
+            placeholder={placeholder}
+            readOnly={!podeDigitar}
+            autoFocus={autoFocus}
+            className="w-full h-16 bg-transparent text-center text-3xl font-mono font-bold text-emerald-400 placeholder:text-slate-600 focus:outline-none caret-emerald-400 [text-shadow:0_0_12px_rgba(52,211,153,0.35)]"
+          />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-mono text-emerald-400/50 pointer-events-none select-none">kg</span>
+        </div>
+        <LerPesoButton onPesoLido={onPesoLido} className="h-16 px-6 text-base" />
+      </div>
+      {!podeDigitar && <p className="text-xs text-muted-foreground">Peso preenchido pela balança. Digitação manual liberada apenas para usuários autorizados.</p>}
+    </div>
+  );
+}

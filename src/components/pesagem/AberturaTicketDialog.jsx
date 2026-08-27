@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Scale, X } from 'lucide-react';
+import { Scale, X, ShoppingCart, Sprout, Truck, ArrowLeftRight } from 'lucide-react';
+import PesoDisplay from '@/components/pesagem/PesoDisplay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,10 +33,10 @@ import LerPesoButton from '@/components/balanca/LerPesoButton';
 const empty = { tipo: '', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
 
 const TIPOS = [
-  { value: 'venda', label: 'Venda' },
-  { value: 'lavoura', label: 'Saída Para Lavoura' },
-  { value: 'compra', label: 'Entrada Por Compra' },
-  { value: 'entrada_saida', label: 'Entrada e Saída' },
+  { value: 'venda', label: 'Venda', icon: ShoppingCart, desc: 'Saída para venda ao cliente' },
+  { value: 'lavoura', label: 'Saída Para Lavoura', icon: Sprout, desc: 'Insumos para o campo' },
+  { value: 'compra', label: 'Entrada Por Compra', icon: Truck, desc: 'Recebimento de mercadoria' },
+  { value: 'entrada_saida', label: 'Entrada e Saída', icon: ArrowLeftRight, desc: 'Operação avulsa' },
 ];
 
 export default function AberturaTicketDialog({ open, onClose, onReload, tickets, pessoas, produtos, transportadoras }) {
@@ -141,23 +142,32 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
             <div className="space-y-3">
               <Label className="text-xs">Escolha o tipo de ticket *</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {TIPOS.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => setForm({ ...form, tipo: t.value })}
-                    className={`text-left rounded-lg border p-4 transition-colors ${form.tipo === t.value ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent hover:border-primary/50'}`}
-                  >
-                    <span className="font-medium text-sm">{t.label}</span>
-                  </button>
-                ))}
+                {TIPOS.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, tipo: t.value })}
+                      className={`flex items-center gap-3 text-left rounded-xl border p-3 transition-all ${form.tipo === t.value ? 'border-primary bg-primary/5 ring-2 ring-primary' : 'hover:bg-accent hover:border-primary/50'}`}
+                    >
+                      <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${form.tipo === t.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-medium text-sm">{t.label}</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">{t.desc}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
               {form.tipo === 'venda' && (
                 <p className="text-xs text-muted-foreground">Na venda, o produto, o cliente e a transportadora vêm do pedido selecionado no fechamento.</p>
               )}
-              <div className="flex gap-2">
-                <Button type="button" className="flex-1" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
-                <Button type="button" variant="outline" onClick={tentarSair}><X className="w-4 h-4" /></Button>
+              <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-3 bg-background/95 backdrop-blur border-t">
+                <Button type="button" className="flex-1 h-12 text-base" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
+                <Button type="button" variant="outline" onClick={tentarSair} className="h-12 px-6"><X className="w-5 h-5" /></Button>
               </div>
             </div>
           ) : (
@@ -183,13 +193,14 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                   <Label className="text-xs">Placa *</Label>
                   <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-sm font-semibold">Peso da 1ª Pesagem (kg) *</Label>
-                  <div className="flex gap-2">
-                    <Input type="text" inputMode="decimal" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} placeholder="0,00" readOnly={!podeDigitar} className={`h-14 text-2xl font-bold text-center ${!podeDigitar ? 'bg-muted/50 cursor-not-allowed' : ''}`} required />
-                    <LerPesoButton onPesoLido={(p) => setForm({ ...form, peso: p })} className="h-14 px-6 text-base" />
-                  </div>
-                  {!podeDigitar && <p className="text-xs text-muted-foreground">Peso preenchido pela balança. Digitação manual liberada apenas para usuários autorizados.</p>}
+                <div className="sm:col-span-2">
+                  <PesoDisplay
+                    label="Peso da 1ª Pesagem (kg) *"
+                    value={form.peso}
+                    onChange={(v) => setForm({ ...form, peso: v })}
+                    onPesoLido={(p) => setForm({ ...form, peso: p })}
+                    podeDigitar={podeDigitar}
+                  />
                 </div>
                 {form.tipo !== 'venda' && (
                   <>
@@ -236,9 +247,9 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                   <Textarea rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
                 </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
-                <Button type="button" variant="outline" onClick={tentarSair}>Cancelar</Button>
+              <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-4 bg-background/95 backdrop-blur border-t">
+                <Button type="submit" className="flex-1 h-12 text-base" disabled={saving}><Scale className="w-5 h-5" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
+                <Button type="button" variant="outline" onClick={tentarSair} className="h-12 px-6">Cancelar</Button>
               </div>
               {form.tipo === 'venda' && (
                 <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>

@@ -30,6 +30,7 @@ import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
+import PesoDisplay from '@/components/pesagem/PesoDisplay';
 
 export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed, onReload }) {
   const [pesoBruto, setPesoBruto] = useState('');
@@ -246,14 +247,14 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Peso da 2ª Pesagem (kg) *</Label>
-            <div className="flex gap-2">
-              <Input type="text" inputMode="decimal" value={pesoBruto} onChange={(e) => setPesoBruto(e.target.value)} placeholder="0,00" readOnly={!podeDigitar} className={`h-14 text-2xl font-bold text-center ${!podeDigitar ? 'bg-muted/50 cursor-not-allowed' : ''}`} autoFocus />
-              <LerPesoButton onPesoLido={(p) => setPesoBruto(p)} className="h-14 px-6 text-base" />
-            </div>
-            {!podeDigitar && <p className="text-xs text-muted-foreground">Peso preenchido pela balança. Digitação manual liberada apenas para usuários autorizados.</p>}
-          </div>
+          <PesoDisplay
+            label="Peso da 2ª Pesagem (kg) *"
+            value={pesoBruto}
+            onChange={setPesoBruto}
+            onPesoLido={setPesoBruto}
+            podeDigitar={podeDigitar}
+            autoFocus
+          />
 
           <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 flex justify-between items-center">
             <div>
@@ -355,9 +356,9 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             <Textarea rows={2} value={observacao} onChange={(e) => setObservacao(e.target.value)} />
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={tentarSair}>Cancelar</Button>
-            <Button className="flex-1" onClick={handleConfirmar} disabled={saving || (isVenda && pedidosAbertos.length === 0)}>
+          <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-4 bg-background/95 backdrop-blur border-t">
+            <Button variant="outline" className="flex-1 h-12 text-base" onClick={tentarSair}>Cancelar</Button>
+            <Button className="flex-1 h-12 text-base" onClick={handleConfirmar} disabled={saving || (isVenda && pedidosAbertos.length === 0)}>
               {saving ? 'Fechando...' : 'Confirmar Fechamento'}
             </Button>
           </div>
