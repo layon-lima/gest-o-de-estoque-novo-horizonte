@@ -18,10 +18,10 @@ function loadSetting(key, defaultValue) {
   }
 }
 
-function formatarPeso(peso, casasDecimais = 0) {
+function formatarPeso(peso, casasDecimais = 3) {
   if (peso === null || peso === undefined || isNaN(peso)) return '0';
   return Number(peso).toLocaleString('pt-BR', {
-    minimumFractionDigits: casasDecimais,
+    minimumFractionDigits: 0,
     maximumFractionDigits: casasDecimais,
   });
 }
@@ -31,37 +31,22 @@ function formatarPeso(peso, casasDecimais = 0) {
  * O frame contém status, sinal, valor do peso e unidade (kg).
  * Ex.: " +0012345k" ou "M +0012345k" (em movimento) ou "O +9999999k" (sobrecarga)
  */
-function parseFrameCougar(frame, casasDecimais = 0) {
+function parseFrameCougar(frame) {
   const str = frame.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
   if (!str || str.length < 2) return null;
-
-  let pesoStr = null;
-  let hasDecimal = false;
 
   // Procura número (com sinal opcional) antes da unidade (k, g, l, etc.)
   const unitMatch = str.match(/(-?\+?\s*\d+[.,]?\d*)\s*[kglot]/i);
   if (unitMatch) {
-    pesoStr = unitMatch[1].replace(/[+\s]/g, '');
-    hasDecimal = /[.,]/.test(pesoStr);
-  } else {
-    // Fallback: extrai o último número da string
-    const matches = str.match(/\d+[.,]?\d*/g);
-    if (matches && matches.length > 0) {
-      pesoStr = matches[matches.length - 1];
-      hasDecimal = /[.,]/.test(pesoStr);
-    }
+    const peso = parseFloat(unitMatch[1].replace(/[+\s]/g, '').replace(',', '.'));
+    if (!isNaN(peso)) return peso;
   }
 
-  if (!pesoStr) return null;
-  let peso = parseFloat(pesoStr.replace(',', '.'));
-  if (isNaN(peso)) return null;
-
-  // Se o frame não tem ponto decimal, aplica casas decimais da configuração
-  if (!hasDecimal && casasDecimais > 0) {
-    peso = peso / Math.pow(10, casasDecimais);
-  }
-
-  return peso;
+  // Fallback: extrai o último número da string (inclui sinal negativo)
+  const matches = str.match(/-?\+?\s*\d+[.,]?\d*/g);
+  if (!matches || matches.length === 0) return null;
+  const peso = parseFloat(matches[matches.length - 1].replace(/[+\s]/g, '').replace(',', '.'));
+  return isNaN(peso) ? null : peso;
 }
 
 export function BalancaProvider({ children }) {
@@ -80,10 +65,11 @@ export function BalancaProvider({ children }) {
   const [erro, setErro] = useState(null);
   const [lendo, setLendo] = useState(false);
   const [rawData, setRawData] = useState('');
+  // rawData mantido apenas para debug interno — não é exibido na UI
   const [dataBits, setDataBits] = useState(() => parseInt(loadSetting(DATABITS_KEY, '8'), 10));
   const [stopBits, setStopBits] = useState(() => parseInt(loadSetting(STOPBITS_KEY, '1'), 10));
   const [parity, setParity] = useState(() => loadSetting(PARITY_KEY, 'none'));
-  const [casasDecimais, setCasasDecimais] = useState(() => parseInt(loadSetting(CASAS_KEY, '0'), 10));
+  const [casasDecimais, setCasasDecimais] = useState(() => parseInt(loadSetting(CASAS_KEY, '3'), 10));
 
   const portRef = useRef(null);
   const readerRef = useRef(null);
@@ -125,7 +111,7 @@ export function BalancaProvider({ children }) {
           buffer = buffer.substring(nlIdx + skip);
 
           if (frame.length > 0) {
-            const peso = parseFrameCougar(frame, casasDecimaisRef.current);
+            const peso = parseFrameCougar(frame);
             if (peso !== null) {
               const leitura = { peso, timestamp: new Date().toISOString() };
               ultimaLeituraRef.current = leitura;
@@ -136,7 +122,7 @@ export function BalancaProvider({ children }) {
 
         // Fallback: sem delimitador mas buffer com dados suficientes — tenta parsear direto
         if (buffer.length >= 12 && !/[\r\n]/.test(buffer)) {
-          const peso = parseFrameCougar(buffer, casasDecimaisRef.current);
+          const peso = parseFrameCougar(buffer);
           if (peso !== null) {
             const leitura = { peso, timestamp: new Date().toISOString() };
             ultimaLeituraRef.current = leitura;

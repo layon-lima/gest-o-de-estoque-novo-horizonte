@@ -92,7 +92,7 @@ export default function BalancaConfig() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground font-medium">Casas decimais</label>
+          <label className="text-xs text-muted-foreground font-medium">Máx. decimais</label>
           <select
             value={casasDecimais}
             onChange={(e) => trocar(trocarCasasDecimais, parseInt(e.target.value, 10), casasDecimais)}
@@ -109,7 +109,7 @@ export default function BalancaConfig() {
         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
         <div>
           <p><strong>Configuração típica Toledo Prix:</strong> 9600 baud, 8 data bits, 1 stop bit, paridade Nenhuma.</p>
-          <p className="mt-1"><strong>Casas decimais:</strong> define quantos zeros à direita são decimais. Ex.: se a balança envia "12345000" e o peso real é "1.234,500", configure 3 casas decimais.</p>
+          <p className="mt-1"><strong>Máx. decimais:</strong> controla quantas casas decimais exibir no peso. Se o visor mostra 1000, o sistema mostra 1.000. Se mostra -10, mostra -10.</p>
         </div>
       </div>
     </div>
