@@ -50,6 +50,7 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
   const [pedidoId, setPedidoId] = useState('todos');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [busy, setBusy] = useState(null); // 'pdf' | 'share' | null
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const pedidoNumero = (id) => pedidos.find((p) => p.id === id)?.numero || '—';
@@ -204,20 +205,26 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
     exportCSV('Relatório de Pagamentos e Carregamentos', cols, rows);
   }
   async function handlePDF() {
+    setBusy('pdf');
     try {
       const { cols, rows } = buildReport();
       await exportPDF('Relatório de Pagamentos e Carregamentos', cols, rows);
     } catch (e) {
       toast({ title: 'Erro ao gerar PDF', description: e.message || String(e), variant: 'destructive' });
+    } finally {
+      setBusy(null);
     }
   }
   async function handleShare() {
+    setBusy('share');
     try {
       const { cols, rows } = buildReport();
       await sharePDF('Relatório de Pagamentos e Carregamentos', cols, rows);
     } catch (e) {
       if (e?.name === 'AbortError') return;
       toast({ title: 'Erro ao compartilhar', description: e.message || String(e), variant: 'destructive' });
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -274,8 +281,8 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
         {/* Botões */}
         <div className="flex gap-2 pt-1 flex-wrap">
           <Button type="button" variant="outline" className="flex-1 min-w-[110px]" onClick={onClose}>Fechar</Button>
-          <Button type="button" variant="outline" className="flex-1 min-w-[110px]" onClick={handlePDF} disabled={!hasData}><FileDown className="w-4 h-4 mr-2" /> PDF</Button>
-          <Button type="button" variant="outline" className="flex-1 min-w-[110px] sm:hidden" onClick={handleShare} disabled={!hasData}><Share2 className="w-4 h-4 mr-2" /> Compartilhar</Button>
+          <Button type="button" variant="outline" className="flex-1 min-w-[110px]" onClick={handlePDF} disabled={!hasData || busy}><FileDown className="w-4 h-4 mr-2" /> {busy === 'pdf' ? 'Gerando…' : 'PDF'}</Button>
+          <Button type="button" variant="outline" className="flex-1 min-w-[110px] sm:hidden" onClick={handleShare} disabled={!hasData || busy}><Share2 className="w-4 h-4 mr-2" /> {busy === 'share' ? 'Gerando…' : 'Compartilhar'}</Button>
           <Button type="button" className="flex-1 min-w-[110px] hidden sm:flex" onClick={handleCSV} disabled={!hasData}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel</Button>
         </div>
       </DialogContent>
