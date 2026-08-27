@@ -22,11 +22,24 @@ export function parseQtd(str) {
   if (str == null) return 0;
   const s = String(str).trim();
   if (s === '') return 0;
-  // Se há vírgula: trata como separador decimal pt-BR
+  // Se há vírgula: trata como separador decimal pt-BR (pontos = milhar)
   if (s.includes(',')) {
     const limpo = s.replace(/\./g, '').replace(',', '.');
     const n = Number(limpo);
     return isFinite(n) ? n : 0;
+  }
+  // Sem vírgula: em pt-BR o ponto é separador de milhar.
+  // - Múltiplos pontos → milhar (ex.: "1.234.567" → 1234567)
+  // - Ponto único seguido de exatamente 3 dígitos → milhar (ex.: "2.400" → 2400)
+  //   (evita que o visor da balança "2.400" seja lido como 2,4 ao gravar o ticket)
+  // - Demais casos (ex.: "1.5", "2.40") → decimal, por robustez
+  if (s.includes('.')) {
+    const parts = s.split('.');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      const limpo = s.replace(/\./g, '');
+      const n = Number(limpo);
+      return isFinite(n) ? n : 0;
+    }
   }
   const n = Number(s);
   return isFinite(n) ? n : 0;
