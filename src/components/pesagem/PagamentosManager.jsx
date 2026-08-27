@@ -243,6 +243,7 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, ticket
         pagamentos={pagamentos}
         pedidos={pedidos}
         pessoas={pessoas}
+        tickets={tickets}
       />
     </div>
   );
