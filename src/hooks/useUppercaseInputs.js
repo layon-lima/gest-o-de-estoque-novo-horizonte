@@ -1,5 +1,13 @@
 import { useEffect } from 'react';
 
+// Setters nativos de `value` do prototype. Usados para alterar o valor do DOM
+// SEM passar pelo value-tracker que o React instala nas instâncias controladas.
+// Se usarmos `el.value = upper`, o tracker do React registra o novo valor e, ao
+// redespatchar o evento `input`, o React não detecta diferença → o onChange não
+// dispara e campos controlados (ex.: a busca do painel) param de responder.
+const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+const nativeTextareaSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+
 /**
  * Aplica máscara de MAIÚSCULAS em todos os campos de texto e textarea do app.
  * Funciona em componentes controlados (React) redefinindo o valor nativo e
@@ -30,7 +38,10 @@ export function useUppercaseInputs() {
       const start = el.selectionStart;
       const end = el.selectionEnd;
 
-      el.value = upper;
+      // Setter nativo: atualiza o valor real do DOM sem disparar o value-tracker
+      // do React, permitindo que o onChange controlado dispare normalmente.
+      const setter = isInput ? nativeInputSetter : nativeTextareaSetter;
+      if (setter) setter.call(el, upper);
       try { el.setSelectionRange(start, end); } catch (_) { /* alguns inputs não suportam */ }
 
       // Redispara para que React/ControlledComponents atualizem o estado
