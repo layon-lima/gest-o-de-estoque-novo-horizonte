@@ -21,12 +21,13 @@ const PASSOS = [
     icon: Settings,
     imagem: 'https://media.base44.com/images/public/6a84b445f638bd5605381437/f8574ce1a_generated_image.png',
     descricao:
-      'Na balança Toledo Prix, entre no modo de programação e ajuste os parâmetros de comunicação serial.',
+      'Na balança Toledo Prix, entre no modo de programação e ajuste os parâmetros de comunicação serial para o protocolo Cougar p03 contínuo.',
     dicas: [
       'Pressione a tecla MODO, digite a senha 2011 e pressione MODO novamente para entrar no modo de configuração.',
-      'Navegue até o parâmetro C-13 com a tecla ENTRAR e altere para SERIAL com a tecla LIGA.',
-      'Navegue até C-14 e altere para PRT5 (protocolo 5).',
-      'Navegue até C-15 e altere para 9600 (velocidade da porta serial).',
+      'Navegue até o parâmetro C-13 (canal) com a tecla ENTRAR e altere para SERIAL A.',
+      'Navegue até C-14 (protocolo) e altere para P03 (Cougar p03 contínuo).',
+      'Navegue até C-15 (baud rate) e altere para 9600.',
+      'Confirme que o número de bits = 8, stop = 1 e transmissão cks (checksum) = habilitado.',
       'Pressione ENTRAR até o final para salvar todas as configurações.',
     ],
   },
@@ -54,7 +55,7 @@ const PASSOS = [
     dicas: [
       'Se o peso não aparecer, verifique se a balança está ligada e com peso estável.',
       'Se aparecer "timeout", a balança pode estar em protocolo errado — refaça o Passo 2.',
-      'Se aparecer "resposta inválida", confirme que C-14 está como PRT5.',
+      'Se aparecer "timeout", confirme que o protocolo está como P03 (Cougar p03 contínuo) e não PRT5.',
       'Após validar aqui, os botões "Ler Peso" nos tickets de pesagem funcionarão automaticamente.',
     ],
   },

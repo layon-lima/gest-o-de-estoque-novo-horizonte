@@ -6,19 +6,23 @@ const BAUD_KEY = 'balanca_baud_rate';
 const DEFAULT_BAUD = 9600;
 
 /**
- * Faz o parse da resposta serial da balança Toledo Prix.
- * A resposta típica contém um status, o valor do peso e a unidade (kg).
- * Ex.: "=        12450 kg" ou "S S     12345 kg"
+ * Faz o parse de um frame do protocolo Cougar p03 (contínuo) da balança Toledo.
+ * O frame contém status, sinal, valor do peso e unidade (kg).
+ * Ex.: " +0012345k" ou "M +0012345k" (em movimento) ou "O +9999999k" (sobrecarga)
  */
-function parsePesoToledo(resposta) {
-  const str = resposta.replace(/[\x00-\x08\x0E-\x1F]/g, '').trim();
-  // Tenta encontrar o número imediatamente antes da unidade "kg"
-  const unitMatch = str.match(/(-?\d+[.,]?\d*)\s*k?g/i);
+function parseFrameCougar(frame) {
+  // Remove caracteres de controle, mantém apenas texto legível
+  const str = frame.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
+  if (!str || str.length < 2) return null;
+
+  // Procura número (com sinal opcional) antes da unidade (k, g, l, etc.)
+  const unitMatch = str.match(/(-?\+?\s*\d+[.,]?\d*)\s*[kglot]/i);
   if (unitMatch) {
-    const peso = parseFloat(unitMatch[1].replace(',', '.'));
+    const peso = parseFloat(unitMatch[1].replace(/[+\s]/g, '').replace(',', '.'));
     if (!isNaN(peso)) return peso;
   }
-  // Fallback: último número encontrado na string
+
+  // Fallback: extrai o último número da string
   const matches = str.match(/\d+[.,]?\d*/g);
   if (!matches || matches.length === 0) return null;
   const peso = parseFloat(matches[matches.length - 1].replace(',', '.'));
@@ -40,7 +44,86 @@ export function BalancaProvider({ children }) {
   const [ultimaLeitura, setUltimaLeitura] = useState(null);
   const [erro, setErro] = useState(null);
   const [lendo, setLendo] = useState(false);
+
   const portRef = useRef(null);
+  const readerRef = useRef(null);
+  const shouldStopRef = useRef(false);
+  const ultimaLeituraRef = useRef(null);
+
+  /**
+   * Inicia o loop de leitura contínua do protocolo Cougar p03.
+   * A balança envia frames continuamente — não é necessário enviar comandos.
+   * Cada frame é delimitado por CR e/ou LF.
+   */
+  const iniciarLeituraContinua = useCallback(async () => {
+    const port = portRef.current;
+    if (!port || !port.readable) return;
+
+    let reader;
+    try {
+      reader = port.readable.getReader();
+      readerRef.current = reader;
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (!shouldStopRef.current) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Processa frames completos (delimitados por CR ou LF)
+        let nlIdx;
+        while ((nlIdx = buffer.search(/[\r\n]/)) >= 0) {
+          const frame = buffer.substring(0, nlIdx);
+          // Avança buffer para depois do delimitador (pula CR+LF se vierem juntos)
+          let skip = 1;
+          if (buffer[nlIdx] === '\r' && buffer[nlIdx + 1] === '\n') skip = 2;
+          buffer = buffer.substring(nlIdx + skip);
+
+          if (frame.length > 0) {
+            const peso = parseFrameCougar(frame);
+            if (peso !== null) {
+              const leitura = { peso, timestamp: new Date().toISOString() };
+              ultimaLeituraRef.current = leitura;
+              setUltimaLeitura(leitura);
+            }
+          }
+        }
+
+        // Segurança: se o buffer crescer demais sem delimitador, descarta
+        if (buffer.length > 256) buffer = '';
+      }
+    } catch (e) {
+      if (!shouldStopRef.current) {
+        if (e.name === 'NetworkError') {
+          setStatus('desconectado');
+          portRef.current = null;
+          setPortaInfo(null);
+          ultimaLeituraRef.current = null;
+        }
+      }
+    } finally {
+      if (reader) {
+        try { reader.releaseLock(); } catch {}
+      }
+      readerRef.current = null;
+    }
+  }, []);
+
+  /** Para o loop de leitura contínua e libera o reader. */
+  const pararLeitura = useCallback(async () => {
+    shouldStopRef.current = true;
+    const reader = readerRef.current;
+    if (reader) {
+      try { await reader.cancel(); } catch {}
+    }
+    // Aguarda o loop terminar
+    let attempts = 0;
+    while (readerRef.current && attempts < 20) {
+      await new Promise((r) => setTimeout(r, 50));
+      attempts++;
+    }
+  }, []);
 
   // Feature detection + auto-reconexão com portas já autorizadas
   useEffect(() => {
@@ -64,6 +147,8 @@ export function BalancaProvider({ children }) {
             portRef.current = port;
             setPortaInfo(port.getInfo());
             setStatus('conectado');
+            shouldStopRef.current = false;
+            iniciarLeituraContinua();
           } catch {
             // Silencioso — usuário conecta manualmente
           }
@@ -74,11 +159,12 @@ export function BalancaProvider({ children }) {
     })();
     return () => {
       cancelled = true;
+      shouldStopRef.current = true;
+      const reader = readerRef.current;
+      if (reader) { try { reader.cancel(); } catch {} }
       const port = portRef.current;
-      if (port) {
-        try { port.close(); } catch {}
-        portRef.current = null;
-      }
+      if (port) { try { port.close(); } catch {} }
+      portRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -92,6 +178,8 @@ export function BalancaProvider({ children }) {
     setStatus('conectando');
     try {
       const port = await navigator.serial.requestPort();
+      // Para leitura existente e fecha porta antiga
+      await pararLeitura();
       const oldPort = portRef.current;
       if (oldPort) {
         try { await oldPort.close(); } catch {}
@@ -101,6 +189,8 @@ export function BalancaProvider({ children }) {
       portRef.current = port;
       setPortaInfo(port.getInfo());
       setStatus('conectado');
+      shouldStopRef.current = false;
+      iniciarLeituraContinua();
       return true;
     } catch (e) {
       if (e.name === 'NotFoundError' || e.name === 'AbortError') {
@@ -114,9 +204,10 @@ export function BalancaProvider({ children }) {
       }
       return false;
     }
-  }, [baudRate]);
+  }, [baudRate, pararLeitura, iniciarLeituraContinua]);
 
   const desconectar = useCallback(async () => {
+    await pararLeitura();
     const port = portRef.current;
     if (port) {
       try { await port.close(); } catch {}
@@ -125,49 +216,40 @@ export function BalancaProvider({ children }) {
     setPortaInfo(null);
     setErro(null);
     setStatus('desconectado');
-  }, []);
+    ultimaLeituraRef.current = null;
+  }, [pararLeitura]);
 
+  /**
+   * Retorna o peso atual da balança.
+   * No modo contínuo Cougar p03, a balança envia leituras continuamente,
+   * então este método retorna a leitura mais recente (se tiver < 2s) ou
+   * aguarda até 3s por uma nova leitura.
+   */
   const lerPeso = useCallback(async () => {
     const port = portRef.current;
     if (!port) return null;
     setLendo(true);
     setErro(null);
-    let reader = null;
-    let writer = null;
     try {
-      if (!port.writable || !port.readable) {
-        throw new Error('porta_perdida');
+      // Se há leitura recente (< 2s), retorna imediatamente
+      const atual = ultimaLeituraRef.current;
+      if (atual && Date.now() - new Date(atual.timestamp).getTime() < 2000) {
+        return atual.peso;
       }
-      // Envia comando "S" (peso estável) + CR LF
-      writer = port.writable.getWriter();
-      const encoder = new TextEncoder();
-      await writer.write(encoder.encode('S\r\n'));
-      writer.releaseLock();
-      writer = null;
-
-      // Lê a resposta até encontrar LF ou estourar o timeout
-      reader = port.readable.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+      // Aguarda até 3s por uma nova leitura do stream contínuo
       const startTime = Date.now();
-      while (true) {
-        if (Date.now() - startTime > 3000) throw new Error('timeout');
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        if (buffer.includes('\n')) break;
+      while (Date.now() - startTime < 3000) {
+        await new Promise((r) => setTimeout(r, 150));
+        const leitura = ultimaLeituraRef.current;
+        if (leitura && Date.now() - new Date(leitura.timestamp).getTime() < 2000) {
+          return leitura.peso;
+        }
       }
-
-      const peso = parsePesoToledo(buffer);
-      if (peso === null) throw new Error('resposta_invalida');
-      setUltimaLeitura({ peso, timestamp: new Date().toISOString() });
-      return peso;
+      throw new Error('timeout');
     } catch (e) {
       const msg = e.message || String(e);
       if (msg === 'timeout') {
-        setErro('Tempo esgotado: a balança não respondeu em 3 segundos. Verifique se está ligada e configurada (Passo 2 do guia).');
-      } else if (msg === 'resposta_invalida') {
-        setErro('Resposta inválida da balança. Confirme se o protocolo está como PRT5 (Passo 2 do guia).');
+        setErro('Tempo esgotado: a balança não enviou leitura em 3 segundos. Verifique se está ligada e configurada no protocolo Cougar p03 contínuo (Passo 2 do guia).');
       } else if (msg === 'porta_perdida') {
         setErro('A conexão com a balança foi perdida. Reconecte na página Balança.');
         setStatus('desconectado');
@@ -175,16 +257,9 @@ export function BalancaProvider({ children }) {
         setPortaInfo(null);
       } else {
         setErro(`Erro na leitura: ${msg}`);
-        if (e.name === 'NetworkError') {
-          setStatus('desconectado');
-          portRef.current = null;
-          setPortaInfo(null);
-        }
       }
       return null;
     } finally {
-      if (reader) { try { reader.releaseLock(); } catch {} }
-      if (writer) { try { writer.releaseLock(); } catch {} }
       setLendo(false);
     }
   }, []);
