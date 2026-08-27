@@ -223,10 +223,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
             </div>
             <div className="space-y-0.5">
               <span className="text-[10px] text-muted-foreground">Placa</span>
-              <select value={placaFiltro} onChange={(e) => setPlacaFiltro(e.target.value)} className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs">
-                <option value="all">Todas</option>
-                {placasUnicas.map((p) => <option key={p} value={p}>{formatPlaca(p)}</option>)}
-              </select>
+              <SearchSelect value={placaFiltro} onChange={setPlacaFiltro} allLabel="Todas" placeholder="Placa..." options={placasUnicas.map((p) => ({ value: p, label: formatPlaca(p) }))} />
             </div>
             <div className="space-y-0.5">
               <span className="text-[10px] text-muted-foreground">Pedido</span>
