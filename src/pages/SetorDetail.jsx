@@ -143,6 +143,7 @@ export default function SetorDetail() {
                 maquinas={maquinas}
                 depositos={depositos}
                 lotes={lotes}
+                saldos={saldos}
                 expanded={expandedId === p.id}
                 onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
               />
