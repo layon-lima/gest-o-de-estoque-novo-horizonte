@@ -43,6 +43,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const { toast } = useToast();
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
+  const isInverted = (ticket?.peso_bruto || 0) > 0 && (ticket?.peso_tara || 0) === 0;
   const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto') : [];
 
   const pedidosVisiveis = useMemo(() => {
@@ -54,8 +55,10 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   }, [pedidosAbertos, buscaPedido, pedidoId]);
 
   const liquido = useMemo(
-    () => calcLiquido(pesoBruto, ticket?.peso_tara || 0),
-    [pesoBruto, ticket]
+    () => isInverted
+      ? calcLiquido(ticket?.peso_bruto || 0, pesoBruto)
+      : calcLiquido(pesoBruto, ticket?.peso_tara || 0),
+    [pesoBruto, ticket, isInverted]
   );
 
   const pedidoSel = pedidos.find((p) => p.id === pedidoId);
@@ -121,7 +124,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       const novoSaldo = Math.round((saldo - liquido) * 1000) / 1000;
       const transpId = isVenda ? transportadoraId : '';
       await base44.entities.TicketPesagem.update(ticket.id, {
-        peso_bruto: parseQtd(pesoBruto),
+        peso_tara: isInverted ? parseQtd(pesoBruto) : (ticket.peso_tara || 0),
+        peso_bruto: isInverted ? (ticket.peso_bruto || 0) : parseQtd(pesoBruto),
         peso_liquido: liquido,
         pedido_id: isVenda ? pedidoId : '',
         produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
@@ -139,7 +143,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       }
       const closedTicket = {
         ...ticket,
-        peso_bruto: parseQtd(pesoBruto),
+        peso_tara: isInverted ? parseQtd(pesoBruto) : (ticket.peso_tara || 0),
+        peso_bruto: isInverted ? (ticket.peso_bruto || 0) : parseQtd(pesoBruto),
         peso_liquido: liquido,
         pedido_id: isVenda ? pedidoId : '',
         produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
@@ -161,12 +166,19 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   function handleConfirmar() {
     if (parseQtd(pesoBruto) <= 0) {
-      toast({ variant: 'destructive', title: 'Informe o peso bruto' });
+      toast({ variant: 'destructive', title: isInverted ? 'Informe o peso tara' : 'Informe o peso bruto' });
       return;
     }
-    if (parseQtd(pesoBruto) < (ticket?.peso_tara || 0)) {
-      toast({ variant: 'destructive', title: 'Peso bruto menor que a tara' });
-      return;
+    if (isInverted) {
+      if (parseQtd(pesoBruto) >= (ticket?.peso_bruto || 0)) {
+        toast({ variant: 'destructive', title: 'Tara maior ou igual ao bruto' });
+        return;
+      }
+    } else {
+      if (parseQtd(pesoBruto) < (ticket?.peso_tara || 0)) {
+        toast({ variant: 'destructive', title: 'Peso bruto menor que a tara' });
+        return;
+      }
     }
     if (isVenda && !pedidoId) {
       toast({ variant: 'destructive', title: 'Selecione um pedido' });
@@ -190,7 +202,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       <DialogContent className="inset-0 max-w-none h-full max-h-none translate-x-0 translate-y-0 rounded-none overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
-          <DialogDescription>Registre o peso bruto{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
+          <DialogDescription>Registre o {isInverted ? 'peso tara' : 'peso bruto'}{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
         </DialogHeader>
 
         {fechado ? (
@@ -227,8 +239,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
               <p className="font-medium font-mono">{formatPlaca(ticket.placa)}</p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">Tara</p>
-              <p className="font-semibold">{formatKg(ticket.peso_tara)}</p>
+              <p className="text-xs text-muted-foreground">{isInverted ? 'Bruto' : 'Tara'}</p>
+              <p className="font-semibold">{formatKg(isInverted ? ticket.peso_bruto : ticket.peso_tara)}</p>
             </div>
             <div className="rounded-lg border p-3 bg-primary/5">
               <p className="text-xs text-muted-foreground">Abertura</p>
@@ -237,7 +249,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           </div>
 
           <div className="space-y-1.5">
-            <Label>Peso Bruto (kg) *</Label>
+            <Label>{isInverted ? 'Tara (kg)' : 'Peso Bruto (kg)'} *</Label>
             <div className="flex gap-2">
               <Input type="text" inputMode="decimal" value={pesoBruto} onChange={(e) => setPesoBruto(e.target.value)} placeholder="0,00" autoFocus />
               <LerPesoButton onPesoLido={(p) => setPesoBruto(p)} />

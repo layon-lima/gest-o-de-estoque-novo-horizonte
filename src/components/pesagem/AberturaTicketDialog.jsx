@@ -27,7 +27,7 @@ import { parseQtd } from '@/lib/format';
 import { normalizePlaca, nextTicketNumber } from '@/lib/pesagem';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
 
-const empty = { tipo: '', motorista: '', placa: '', peso_tara: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
+const empty = { tipo: '', sentido: 'saida', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
 
 const TIPOS = [
   { value: 'venda', label: 'Venda' },
@@ -48,7 +48,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
   function resetForm() { setForm(empty); setStep('tipo'); }
 
   function temDados() {
-    return step === 'dados' && (form.motorista.trim() || form.placa.trim() || form.peso_tara.trim() || form.produto_id || form.transportadora_id || form.origem.trim() || form.destino.trim() || form.observacao.trim());
+    return step === 'dados' && (form.motorista.trim() || form.placa.trim() || form.peso.trim() || form.produto_id || form.transportadora_id || form.origem.trim() || form.destino.trim() || form.observacao.trim());
   }
 
   function tentarSair() {
@@ -70,8 +70,8 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
       toast({ variant: 'destructive', title: 'Motorista e placa são obrigatórios' });
       return;
     }
-    if (parseQtd(form.peso_tara) <= 0) {
-      toast({ variant: 'destructive', title: 'Informe o peso tara' });
+    if (parseQtd(form.peso) <= 0) {
+      toast({ variant: 'destructive', title: form.sentido === 'entrada' ? 'Informe o peso bruto' : 'Informe a tara' });
       return;
     }
     if (form.tipo !== 'venda' && !form.produto_id) {
@@ -103,8 +103,8 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
         transportadora_nome: form.tipo !== 'venda' ? transp?.nome || '' : '',
         origem: form.origem.trim(),
         destino: form.tipo === 'venda' ? '' : form.destino.trim(),
-        peso_tara: parseQtd(form.peso_tara),
-        peso_bruto: 0,
+        peso_tara: form.sentido === 'entrada' ? 0 : parseQtd(form.peso),
+        peso_bruto: form.sentido === 'entrada' ? parseQtd(form.peso) : 0,
         peso_liquido: 0,
         status: 'aberto',
         observacao: form.observacao || '',
@@ -179,11 +179,32 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                   <Label className="text-xs">Placa *</Label>
                   <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
                 </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Sentido da Pesagem *</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, sentido: 'saida' })}
+                      className={`text-left rounded-lg border p-3 transition-colors ${form.sentido === 'saida' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
+                    >
+                      <span className="font-medium text-sm">Saída (vazio → carregado)</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">Tara na abertura, bruto no fechamento</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, sentido: 'entrada' })}
+                      className={`text-left rounded-lg border p-3 transition-colors ${form.sentido === 'entrada' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
+                    >
+                      <span className="font-medium text-sm">Entrada / Descarga (carregado → vazio)</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">Bruto na abertura, tara no fechamento</span>
+                    </button>
+                  </div>
+                </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Tara (kg) *</Label>
+                  <Label className="text-xs">{form.sentido === 'entrada' ? 'Peso Bruto (kg)' : 'Tara (kg)'} *</Label>
                   <div className="flex gap-2">
-                    <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
-                    <LerPesoButton onPesoLido={(p) => setForm({ ...form, peso_tara: p })} />
+                    <Input type="text" inputMode="decimal" value={form.peso} onChange={(e) => setForm({ ...form, peso: e.target.value })} placeholder="0,00" required />
+                    <LerPesoButton onPesoLido={(p) => setForm({ ...form, peso: p })} />
                   </div>
                 </div>
                 {form.tipo !== 'venda' && (
