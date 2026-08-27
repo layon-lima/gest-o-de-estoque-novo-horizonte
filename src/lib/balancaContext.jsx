@@ -82,6 +82,7 @@ export function BalancaProvider({ children }) {
   const readerRef = useRef(null);
   const shouldStopRef = useRef(false);
   const ultimaLeituraRef = useRef(null);
+  const dadosRecebidosRef = useRef(false);
   const casasDecimaisRef = useRef(casasDecimais);
   const baudRateRef = useRef(baudRate);
   const dataBitsRef = useRef(dataBits);
@@ -115,6 +116,7 @@ export function BalancaProvider({ children }) {
       while (!shouldStopRef.current) {
         const { value, done } = await reader.read();
         if (done) break;
+        dadosRecebidosRef.current = true;
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
         setRawData((prev) => (prev + chunk).slice(-300));
@@ -389,8 +391,8 @@ export function BalancaProvider({ children }) {
 
   /**
    * Conecta a balança testando automaticamente diferentes baud rates.
-   * Se a porta abrir mas nenhum dado chegar, fecha e reabre com outra taxa
-   * até encontrar a que funciona. Salva a taxa funcionante no localStorage.
+   * Considera sucesso quando QUALQUER byte chega (não precisa parsear o peso).
+   * Assim detectamos a taxa correta mesmo se o parser ainda não reconhecer o frame.
    */
   const conectarComAutoDeteccao = useCallback(async () => {
     if (!('serial' in navigator)) {
@@ -411,6 +413,8 @@ export function BalancaProvider({ children }) {
       const taxas = [baudRate, 9600, 4800, 2400, 1200, 19200];
       const unicas = [...new Set(taxas)];
 
+      let ultimaTaxaRecebeuBytes = null;
+
       for (const taxa of unicas) {
         try {
           await port.open({ baudRate: taxa, dataBits, stopBits, parity });
@@ -420,30 +424,36 @@ export function BalancaProvider({ children }) {
         portRef.current = port;
         shouldStopRef.current = false;
         ultimaLeituraRef.current = null;
+        dadosRecebidosRef.current = false;
         setUltimaLeitura(null);
         setRawData('');
 
         iniciarLeituraContinua();
 
-        // Aguarda até 2.5s por dados
-        const deadline = Date.now() + 2500;
-        let recebeu = false;
+        // Aguarda até 4s por qualquer byte (dadosRecebidosRef) ou peso parseado (ultimaLeituraRef)
+        const deadline = Date.now() + 4000;
+        let recebeuBytes = false;
+        let pesoOk = false;
         while (Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 150));
-          if (ultimaLeituraRef.current) {
-            recebeu = true;
-            break;
-          }
+          await new Promise((r) => setTimeout(r, 200));
+          if (ultimaLeituraRef.current) { pesoOk = true; recebeuBytes = true; break; }
+          if (dadosRecebidosRef.current) { recebeuBytes = true; }
         }
 
-        if (recebeu) {
+        if (recebeuBytes) {
           setBaudRate(taxa);
           baudRateRef.current = taxa;
           try { localStorage.setItem(BAUD_KEY, String(taxa)); } catch {}
           setPortaInfo(port.getInfo());
           setStatus('conectado');
+          if (!pesoOk) {
+            // Bytes chegaram mas o parser não reconheceu — dados crus podem ajudar no diagnóstico
+            setErro('Conectado na taxa ' + taxa + ', mas o formato dos dados não foi reconhecido. A balança está enviando dados — verifique o protocolo (deve ser Cougar p03 contínuo) ou ajuste as casas decimais nas configurações.');
+          }
           return true;
         }
+
+        ultimaTaxaRecebeuBytes = false;
 
         // Sem dados — para o reader, fecha e tenta próxima taxa
         await pararLeitura();
@@ -452,7 +462,7 @@ export function BalancaProvider({ children }) {
       }
 
       setStatus('erro');
-      setErro('A balança conectou mas não enviou dados em nenhuma taxa de transmissão. Verifique se o driver USB do conversor serial está instalado neste PC e se o cabo está firme.');
+      setErro('A balança conectou mas não enviou nenhum byte em nenhuma taxa de transmissão (9600, 4800, 2400, 1200, 19200). Causas mais comuns: (1) driver USB do conversor serial não instalado neste PC — instale o driver do fabricante (FTDI/CH340/Prolific); (2) cabo USB solto ou danificado; (3) a balança está desligada ou com o protocolo serial desativado no visor.');
       return false;
     } catch (e) {
       if (e.name === 'NotFoundError' || e.name === 'AbortError') {
