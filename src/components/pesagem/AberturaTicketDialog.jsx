@@ -127,7 +127,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
           <DialogDescription>Preencha os dados do ticket de pesagem.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl mx-auto w-full">
+        <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-5xl mx-auto">
           {step === 'tipo' ? (
             <div className="space-y-3">
               <Label className="text-xs">Escolha o tipo de ticket *</Label>
