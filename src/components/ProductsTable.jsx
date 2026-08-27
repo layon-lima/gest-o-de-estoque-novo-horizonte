@@ -56,7 +56,7 @@ export default function ProductsTable({
             {produtos.map((p) => {
               const st = getStatus(p.quantidade || 0);
               return (
-                <TableRow key={p.id}>
+                <TableRow key={p._rowKey || p.id}>
                   <TableCell className="font-medium">{p.nome}</TableCell>
                   <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
                     {formatQtd(p.quantidade || 0)}
@@ -99,7 +99,7 @@ export default function ProductsTable({
         {produtos.map((p) => {
           const st = getStatus(p.quantidade || 0);
           return (
-            <div key={p.id} className="p-3 space-y-2">
+            <div key={p._rowKey || p.id} className="p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <span className="font-medium text-sm leading-tight">{p.nome}</span>
                 {showStatus && (

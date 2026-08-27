@@ -14,33 +14,41 @@ export function getQtdNoDeposito(produtoId, depositoId, gavetaId = '', saldos = 
 }
 
 export function filterProdutos(produtos, filtros, saldos = []) {
-  let result = [...produtos];
-
-  if (filtros.setor_id) result = result.filter((p) => p.setor_id === filtros.setor_id);
-
-  // SAP: o filtro por depósito é baseado no saldo físico (SaldoEstoque), não no
-  // campo único Produto.deposito_id. Um produto aparece no depósito se tiver
-  // saldo > 0 nele; a quantidade exibida passa a ser a do depósito (e gaveta).
-  if (filtros.deposito_id) {
-    if ((saldos || []).length > 0) {
-      // SAP: saldo físico real no depósito (com gaveta se filtrada).
-      const gav = filtros.gaveta_id || '';
-      result = result
-        .filter((p) => getQtdNoDeposito(p.id, filtros.deposito_id, gav, saldos) > 0)
-        .map((p) => ({
-          ...p,
-          quantidade: getQtdNoDeposito(p.id, filtros.deposito_id, gav, saldos),
-          deposito_id: filtros.deposito_id,
-          ...(gav ? { gaveta_id: gav } : {}),
-        }));
-    } else {
-      // Fallback: sem saldos carregados, usa o campo único do produto.
-      result = result.filter((p) => p.deposito_id === filtros.deposito_id);
+  // SAP: expande cada produto em uma linha por saldo (depósito/gaveta/lote),
+  // cada uma mostrando a parcela real daquela localização. Quando um depósito
+  // específico está filtrado, só aparecem as parcelas dele.
+  let rows;
+  if ((saldos || []).length > 0) {
+    rows = [];
+    for (const p of produtos) {
+      const parcelas = (saldos || []).filter(
+        (s) => s.produto_id === p.id && (s.quantidade || 0) > 0
+      );
+      if (parcelas.length > 0) {
+        for (const s of parcelas) {
+          rows.push({
+            ...p,
+            quantidade: s.quantidade,
+            unidade: s.unidade || p.unidade,
+            deposito_id: s.deposito_id || p.deposito_id,
+            gaveta_id: s.gaveta_id || '',
+            lote_id: s.lote_id || '',
+            _rowKey: `${p.id}:${s.deposito_id || ''}:${s.gaveta_id || ''}:${s.lote_id || ''}:${s.id}`,
+          });
+        }
+      } else {
+        // Produto sem saldos (legacy/zero): uma linha com os dados próprios.
+        rows.push({ ...p, _rowKey: `legacy:${p.id}` });
+      }
     }
-  } else if (filtros.gaveta_id) {
-    result = result.filter((p) => p.gaveta_id === filtros.gaveta_id);
+  } else {
+    rows = produtos.map((p) => ({ ...p, _rowKey: p.id }));
   }
 
+  let result = rows;
+  if (filtros.setor_id) result = result.filter((p) => p.setor_id === filtros.setor_id);
+  if (filtros.deposito_id) result = result.filter((p) => p.deposito_id === filtros.deposito_id);
+  if (filtros.gaveta_id) result = result.filter((p) => p.gaveta_id === filtros.gaveta_id);
   if (filtros.maquina_id) result = result.filter((p) => p.maquina_id === filtros.maquina_id);
 
   if (filtros.estoque === 'ZERADO') {
