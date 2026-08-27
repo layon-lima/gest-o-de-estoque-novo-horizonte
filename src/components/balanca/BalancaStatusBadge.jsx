@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Scale, Loader2, Plug, PlugZap, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Scale, Loader2, Plug, PlugZap, AlertTriangle, ExternalLink, Activity } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useBalanca } from '@/lib/balancaContext';
 
 export default function BalancaStatusBadge() {
-  const { suportado, status, erro, conectar, desconectar } = useBalanca();
+  const { suportado, status, erro, conectar, desconectar, rawData, ultimaLeitura, baudRate, dataBits, stopBits, parity } = useBalanca();
   const [open, setOpen] = useState(false);
   const [conectando, setConectando] = useState(false);
+
+  const semDados = status === 'conectado' && !ultimaLeitura && !rawData;
 
   const dotClass = !suportado
     ? 'bg-gray-400'
     : status === 'conectado'
-    ? 'bg-green-500'
+    ? semDados
+      ? 'bg-amber-500 animate-pulse'
+      : 'bg-green-500'
     : status === 'conectando'
     ? 'bg-amber-500 animate-pulse'
     : 'bg-red-500';
@@ -21,7 +25,9 @@ export default function BalancaStatusBadge() {
   const label = !suportado
     ? 'Balança não suportada'
     : status === 'conectado'
-    ? 'Balança Conectada'
+    ? semDados
+      ? 'Conectada sem dados'
+      : 'Balança Conectada'
     : status === 'conectando'
     ? 'Conectando...'
     : status === 'erro'
@@ -64,8 +70,30 @@ export default function BalancaStatusBadge() {
           </div>
         )}
 
-        {suportado && status === 'conectado' && (
+        {suportado && status === 'conectado' && !semDados && (
           <p className="text-xs text-muted-foreground">A balança está pronta para uso.</p>
+        )}
+
+        {suportado && semDados && (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-50 p-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-800 space-y-1">
+                <p className="font-semibold">Balança conectada mas sem dados</p>
+                <p>A porta abriu, mas nenhum dado está chegando. Verifique:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>O driver USB do conversor serial está instalado neste PC</li>
+                  <li>O cabo USB está firme em ambas as pontas</li>
+                  <li>A balança está ligada e enviando dados (protocolo Cougar p03)</li>
+                  <li>O baud rate ({baudRate}) corresponde ao da balança</li>
+                </ul>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Activity className="w-3.5 h-3.5" />
+              <span>Config: {baudRate} baud, {dataBits} bits, stop {stopBits}, paridade {parity}</span>
+            </div>
+          </div>
         )}
 
         {suportado && (status === 'desconectado' || status === 'erro') && (
