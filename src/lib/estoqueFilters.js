@@ -18,8 +18,14 @@ export function filterProdutos(produtos, filtros, saldos = []) {
   // por produto com o saldo total e marca "_todos" p/ a coluna exibir "Todos".
   // Se um depósito/gaveta estiver selecionado, expande em uma linha por parcela
   // (saldo) dentro do filtro, cada uma com sua quantidade.
+  const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+  const setorFilter = asArr(filtros.setor_id);
+  const depFilter = asArr(filtros.deposito_id);
+  const gavFilter = asArr(filtros.gaveta_id);
+  const maqFilter = asArr(filtros.maquina_id);
+
   const hasSaldos = (saldos || []).length > 0;
-  const expandir = !!(filtros.deposito_id || filtros.gaveta_id);
+  const expandir = depFilter.length > 0 || gavFilter.length > 0;
 
   let rows;
   if (hasSaldos) {
@@ -50,10 +56,10 @@ export function filterProdutos(produtos, filtros, saldos = []) {
   }
 
   let result = rows;
-  if (filtros.setor_id) result = result.filter((p) => p.setor_id === filtros.setor_id);
-  if (filtros.deposito_id) result = result.filter((p) => p.deposito_id === filtros.deposito_id);
-  if (filtros.gaveta_id) result = result.filter((p) => p.gaveta_id === filtros.gaveta_id);
-  if (filtros.maquina_id) result = result.filter((p) => p.maquina_id === filtros.maquina_id);
+  if (setorFilter.length) result = result.filter((p) => setorFilter.includes(p.setor_id));
+  if (depFilter.length) result = result.filter((p) => depFilter.includes(p.deposito_id));
+  if (gavFilter.length) result = result.filter((p) => gavFilter.includes(p.gaveta_id));
+  if (maqFilter.length) result = result.filter((p) => maqFilter.includes(p.maquina_id));
 
   if (filtros.estoque === 'ZERADO') {
     result = result.filter((p) => (p.quantidade || 0) === 0);

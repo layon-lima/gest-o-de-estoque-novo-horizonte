@@ -2,8 +2,8 @@ import { Filter } from 'lucide-react';
 import SearchSelect from '@/components/SearchSelect';
 
 export default function FilterBar({ filtros, setFiltros, setores, maquinas, gavetas, depositos }) {
-  const update = (key, value) =>
-    setFiltros({ ...filtros, [key]: value === 'all' ? '' : value });
+  const updateMulti = (key, arr) => setFiltros({ ...filtros, [key]: arr });
+  const updateSingle = (key, value) => setFiltros({ ...filtros, [key]: value === 'all' ? '' : value });
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -13,8 +13,9 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
       </div>
 
       <SearchSelect
-        value={filtros.setor_id || 'all'}
-        onChange={(v) => update('setor_id', v)}
+        multi
+        value={filtros.setor_id || []}
+        onChange={(v) => updateMulti('setor_id', v)}
         allLabel="Todos os setores"
         placeholder="Setor"
         className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]"
@@ -23,7 +24,7 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
 
       <SearchSelect
         value={filtros.estoque || 'all'}
-        onChange={(v) => update('estoque', v)}
+        onChange={(v) => updateSingle('estoque', v)}
         allLabel="Todo estoque"
         placeholder="Estoque"
         className="w-full sm:w-[140px] flex-1 sm:flex-none min-w-[140px]"
@@ -32,8 +33,9 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
 
       {depositos && (
         <SearchSelect
-          value={filtros.deposito_id || 'all'}
-          onChange={(v) => update('deposito_id', v)}
+          multi
+          value={filtros.deposito_id || []}
+          onChange={(v) => updateMulti('deposito_id', v)}
           allLabel="Todos os depósitos"
           placeholder="Depósito"
           className="w-full sm:w-[170px] flex-1 sm:flex-none min-w-[140px]"
@@ -42,8 +44,9 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
       )}
 
       <SearchSelect
-        value={filtros.maquina_id || 'all'}
-        onChange={(v) => update('maquina_id', v)}
+        multi
+        value={filtros.maquina_id || []}
+        onChange={(v) => updateMulti('maquina_id', v)}
         allLabel="Todas as máquinas"
         placeholder="Máquina"
         className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]"
@@ -51,8 +54,9 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
       />
 
       <SearchSelect
-        value={filtros.gaveta_id || 'all'}
-        onChange={(v) => update('gaveta_id', v)}
+        multi
+        value={filtros.gaveta_id || []}
+        onChange={(v) => updateMulti('gaveta_id', v)}
         allLabel="Todas as gavetas"
         placeholder="Gaveta"
         className="w-full sm:w-[150px] flex-1 sm:flex-none min-w-[140px]"

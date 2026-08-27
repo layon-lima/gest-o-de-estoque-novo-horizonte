@@ -7,7 +7,7 @@ import { useEntidades } from '@/lib/useEntidades';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 
 export default function Dashboard() {
-  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', deposito_id: '', maquina_id: '', gaveta_id: '' });
+  const [filtros, setFiltros] = useState({ setor_id: [], estoque: '', deposito_id: [], maquina_id: [], gaveta_id: [] });
   const [busca, setBusca] = useState('');
 
   const { data, loading } = useEntidades({

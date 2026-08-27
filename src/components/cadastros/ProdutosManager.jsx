@@ -14,7 +14,7 @@ import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 export default function ProdutosManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [filtros, setFiltros] = useState({ setor_id: '', estoque: '', deposito_id: '', maquina_id: '', gaveta_id: '' });
+  const [filtros, setFiltros] = useState({ setor_id: [], estoque: '', deposito_id: [], maquina_id: [], gaveta_id: [] });
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
 
