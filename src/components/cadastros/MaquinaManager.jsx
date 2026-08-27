@@ -6,13 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
@@ -129,15 +123,13 @@ export default function MaquinaManager() {
           </div>
           <div className="space-y-1.5">
             <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-            <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {depositos.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.deposito_id}
+              onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v })}
+              allLabel="— Nenhum —"
+              placeholder="Buscar depósito..."
+              options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+            />
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
@@ -149,23 +141,13 @@ export default function MaquinaManager() {
           {form.permite_abastecimento && (
             <div className="space-y-1.5">
               <Label>Combustível <span className="text-xs font-normal text-muted-foreground">(predefinido)</span></Label>
-              <Select
-                value={form.combustivel_id || 'none'}
-                onValueChange={(v) => setForm({ ...form, combustivel_id: v === 'none' ? '' : v })}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Nenhum —</SelectItem>
-                  {combustiveis.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                      Nenhum produto no setor de Combustíveis.
-                    </div>
-                  )}
-                  {combustiveis.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={form.combustivel_id}
+                onChange={(v) => setForm({ ...form, combustivel_id: v === 'all' ? '' : v })}
+                allLabel="— Nenhum —"
+                placeholder="Buscar combustível..."
+                options={combustiveis.map((c) => ({ value: c.id, label: c.nome }))}
+              />
               <p className="text-xs text-muted-foreground">Definido, o combustível é selecionado automaticamente ao abastecer esta máquina.</p>
             </div>
           )}

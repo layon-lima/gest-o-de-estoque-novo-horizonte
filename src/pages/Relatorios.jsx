@@ -4,13 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Table,
@@ -227,13 +220,14 @@ export default function Relatorios() {
           <Card className="p-5">
             <div className="flex items-center gap-3 flex-wrap mb-1">
               <span className="text-sm font-semibold text-muted-foreground">Filtrar relatório:</span>
-              <Select value={filtro.setor_id} onValueChange={(v) => setFiltro({ ...filtro, setor_id: v })}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Setor" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os setores</SelectItem>
-                  {setorOptions.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={filtro.setor_id}
+                onChange={(v) => setFiltro({ ...filtro, setor_id: v })}
+                allLabel="Todos os setores"
+                placeholder="Setor"
+                className="w-[180px]"
+                options={setorOptions.map((s) => ({ value: s.id, label: s.nome }))}
+              />
               <SearchSelect
                 value={filtro.maquina_id}
                 onChange={(v) => setFiltro({ ...filtro, maquina_id: v })}
@@ -284,15 +278,14 @@ export default function Relatorios() {
           <Card className="p-5">
             <div className="flex items-center gap-3 flex-wrap mb-4">
               <span className="text-sm font-semibold text-muted-foreground">Filtrar:</span>
-              <Select value={filtroMov.tipo} onValueChange={(v) => setFiltroMov({ ...filtroMov, tipo: v })}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="entrada">Entradas</SelectItem>
-                  <SelectItem value="saida">Saídas</SelectItem>
-                  <SelectItem value="estorno">Estornos</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={filtroMov.tipo}
+                onChange={(v) => setFiltroMov({ ...filtroMov, tipo: v })}
+                allLabel="Todas"
+                placeholder="Tipo"
+                className="w-[160px]"
+                options={[{ value: 'entrada', label: 'Entradas' }, { value: 'saida', label: 'Saídas' }, { value: 'estorno', label: 'Estornos' }]}
+              />
               <div className="relative flex-1 min-w-[240px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -381,19 +374,21 @@ export default function Relatorios() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm font-semibold text-muted-foreground">Filtrar:</span>
-              <Select value={filtroValidade.setor_id} onValueChange={(v) => setFiltroValidade({ ...filtroValidade, setor_id: v })}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Setor" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os setores</SelectItem>
-                  {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filtroValidade.faixa} onValueChange={(v) => setFiltroValidade({ ...filtroValidade, faixa: v })}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Validade" /></SelectTrigger>
-                <SelectContent>
-                  {FAIXAS_VALIDADE.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={filtroValidade.setor_id}
+                onChange={(v) => setFiltroValidade({ ...filtroValidade, setor_id: v })}
+                allLabel="Todos os setores"
+                placeholder="Setor"
+                className="w-[200px]"
+                options={setores.map((s) => ({ value: s.id, label: s.nome }))}
+              />
+              <SearchSelect
+                value={filtroValidade.faixa}
+                onChange={(v) => setFiltroValidade({ ...filtroValidade, faixa: v })}
+                placeholder="Validade"
+                className="w-[180px]"
+                options={FAIXAS_VALIDADE.map((f) => ({ value: f.value, label: f.label }))}
+              />
               <span className="text-sm text-muted-foreground">{lotesValidade.length} lote(s)</span>
             </div>
             <div className="flex gap-2">

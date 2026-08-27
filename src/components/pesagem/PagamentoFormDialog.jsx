@@ -11,13 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
@@ -138,21 +132,13 @@ export default function PagamentoFormDialog({ open, onClose, onSaved, pagamento,
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Pedido *</Label>
-            <Select
-              value={form.pedido_id || 'none'}
-              onValueChange={(v) => setForm({ ...form, pedido_id: v === 'none' ? '' : v })}
+            <SearchSelect
+              value={form.pedido_id}
+              onChange={(v) => setForm({ ...form, pedido_id: v })}
+              placeholder="Buscar pedido..."
               disabled={isEdit}
-            >
-              <SelectTrigger><SelectValue placeholder="Selecione o pedido..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none" disabled>— Selecione —</SelectItem>
-                {pedidosDisponiveis.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.numero ? `${p.numero} · ` : ''}{clienteNome(p.cliente_id)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={pedidosDisponiveis.map((p) => ({ value: p.id, label: `${p.numero ? p.numero + ' · ' : ''}${clienteNome(p.cliente_id)}` }))}
+            />
           </div>
 
           {resumo && (
@@ -172,12 +158,12 @@ export default function PagamentoFormDialog({ open, onClose, onSaved, pagamento,
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pg-forma">Forma de Pagamento</Label>
-              <Select value={form.forma_pagamento} onValueChange={(v) => setForm({ ...form, forma_pagamento: v })}>
-                <SelectTrigger id="pg-forma"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FORMAS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={form.forma_pagamento}
+                onChange={(v) => setForm({ ...form, forma_pagamento: v })}
+                placeholder="Forma de pagamento..."
+                options={FORMAS.map((f) => ({ value: f.value, label: f.label }))}
+              />
             </div>
           </div>
 

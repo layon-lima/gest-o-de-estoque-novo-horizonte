@@ -5,13 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
@@ -84,13 +78,13 @@ export default function DepositoManager() {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Setor (categoria) <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-            <Select value={form.setor_id || 'none'} onValueChange={(v) => setForm({ ...form, setor_id: v === 'none' ? '' : v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione um setor" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.setor_id}
+              onChange={(v) => setForm({ ...form, setor_id: v === 'all' ? '' : v })}
+              allLabel="— Nenhum —"
+              placeholder="Buscar setor..."
+              options={setores.map((s) => ({ value: s.id, label: s.nome }))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="d-numero">Número</Label>

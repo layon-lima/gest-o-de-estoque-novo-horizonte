@@ -1,4 +1,5 @@
 import { Settings, Info } from 'lucide-react';
+import SearchSelect from '@/components/SearchSelect';
 import { useBalanca } from '@/lib/balancaContext';
 
 const BAUD_OPTIONS = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
@@ -41,67 +42,52 @@ export default function BalancaConfig() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground font-medium">Baud rate</label>
-          <select
-            value={baudRate}
-            onChange={(e) => trocar(trocarBaudRate, parseInt(e.target.value, 10), baudRate)}
-            className={selectClass}
-          >
-            {BAUD_OPTIONS.map((b) => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={String(baudRate)}
+            onChange={(v) => trocar(trocarBaudRate, parseInt(v, 10), baudRate)}
+            placeholder="Baud rate"
+            options={BAUD_OPTIONS.map((b) => ({ value: String(b), label: String(b) }))}
+          />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground font-medium">Data bits</label>
-          <select
-            value={dataBits}
-            onChange={(e) => trocar(trocarDataBits, parseInt(e.target.value, 10), dataBits)}
-            className={selectClass}
-          >
-            {DATABITS_OPTIONS.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={String(dataBits)}
+            onChange={(v) => trocar(trocarDataBits, parseInt(v, 10), dataBits)}
+            placeholder="Data bits"
+            options={DATABITS_OPTIONS.map((d) => ({ value: String(d), label: String(d) }))}
+          />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground font-medium">Stop bits</label>
-          <select
-            value={stopBits}
-            onChange={(e) => trocar(trocarStopBits, parseInt(e.target.value, 10), stopBits)}
-            className={selectClass}
-          >
-            {STOPBITS_OPTIONS.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={String(stopBits)}
+            onChange={(v) => trocar(trocarStopBits, parseInt(v, 10), stopBits)}
+            placeholder="Stop bits"
+            options={STOPBITS_OPTIONS.map((s) => ({ value: String(s), label: String(s) }))}
+          />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground font-medium">Paridade</label>
-          <select
+          <SearchSelect
             value={parity}
-            onChange={(e) => trocar(trocarParity, e.target.value, parity)}
-            className={selectClass}
-          >
-            {PARITY_OPTIONS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
+            onChange={(v) => trocar(trocarParity, v, parity)}
+            placeholder="Paridade"
+            options={PARITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
+          />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground font-medium">Máx. decimais</label>
-          <select
-            value={casasDecimais}
-            onChange={(e) => trocar(trocarCasasDecimais, parseInt(e.target.value, 10), casasDecimais)}
-            className={selectClass}
-          >
-            {CASAS_OPTIONS.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={String(casasDecimais)}
+            onChange={(v) => trocar(trocarCasasDecimais, parseInt(v, 10), casasDecimais)}
+            placeholder="Máx. decimais"
+            options={CASAS_OPTIONS.map((c) => ({ value: String(c), label: String(c) }))}
+          />
         </div>
       </div>
 

@@ -5,13 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { useEntidades } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
@@ -166,19 +160,12 @@ export default function Movimentacoes() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Tipo *</Label>
-                <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '' })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="entrada">Entrada Nota Fiscal</SelectItem>
-                    <SelectItem value="saida">Baixa Estoque</SelectItem>
-                    <SelectItem value="transferencia">
-                      <span className="flex items-center gap-2">
-                        <ArrowRightLeft className="w-3.5 h-3.5" />
-                        Transferência de Depósito
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchSelect
+                  value={form.tipo}
+                  onChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '' })}
+                  placeholder="Tipo..."
+                  options={[{ value: 'entrada', label: 'Entrada Nota Fiscal' }, { value: 'saida', label: 'Baixa Estoque' }, { value: 'transferencia', label: 'Transferência de Depósito' }]}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mv-qtd">Quantidade *</Label>
@@ -192,26 +179,25 @@ export default function Movimentacoes() {
                   <div className="col-span-2"><span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Origem (de onde sai)</span></div>
                   <div className="space-y-1.5">
                     <Label>Depósito de Origem *</Label>
-                    <Select value={form.deposito_origem_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_origem_id: v === 'none' ? '' : v, gaveta_origem_id: '' })} disabled={!produtoSelecionado}>
-                      <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                      <SelectContent>
-                        {depositosComSaldo.length === 0 ? (
-                          <SelectItem value="none" disabled>— Sem saldo —</SelectItem>
-                        ) : (
-                          depositosComSaldo.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <SearchSelect
+                      value={form.deposito_origem_id}
+                      onChange={(v) => setForm({ ...form, deposito_origem_id: v === 'all' ? '' : v, gaveta_origem_id: '' })}
+                      allLabel="— Sem saldo —"
+                      placeholder="Buscar depósito..."
+                      disabled={!produtoSelecionado}
+                      options={depositosComSaldo.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Gaveta de Origem <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-                    <Select value={form.gaveta_origem_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_origem_id: v === 'none' ? '' : v })} disabled={!form.deposito_origem_id}>
-                      <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Todas —</SelectItem>
-                        {sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_origem_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SearchSelect
+                      value={form.gaveta_origem_id}
+                      onChange={(v) => setForm({ ...form, gaveta_origem_id: v === 'all' ? '' : v })}
+                      allLabel="— Todas —"
+                      placeholder="Buscar gaveta..."
+                      disabled={!form.deposito_origem_id}
+                      options={sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_origem_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+                    />
                   </div>
                   {form.deposito_origem_id && (
                     <div className="col-span-2 text-xs">
@@ -225,23 +211,24 @@ export default function Movimentacoes() {
                   <div className="col-span-2"><span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Destino (para onde vai)</span></div>
                   <div className="space-y-1.5">
                     <Label>Depósito de Destino *</Label>
-                    <Select value={form.deposito_destino_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_destino_id: v === 'none' ? '' : v, gaveta_destino_id: '' })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none" disabled>— Selecione —</SelectItem>
-                        {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SearchSelect
+                      value={form.deposito_destino_id}
+                      onChange={(v) => setForm({ ...form, deposito_destino_id: v === 'all' ? '' : v, gaveta_destino_id: '' })}
+                      allLabel="— Selecione —"
+                      placeholder="Buscar depósito..."
+                      options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Gaveta de Destino <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-                    <Select value={form.gaveta_destino_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_destino_id: v === 'none' ? '' : v })} disabled={!form.deposito_destino_id}>
-                      <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nenhuma —</SelectItem>
-                        {sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_destino_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SearchSelect
+                      value={form.gaveta_destino_id}
+                      onChange={(v) => setForm({ ...form, gaveta_destino_id: v === 'all' ? '' : v })}
+                      allLabel="— Nenhuma —"
+                      placeholder="Buscar gaveta..."
+                      disabled={!form.deposito_destino_id}
+                      options={sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_destino_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+                    />
                   </div>
                   {controlaValidade && (
                     <p className="col-span-2 text-xs text-blue-700">Setor controla validade: lotes consumidos por FEFO na origem e recriados no destino automaticamente.</p>
@@ -252,23 +239,24 @@ export default function Movimentacoes() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Depósito *</Label>
-                  <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v, gaveta_id: '' })}>
-                    <SelectTrigger><SelectValue placeholder="Onde?" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Nenhum —</SelectItem>
-                      {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchSelect
+                    value={form.deposito_id}
+                    onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v, gaveta_id: '' })}
+                    allLabel="— Nenhum —"
+                    placeholder="Buscar depósito..."
+                    options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-                  <Select value={form.gaveta_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_id: v === 'none' ? '' : v })} disabled={!form.deposito_id}>
-                    <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Nenhum —</SelectItem>
-                      {sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchSelect
+                    value={form.gaveta_id}
+                    onChange={(v) => setForm({ ...form, gaveta_id: v === 'all' ? '' : v })}
+                    allLabel="— Nenhum —"
+                    placeholder="Buscar gaveta..."
+                    disabled={!form.deposito_id}
+                    options={sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+                  />
                 </div>
               </div>
             )}

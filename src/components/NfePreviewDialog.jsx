@@ -11,16 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-  SelectLabel,
-  SelectSeparator,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { UNIDADES } from '@/lib/units';
 import {
   Table,
@@ -253,38 +244,26 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={item.maquina_id || 'none'}
-                        onValueChange={(v) => updateRow(idx, 'maquina_id', v === 'none' ? '' : v)}
+                      <SearchSelect
+                        value={item.maquina_id}
+                        onChange={(v) => updateRow(idx, 'maquina_id', v === 'all' ? '' : v)}
+                        allLabel="— Nenhuma —"
+                        placeholder="Buscar máquina..."
                         disabled={!editable(item)}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue placeholder="Selecionar…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">— Nenhuma —</SelectItem>
-                          {maquinas.map((m) => (
-                            <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        className="h-8"
+                        options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={item.gaveta_id || 'none'}
-                        onValueChange={(v) => updateRow(idx, 'gaveta_id', v === 'none' ? '' : v)}
+                      <SearchSelect
+                        value={item.gaveta_id}
+                        onChange={(v) => updateRow(idx, 'gaveta_id', v === 'all' ? '' : v)}
+                        allLabel="— Nenhuma —"
+                        placeholder="Buscar gaveta..."
                         disabled={!editable(item)}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue placeholder="Selecionar…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">— Nenhuma —</SelectItem>
-                          {sortGavetas(gavetas).map((g) => (
-                            <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        className="h-8"
+                        options={sortGavetas(gavetas).map((g) => ({ value: g.id, label: g.codigo }))}
+                      />
                     </TableCell>
                     <TableCell>
                       <Input
@@ -316,42 +295,24 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Setor *</Label>
-                            <Select
-                              value={item.novo_setor_id || 'none'}
-                              onValueChange={(v) => updateRow(idx, 'novo_setor_id', v === 'none' ? '' : v)}
-                            >
-                              <SelectTrigger className="h-8 w-[200px]">
-                                <SelectValue placeholder="Selecionar…" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">— Nenhum —</SelectItem>
-                                {setores.map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <SearchSelect
+                              value={item.novo_setor_id}
+                              onChange={(v) => updateRow(idx, 'novo_setor_id', v === 'all' ? '' : v)}
+                              allLabel="— Nenhum —"
+                              placeholder="Buscar setor..."
+                              className="h-8 w-[200px]"
+                              options={setores.map((s) => ({ value: s.id, label: s.nome }))}
+                            />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Unidade</Label>
-                            <Select
+                            <SearchSelect
                               value={item.novo_unidade || 'un'}
-                              onValueChange={(v) => updateRow(idx, 'novo_unidade', v)}
-                            >
-                              <SelectTrigger className="h-8 w-[140px]">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {UNIDADES.map((fam, fi) => (
-                                  <SelectGroup key={fam.familia}>
-                                    {fi > 0 && <SelectSeparator />}
-                                    <SelectLabel>{fam.familia}</SelectLabel>
-                                    {fam.itens.map((u) => (
-                                      <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(v) => updateRow(idx, 'novo_unidade', v)}
+                              placeholder="Buscar unidade..."
+                              className="h-8 w-[140px]"
+                              options={UNIDADES.flatMap((f) => f.itens.map((u) => ({ value: u.value, label: u.label })))}
+                            />
                           </div>
                           {precisaConversaoCustom(item.uCom, item.novo_unidade) && (
                             <div className="space-y-1">

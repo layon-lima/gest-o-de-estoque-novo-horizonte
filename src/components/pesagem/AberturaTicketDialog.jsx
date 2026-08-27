@@ -29,6 +29,7 @@ import { normalizePlaca, nextTicketNumber, formatKg } from '@/lib/pesagem';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
+import SearchSelect from '@/components/SearchSelect';
 
 const empty = { tipo: '', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
 
@@ -228,31 +229,21 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                   <>
                     <div className="space-y-1 sm:col-span-2">
                       <Label className="text-xs">Produto *</Label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      <SearchSelect
                         value={form.produto_id}
-                        onChange={(e) => setForm({ ...form, produto_id: e.target.value })}
-                        required
-                      >
-                        <option value="">Selecione...</option>
-                        {produtos.map((p) => (
-                          <option key={p.id} value={p.id}>{p.nome}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => setForm({ ...form, produto_id: v })}
+                        placeholder="Buscar produto..."
+                        options={produtos.map((p) => ({ value: p.id, label: p.nome }))}
+                      />
                     </div>
                     <div className="space-y-1 sm:col-span-2">
                       <Label className="text-xs">Transportadora *</Label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      <SearchSelect
                         value={form.transportadora_id}
-                        onChange={(e) => setForm({ ...form, transportadora_id: e.target.value })}
-                        required
-                      >
-                        <option value="">Selecione...</option>
-                        {transportadoras.map((t) => (
-                          <option key={t.id} value={t.id}>{t.nome}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => setForm({ ...form, transportadora_id: v })}
+                        placeholder="Buscar transportadora..."
+                        options={transportadoras.map((t) => ({ value: t.id, label: t.nome }))}
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Origem</Label>

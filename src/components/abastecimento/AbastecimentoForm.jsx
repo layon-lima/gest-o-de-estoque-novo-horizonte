@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { formatQtd, parseQtd } from '@/lib/format';
 
@@ -92,21 +92,12 @@ export default function AbastecimentoForm({
               </span>
             </div>
           ) : (
-            <Select value={produtoId} onValueChange={(v) => { setProdutoId(v); setErro(''); }}>
-              <SelectTrigger><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
-              <SelectContent>
-                {combustiveis.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                    Nenhum produto no setor de Combustíveis.
-                  </div>
-                )}
-                {combustiveis.map((p) => (
-                  <SelectItem key={p.id} value={p.id} disabled={(p.quantidade || 0) <= 0}>
-                    {p.nome} — {formatQtd(p.quantidade || 0)} {p.unidade || 'un'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={produtoId}
+              onChange={(v) => { setProdutoId(v); setErro(''); }}
+              placeholder="Buscar combustível..."
+              options={combustiveis.map((p) => ({ value: p.id, label: `${p.nome} — ${formatQtd(p.quantidade || 0)} ${p.unidade || 'un'}` }))}
+            />
           )}
         </div>
 

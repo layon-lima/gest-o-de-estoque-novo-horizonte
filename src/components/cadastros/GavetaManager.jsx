@@ -5,13 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
@@ -146,15 +140,13 @@ export default function GavetaManager() {
           </div>
           <div className="space-y-1.5">
             <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-            <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v })}>
-              <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {depositos.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.deposito_id}
+              onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v })}
+              allLabel="— Nenhum —"
+              placeholder="Buscar depósito..."
+              options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+            />
           </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>

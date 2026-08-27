@@ -5,13 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
 import { useToast } from '@/components/ui/use-toast';
@@ -106,13 +100,12 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
           {!tipoForcado && (
             <div className="space-y-1.5">
               <Label>Tipo *</Label>
-              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="entrada">Entrada</SelectItem>
-                  <SelectItem value="saida">Saída</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={form.tipo}
+                onChange={(v) => setForm({ ...form, tipo: v })}
+                placeholder="Tipo..."
+                options={[{ value: 'entrada', label: 'Entrada' }, { value: 'saida', label: 'Saída' }]}
+              />
             </div>
           )}
           <div className={tipoForcado ? 'col-span-2 space-y-1.5' : 'space-y-1.5'}>
@@ -123,23 +116,24 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Depósito *</Label>
-            <Select value={form.deposito_id || 'none'} onValueChange={(v) => setForm({ ...form, deposito_id: v === 'none' ? '' : v, gaveta_id: '' })}>
-              <SelectTrigger><SelectValue placeholder="Onde?" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {depositos.map((d) => <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.deposito_id}
+              onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v, gaveta_id: '' })}
+              allLabel="— Nenhum —"
+              placeholder="Buscar depósito..."
+              options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-            <Select value={form.gaveta_id || 'none'} onValueChange={(v) => setForm({ ...form, gaveta_id: v === 'none' ? '' : v })} disabled={!form.deposito_id}>
-              <SelectTrigger><SelectValue placeholder="Endereço" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.gaveta_id}
+              onChange={(v) => setForm({ ...form, gaveta_id: v === 'all' ? '' : v })}
+              allLabel="— Nenhum —"
+              placeholder="Buscar gaveta..."
+              disabled={!form.deposito_id}
+              options={sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+            />
           </div>
         </div>
         {controlaValidade && form.tipo === 'entrada' && (

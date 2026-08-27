@@ -1,11 +1,5 @@
 import { Filter } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 
 export default function FilterBar({ filtros, setFiltros, setores, maquinas, gavetas, depositos }) {
   const update = (key, value) =>
@@ -18,90 +12,52 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
         <span className="hidden sm:inline">Filtros:</span>
       </div>
 
-      <Select
+      <SearchSelect
         value={filtros.setor_id || 'all'}
-        onValueChange={(v) => update('setor_id', v)}
-      >
-        <SelectTrigger className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]">
-          <SelectValue placeholder="Setor" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os setores</SelectItem>
-          {setores.map((s) => (
-            <SelectItem key={s.id} value={s.id}>
-              {s.nome}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onChange={(v) => update('setor_id', v)}
+        allLabel="Todos os setores"
+        placeholder="Setor"
+        className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]"
+        options={setores.map((s) => ({ value: s.id, label: s.nome }))}
+      />
 
-      <Select
+      <SearchSelect
         value={filtros.estoque || 'all'}
-        onValueChange={(v) => update('estoque', v)}
-      >
-        <SelectTrigger className="w-full sm:w-[140px] flex-1 sm:flex-none min-w-[140px]">
-          <SelectValue placeholder="Estoque" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todo estoque</SelectItem>
-          <SelectItem value="ALTO">Alto</SelectItem>
-          <SelectItem value="BAIXO">Baixo</SelectItem>
-          <SelectItem value="ZERADO">Zerado</SelectItem>
-        </SelectContent>
-      </Select>
+        onChange={(v) => update('estoque', v)}
+        allLabel="Todo estoque"
+        placeholder="Estoque"
+        className="w-full sm:w-[140px] flex-1 sm:flex-none min-w-[140px]"
+        options={[{ value: 'ALTO', label: 'Alto' }, { value: 'BAIXO', label: 'Baixo' }, { value: 'ZERADO', label: 'Zerado' }]}
+      />
 
       {depositos && (
-        <Select
+        <SearchSelect
           value={filtros.deposito_id || 'all'}
-          onValueChange={(v) => update('deposito_id', v)}
-        >
-          <SelectTrigger className="w-full sm:w-[170px] flex-1 sm:flex-none min-w-[140px]">
-            <SelectValue placeholder="Depósito" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os depósitos</SelectItem>
-            {depositos.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.numero}{d.nome ? ` — ${d.nome}` : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(v) => update('deposito_id', v)}
+          allLabel="Todos os depósitos"
+          placeholder="Depósito"
+          className="w-full sm:w-[170px] flex-1 sm:flex-none min-w-[140px]"
+          options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' — ' + d.nome : ''}` }))}
+        />
       )}
 
-      <Select
+      <SearchSelect
         value={filtros.maquina_id || 'all'}
-        onValueChange={(v) => update('maquina_id', v)}
-      >
-        <SelectTrigger className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]">
-          <SelectValue placeholder="Máquina" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as máquinas</SelectItem>
-          {maquinas.map((m) => (
-            <SelectItem key={m.id} value={m.id}>
-              {m.codigo} — {m.nome}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onChange={(v) => update('maquina_id', v)}
+        allLabel="Todas as máquinas"
+        placeholder="Máquina"
+        className="w-full sm:w-[160px] flex-1 sm:flex-none min-w-[140px]"
+        options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+      />
 
-      <Select
+      <SearchSelect
         value={filtros.gaveta_id || 'all'}
-        onValueChange={(v) => update('gaveta_id', v)}
-      >
-        <SelectTrigger className="w-full sm:w-[150px] flex-1 sm:flex-none min-w-[140px]">
-          <SelectValue placeholder="Gaveta" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as gavetas</SelectItem>
-          {gavetas.map((g) => (
-            <SelectItem key={g.id} value={g.id}>
-              {g.codigo}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onChange={(v) => update('gaveta_id', v)}
+        allLabel="Todas as gavetas"
+        placeholder="Gaveta"
+        className="w-full sm:w-[150px] flex-1 sm:flex-none min-w-[140px]"
+        options={gavetas.map((g) => ({ value: g.id, label: g.codigo }))}
+      />
     </div>
   );
 }

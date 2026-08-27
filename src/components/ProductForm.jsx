@@ -10,16 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-  SelectLabel,
-  SelectSeparator,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import ProdutoFotoUpload from '@/components/cadastros/ProdutoFotoUpload';
@@ -166,51 +157,49 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
 
           <div className="space-y-1.5">
             <Label>Setor *</Label>
-            <Select value={form.setor_id || 'none'} onValueChange={(v) => set('setor_id', v === 'none' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Selecione um setor" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {setores.map((s) => <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.setor_id}
+              onChange={(v) => set('setor_id', v === 'all' ? '' : v)}
+              allLabel="— Nenhum —"
+              placeholder="Buscar setor..."
+              options={setores.map((s) => ({ value: s.id, label: s.nome }))}
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-            <Select value={form.deposito_id || 'none'} onValueChange={(v) => set('deposito_id', v === 'none' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Nenhum —</SelectItem>
-                {depositos
-                  .filter((d) => !form.setor_id || d.setor_id === form.setor_id)
-                  .map((d) => (
-                    <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={form.deposito_id}
+              onChange={(v) => set('deposito_id', v === 'all' ? '' : v)}
+              allLabel="— Nenhum —"
+              placeholder="Buscar depósito..."
+              options={depositos
+                .filter((d) => !form.setor_id || d.setor_id === form.setor_id)
+                .map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Máquina <span className="text-xs font-normal text-muted-foreground">(etiqueta opcional)</span></Label>
-              <Select value={form.maquina_id || 'none'} onValueChange={(v) => set('maquina_id', v === 'none' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Nenhuma —</SelectItem>
-                  {maquinas.map((m) => <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={form.maquina_id}
+                onChange={(v) => set('maquina_id', v === 'all' ? '' : v)}
+                allLabel="— Nenhuma —"
+                placeholder="Buscar máquina..."
+                options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+              />
               <p className="text-xs text-muted-foreground">Etiqueta de organização. Não define a localização física.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Gaveta <span className="text-xs font-normal text-muted-foreground">(endereço físico)</span></Label>
-              <Select value={form.gaveta_id || 'none'} onValueChange={(v) => set('gaveta_id', v === 'none' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione o endereço" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Nenhum —</SelectItem>
-                  {sortGavetas(gavetas).map((g) => <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={form.gaveta_id}
+                onChange={(v) => set('gaveta_id', v === 'all' ? '' : v)}
+                allLabel="— Nenhum —"
+                placeholder="Buscar gaveta..."
+                options={sortGavetas(gavetas).map((g) => ({ value: g.id, label: g.codigo }))}
+              />
               <p className="text-xs text-muted-foreground">Endereço físico onde o produto fica guardado. Liberado quando o estoque zera.</p>
             </div>
           </div>
@@ -234,20 +223,12 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unidade">Unidade</Label>
-              <Select value={form.unidade || 'un'} onValueChange={handleUnidadeChange}>
-                <SelectTrigger id="unidade"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {UNIDADES.map((fam, fi) => (
-                    <SelectGroup key={fam.familia}>
-                      {fi > 0 && <SelectSeparator />}
-                      <SelectLabel>{fam.familia}</SelectLabel>
-                      {fam.itens.map((u) => (
-                        <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchSelect
+                value={form.unidade || 'un'}
+                onChange={handleUnidadeChange}
+                placeholder="Buscar unidade..."
+                options={UNIDADES.flatMap((f) => f.itens.map((u) => ({ value: u.value, label: u.label })))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="min">Estoque mín.</Label>

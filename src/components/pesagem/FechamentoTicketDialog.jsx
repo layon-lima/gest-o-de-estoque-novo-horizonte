@@ -31,6 +31,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import LerPesoButton from '@/components/balanca/LerPesoButton';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
+import SearchSelect from '@/components/SearchSelect';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
 
@@ -345,16 +346,12 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           {isVenda && transpsDoPedido.length > 1 && (
             <div className="space-y-1.5">
               <Label>Transportadora *</Label>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              <SearchSelect
                 value={transportadoraId}
-                onChange={(e) => setTransportadoraId(e.target.value)}
-              >
-                <option value="">Selecione...</option>
-                {transpsDoPedido.map((t) => (
-                  <option key={t.id} value={t.id}>{t.nome}</option>
-                ))}
-              </select>
+                onChange={setTransportadoraId}
+                placeholder="Selecionar transportadora..."
+                options={transpsDoPedido.map((t) => ({ value: t.id, label: t.nome }))}
+              />
             </div>
           )}
           {isVenda && pedidoSel && transpsDoPedido.length === 1 && (

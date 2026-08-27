@@ -16,13 +16,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import {
   ClipboardList,
   CheckCircle2,
@@ -414,39 +408,33 @@ export default function InventarioConference({
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label>Depósito</Label>
-                  <Select value={criterios.deposito_id || 'none'} onValueChange={(v) => setCriterios({ ...criterios, deposito_id: v === 'none' ? '' : v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o depósito" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Qualquer —</SelectItem>
-                      {depositosSetor.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.numero}{d.nome ? ` · ${d.nome}` : ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchSelect
+                    value={criterios.deposito_id}
+                    onChange={(v) => setCriterios({ ...criterios, deposito_id: v === 'all' ? '' : v })}
+                    allLabel="— Qualquer —"
+                    placeholder="Buscar depósito..."
+                    options={depositosSetor.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Gaveta</Label>
-                  <Select value={criterios.gaveta_id || 'none'} onValueChange={(v) => setCriterios({ ...criterios, gaveta_id: v === 'none' ? '' : v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a gaveta" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Qualquer —</SelectItem>
-                      {gavetas.map((g) => (
-                        <SelectItem key={g.id} value={g.id}>{g.codigo}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchSelect
+                    value={criterios.gaveta_id}
+                    onChange={(v) => setCriterios({ ...criterios, gaveta_id: v === 'all' ? '' : v })}
+                    allLabel="— Qualquer —"
+                    placeholder="Buscar gaveta..."
+                    options={gavetas.map((g) => ({ value: g.id, label: g.codigo }))}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Máquina</Label>
-                  <Select value={criterios.maquina_id || 'none'} onValueChange={(v) => setCriterios({ ...criterios, maquina_id: v === 'none' ? '' : v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a máquina" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Qualquer —</SelectItem>
-                      {maquinas.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>{m.codigo} — {m.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchSelect
+                    value={criterios.maquina_id}
+                    onChange={(v) => setCriterios({ ...criterios, maquina_id: v === 'all' ? '' : v })}
+                    allLabel="— Qualquer —"
+                    placeholder="Buscar máquina..."
+                    options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+                  />
                 </div>
               </div>
               <Button onClick={iniciar} disabled={loadingDoc} className="w-full h-12 text-base">

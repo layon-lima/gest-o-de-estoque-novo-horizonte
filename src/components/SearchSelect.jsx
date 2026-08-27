@@ -15,6 +15,7 @@ export default function SearchSelect({
   placeholder = 'Buscar...',
   allLabel,
   className,
+  disabled,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -50,8 +51,11 @@ export default function SearchSelect({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
+          aria-disabled={disabled}
           className={cn(
-            'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm cursor-pointer hover:bg-accent/40 transition-colors',
+            'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors',
+            disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-accent/40',
             className
           )}
         >
