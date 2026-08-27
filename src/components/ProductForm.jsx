@@ -117,6 +117,8 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           });
           invalidateEntidade('SaldoEstoque');
           invalidateEntidade('Movimentacao');
+          invalidateEntidade('Produto');
+          invalidateEntidade('Lote');
           if (res.movido) {
             toast({ title: 'Saldo realocado', description: `${formatQtd(res.quantidade)} ${form.unidade || ''} movido(s) para o novo endereço.` });
           }
