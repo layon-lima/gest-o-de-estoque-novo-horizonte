@@ -32,6 +32,8 @@ export default function LerPesoButton({ onPesoLido, className }) {
         });
         return;
       }
+      // Aguarda a balança começar a enviar dados após a conexão
+      await new Promise((r) => setTimeout(r, 1000));
     }
 
     const peso = await lerPeso();
@@ -43,7 +45,7 @@ export default function LerPesoButton({ onPesoLido, className }) {
       toast({
         variant: 'destructive',
         title: 'Falha na leitura',
-        description: 'Verifique se a balança está ligada e enviando dados (protocolo Cougar p03 contínuo).',
+        description: 'A balança conectou mas não enviou dados. Verifique se está ligada, se o cabo USB está firme e se o protocolo é Cougar p03 contínuo. Se o problema persistir, confira as configurações no indicador de balança no topo.',
       });
     }
   }

@@ -329,17 +329,17 @@ export function BalancaProvider({ children }) {
     setLendo(true);
     setErro(null);
     try {
-      // Se há leitura recente (< 2s), retorna imediatamente
+      // Se há leitura recente (< 4s), retorna imediatamente
       const atual = ultimaLeituraRef.current;
-      if (atual && Date.now() - new Date(atual.timestamp).getTime() < 2000) {
+      if (atual && Date.now() - new Date(atual.timestamp).getTime() < 4000) {
         return atual.peso;
       }
-      // Aguarda até 3s por uma nova leitura do stream contínuo
+      // Aguarda até 6s por uma nova leitura do stream contínuo
       const startTime = Date.now();
-      while (Date.now() - startTime < 3000) {
+      while (Date.now() - startTime < 6000) {
         await new Promise((r) => setTimeout(r, 150));
         const leitura = ultimaLeituraRef.current;
-        if (leitura && Date.now() - new Date(leitura.timestamp).getTime() < 2000) {
+        if (leitura && Date.now() - new Date(leitura.timestamp).getTime() < 4000) {
           return leitura.peso;
         }
       }
@@ -347,7 +347,7 @@ export function BalancaProvider({ children }) {
     } catch (e) {
       const msg = e.message || String(e);
       if (msg === 'timeout') {
-        setErro('Tempo esgotado: a balança não enviou leitura em 3 segundos. Verifique se está ligada e se o protocolo está configurado como Cougar p03 contínuo.');
+        setErro('Tempo esgotado: a balança não enviou leitura em 6 segundos. Verifique se está ligada, se o cabo está conectado e se o protocolo está como Cougar p03 contínuo.');
       } else if (msg === 'porta_perdida') {
         setErro('A conexão com a balança foi perdida. Reconecte na página Balança.');
         setStatus('desconectado');
