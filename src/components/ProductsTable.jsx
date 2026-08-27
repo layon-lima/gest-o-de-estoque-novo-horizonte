@@ -25,6 +25,15 @@ export default function ProductsTable({
   const nonZero = produtos.filter((p) => (p.quantidade || 0) > 0);
   const avg = nonZero.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZero.length || 1);
 
+  const totaisPorUnidade = produtos.reduce((acc, p) => {
+    const u = p.unidade || 'un';
+    acc[u] = (acc[u] || 0) + (p.quantidade || 0);
+    return acc;
+  }, {});
+  const totalLabel = Object.entries(totaisPorUnidade)
+    .map(([u, v]) => `${formatQtd(v)} ${u}`)
+    .join('   •   ');
+
   function getStatus(qtd) {
     if (qtd === 0) return { label: 'Zerado', cls: 'bg-red-100 text-red-700 border-red-200' };
     if (qtd >= avg) return { label: 'Alto', cls: 'bg-green-100 text-green-700 border-green-200' };
@@ -143,6 +152,13 @@ export default function ProductsTable({
           );
         })}
       </div>
+
+      {produtos.length > 0 && totalLabel && (
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t bg-muted/40 text-sm font-semibold">
+          <span>Total exibido</span>
+          <span className="tabular-nums">{totalLabel}</span>
+        </div>
+      )}
 
       {produtos.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-8">
