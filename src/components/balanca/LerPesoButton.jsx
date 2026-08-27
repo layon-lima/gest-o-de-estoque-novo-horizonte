@@ -3,13 +3,8 @@ import { Button } from '@/components/ui/button';
 import { useBalanca } from '@/lib/balancaContext';
 import { useToast } from '@/components/ui/use-toast';
 
-function formatPesoBalanca(peso) {
-  const arredondado = Math.round(peso * 100) / 100;
-  return String(arredondado).replace('.', ',');
-}
-
 export default function LerPesoButton({ onPesoLido, className }) {
-  const { suportado, status, lendo, lerPeso } = useBalanca();
+  const { suportado, status, lendo, lerPeso, formatarPeso } = useBalanca();
   const { toast } = useToast();
 
   async function handleClick() {
@@ -31,7 +26,7 @@ export default function LerPesoButton({ onPesoLido, className }) {
     }
     const peso = await lerPeso();
     if (peso !== null && peso !== undefined) {
-      const formatado = formatPesoBalanca(peso);
+      const formatado = formatarPeso(peso);
       onPesoLido?.(formatado);
       toast({ title: 'Peso lido da balança', description: `${formatado} kg` });
     } else {

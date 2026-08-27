@@ -2,7 +2,7 @@ import { Scale, ShieldX } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import BalancaStatusGrid from '@/components/balanca/BalancaStatusGrid';
 import BalancaControles from '@/components/balanca/BalancaControles';
-import BalancaPassoAPasso from '@/components/balanca/BalancaPassoAPasso';
+import BalancaConfig from '@/components/balanca/BalancaConfig';
 
 export default function Balanca() {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export default function Balanca() {
 
       <BalancaStatusGrid />
       <BalancaControles />
-      <BalancaPassoAPasso />
+      <BalancaConfig />
     </div>
   );
 }

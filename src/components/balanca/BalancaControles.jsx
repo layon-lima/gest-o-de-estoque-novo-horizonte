@@ -3,10 +3,8 @@ import { Button } from '@/components/ui/button';
 import { useBalanca } from '@/lib/balancaContext';
 import { useToast } from '@/components/ui/use-toast';
 
-const BAUD_OPTIONS = [4800, 9600, 19200];
-
 export default function BalancaControles() {
-  const { suportado, status, baudRate, ultimaLeitura, rawData, lendo, conectar, desconectar, lerPeso, trocarBaudRate } = useBalanca();
+  const { suportado, status, ultimaLeitura, rawData, lendo, conectar, desconectar, lerPeso, formatarPeso } = useBalanca();
   const { toast } = useToast();
 
   const conectado = status === 'conectado';
@@ -14,38 +12,17 @@ export default function BalancaControles() {
   async function handleTestar() {
     const peso = await lerPeso();
     if (peso !== null && peso !== undefined) {
-      toast({ title: 'Leitura bem-sucedida!', description: `${peso} kg lidos da balança.` });
+      toast({ title: 'Leitura bem-sucedida!', description: `${formatarPeso(peso)} kg lidos da balança.` });
     } else {
-      toast({ variant: 'destructive', title: 'Falha na leitura', description: 'Verifique o guia de instalação abaixo.' });
+      toast({ variant: 'destructive', title: 'Falha na leitura', description: 'Verifique as configurações seriais abaixo.' });
     }
-  }
-
-  async function handleTrocarBaud(novo) {
-    if (novo === baudRate) return;
-    if (conectado) await desconectar();
-    trocarBaudRate(novo);
   }
 
   return (
     <div className="glass-tinted rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Scale className="w-4 h-4 text-primary" /> Controles da Balança
-        </h3>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">Baud rate:</label>
-          <select
-            value={baudRate}
-            onChange={(e) => handleTrocarBaud(parseInt(e.target.value, 10))}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-            disabled={!suportado}
-          >
-            {BAUD_OPTIONS.map((b) => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <h3 className="font-semibold text-sm flex items-center gap-2">
+        <Scale className="w-4 h-4 text-primary" /> Controles da Balança
+      </h3>
 
       {/* Display grande do peso */}
       <div className="flex flex-col items-center justify-center py-6 rounded-lg bg-muted/40 border">
@@ -56,12 +33,12 @@ export default function BalancaControles() {
           </div>
         ) : ultimaLeitura ? (
           <>
-            <p className="text-4xl sm:text-5xl font-bold text-primary tabular-nums">{ultimaLeitura.peso}</p>
+            <p className="text-4xl sm:text-5xl font-bold text-primary tabular-nums">{formatarPeso(ultimaLeitura.peso)}</p>
             <p className="text-sm text-muted-foreground font-medium mt-1">kg</p>
           </>
         ) : (
           <>
-            <p className="text-4xl sm:text-5xl font-bold text-muted-foreground/40 tabular-nums">0</p>
+            <p className="text-4xl sm:text-5xl font-bold text-muted-foreground/40 tabular-nums">{formatarPeso(0)}</p>
             <p className="text-sm text-muted-foreground font-medium mt-1">kg</p>
           </>
         )}
@@ -98,7 +75,7 @@ export default function BalancaControles() {
             )}
           </div>
           <pre className="text-xs font-mono bg-muted/40 border rounded-md p-2 max-h-24 overflow-auto whitespace-pre-wrap break-all text-muted-foreground">
-            {rawData || 'Nenhum byte recebido. Se aparecer assim, o problema pode ser baud rate ou paridade. Tente trocar o baud rate acima.'}
+            {rawData || 'Nenhum byte recebido. Verifique baud rate, paridade e bits de dados na configuração abaixo.'}
           </pre>
         </div>
       )}

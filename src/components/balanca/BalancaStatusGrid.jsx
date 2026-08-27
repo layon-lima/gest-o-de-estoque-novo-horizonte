@@ -17,7 +17,7 @@ function portaLabel(info) {
 }
 
 export default function BalancaStatusGrid() {
-  const { suportado, status, portaInfo, baudRate, ultimaLeitura, erro, lendo } = useBalanca();
+  const { suportado, status, portaInfo, baudRate, dataBits, stopBits, parity, ultimaLeitura, erro, lendo, formatarPeso } = useBalanca();
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -58,7 +58,7 @@ export default function BalancaStatusGrid() {
             ? 'Erro'
             : 'Desconectada'}
         </p>
-        <p className="text-xs text-muted-foreground">{portaLabel(portaInfo)} · {baudRate} baud</p>
+        <p className="text-xs text-muted-foreground">{portaLabel(portaInfo)} · {baudRate} baud · {dataBits}{parity !== 'none' ? parity[0].toUpperCase() : 'N'}{stopBits}</p>
         {erro && <p className="text-xs text-destructive mt-1">{erro}</p>}
       </div>
 
@@ -71,7 +71,7 @@ export default function BalancaStatusGrid() {
         {ultimaLeitura ? (
           <>
             <p className="text-2xl font-bold text-primary tabular-nums">
-              {ultimaLeitura.peso} <span className="text-sm font-medium">kg</span>
+              {formatarPeso(ultimaLeitura.peso)} <span className="text-sm font-medium">kg</span>
             </p>
             <p className="text-xs text-muted-foreground">{formatTimestamp(ultimaLeitura.timestamp)}</p>
           </>

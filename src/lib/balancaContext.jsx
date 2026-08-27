@@ -4,29 +4,64 @@ const BalancaContext = createContext(null);
 
 const BAUD_KEY = 'balanca_baud_rate';
 const DEFAULT_BAUD = 9600;
+const DATABITS_KEY = 'balanca_data_bits';
+const STOPBITS_KEY = 'balanca_stop_bits';
+const PARITY_KEY = 'balanca_parity';
+const CASAS_KEY = 'balanca_casas_decimais';
+
+function loadSetting(key, defaultValue) {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved !== null ? saved : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+function formatarPeso(peso, casasDecimais = 0) {
+  if (peso === null || peso === undefined || isNaN(peso)) return '0';
+  return Number(peso).toLocaleString('pt-BR', {
+    minimumFractionDigits: casasDecimais,
+    maximumFractionDigits: casasDecimais,
+  });
+}
 
 /**
  * Faz o parse de um frame do protocolo Cougar p03 (contínuo) da balança Toledo.
  * O frame contém status, sinal, valor do peso e unidade (kg).
  * Ex.: " +0012345k" ou "M +0012345k" (em movimento) ou "O +9999999k" (sobrecarga)
  */
-function parseFrameCougar(frame) {
-  // Remove caracteres de controle, mantém apenas texto legível
+function parseFrameCougar(frame, casasDecimais = 0) {
   const str = frame.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
   if (!str || str.length < 2) return null;
+
+  let pesoStr = null;
+  let hasDecimal = false;
 
   // Procura número (com sinal opcional) antes da unidade (k, g, l, etc.)
   const unitMatch = str.match(/(-?\+?\s*\d+[.,]?\d*)\s*[kglot]/i);
   if (unitMatch) {
-    const peso = parseFloat(unitMatch[1].replace(/[+\s]/g, '').replace(',', '.'));
-    if (!isNaN(peso)) return peso;
+    pesoStr = unitMatch[1].replace(/[+\s]/g, '');
+    hasDecimal = /[.,]/.test(pesoStr);
+  } else {
+    // Fallback: extrai o último número da string
+    const matches = str.match(/\d+[.,]?\d*/g);
+    if (matches && matches.length > 0) {
+      pesoStr = matches[matches.length - 1];
+      hasDecimal = /[.,]/.test(pesoStr);
+    }
   }
 
-  // Fallback: extrai o último número da string
-  const matches = str.match(/\d+[.,]?\d*/g);
-  if (!matches || matches.length === 0) return null;
-  const peso = parseFloat(matches[matches.length - 1].replace(',', '.'));
-  return isNaN(peso) ? null : peso;
+  if (!pesoStr) return null;
+  let peso = parseFloat(pesoStr.replace(',', '.'));
+  if (isNaN(peso)) return null;
+
+  // Se o frame não tem ponto decimal, aplica casas decimais da configuração
+  if (!hasDecimal && casasDecimais > 0) {
+    peso = peso / Math.pow(10, casasDecimais);
+  }
+
+  return peso;
 }
 
 export function BalancaProvider({ children }) {
@@ -45,11 +80,18 @@ export function BalancaProvider({ children }) {
   const [erro, setErro] = useState(null);
   const [lendo, setLendo] = useState(false);
   const [rawData, setRawData] = useState('');
+  const [dataBits, setDataBits] = useState(() => parseInt(loadSetting(DATABITS_KEY, '8'), 10));
+  const [stopBits, setStopBits] = useState(() => parseInt(loadSetting(STOPBITS_KEY, '1'), 10));
+  const [parity, setParity] = useState(() => loadSetting(PARITY_KEY, 'none'));
+  const [casasDecimais, setCasasDecimais] = useState(() => parseInt(loadSetting(CASAS_KEY, '0'), 10));
 
   const portRef = useRef(null);
   const readerRef = useRef(null);
   const shouldStopRef = useRef(false);
   const ultimaLeituraRef = useRef(null);
+  const casasDecimaisRef = useRef(casasDecimais);
+
+  useEffect(() => { casasDecimaisRef.current = casasDecimais; }, [casasDecimais]);
 
   /**
    * Inicia o loop de leitura contínua do protocolo Cougar p03.
@@ -83,7 +125,7 @@ export function BalancaProvider({ children }) {
           buffer = buffer.substring(nlIdx + skip);
 
           if (frame.length > 0) {
-            const peso = parseFrameCougar(frame);
+            const peso = parseFrameCougar(frame, casasDecimaisRef.current);
             if (peso !== null) {
               const leitura = { peso, timestamp: new Date().toISOString() };
               ultimaLeituraRef.current = leitura;
@@ -94,7 +136,7 @@ export function BalancaProvider({ children }) {
 
         // Fallback: sem delimitador mas buffer com dados suficientes — tenta parsear direto
         if (buffer.length >= 12 && !/[\r\n]/.test(buffer)) {
-          const peso = parseFrameCougar(buffer);
+          const peso = parseFrameCougar(buffer, casasDecimaisRef.current);
           if (peso !== null) {
             const leitura = { peso, timestamp: new Date().toISOString() };
             ultimaLeituraRef.current = leitura;
@@ -151,7 +193,7 @@ export function BalancaProvider({ children }) {
         if (ports.length > 0 && !cancelled) {
           const port = ports[0];
           try {
-            await port.open({ baudRate, dataBits: 8, stopBits: 1, parity: 'none' });
+            await port.open({ baudRate, dataBits, stopBits, parity });
             if (cancelled) {
               try { await port.close(); } catch {}
               return;
@@ -197,7 +239,7 @@ export function BalancaProvider({ children }) {
         try { await oldPort.close(); } catch {}
         portRef.current = null;
       }
-      await port.open({ baudRate, dataBits: 8, stopBits: 1, parity: 'none' });
+      await port.open({ baudRate, dataBits, stopBits, parity });
       portRef.current = port;
       setPortaInfo(port.getInfo());
       setStatus('conectado');
@@ -216,7 +258,7 @@ export function BalancaProvider({ children }) {
       }
       return false;
     }
-  }, [baudRate, pararLeitura, iniciarLeituraContinua]);
+  }, [baudRate, dataBits, stopBits, parity, pararLeitura, iniciarLeituraContinua]);
 
   const desconectar = useCallback(async () => {
     await pararLeitura();
@@ -262,7 +304,7 @@ export function BalancaProvider({ children }) {
     } catch (e) {
       const msg = e.message || String(e);
       if (msg === 'timeout') {
-        setErro('Tempo esgotado: a balança não enviou leitura em 3 segundos. Verifique se está ligada e configurada no protocolo Cougar p03 contínuo (Passo 2 do guia).');
+        setErro('Tempo esgotado: a balança não enviou leitura em 3 segundos. Verifique se está ligada e se o protocolo está configurado como Cougar p03 contínuo.');
       } else if (msg === 'porta_perdida') {
         setErro('A conexão com a balança foi perdida. Reconecte na página Balança.');
         setStatus('desconectado');
@@ -282,11 +324,35 @@ export function BalancaProvider({ children }) {
     try { localStorage.setItem(BAUD_KEY, String(novoBaud)); } catch {}
   }, []);
 
+  const trocarDataBits = useCallback((v) => {
+    setDataBits(v);
+    try { localStorage.setItem(DATABITS_KEY, String(v)); } catch {}
+  }, []);
+
+  const trocarStopBits = useCallback((v) => {
+    setStopBits(v);
+    try { localStorage.setItem(STOPBITS_KEY, String(v)); } catch {}
+  }, []);
+
+  const trocarParity = useCallback((v) => {
+    setParity(v);
+    try { localStorage.setItem(PARITY_KEY, v); } catch {}
+  }, []);
+
+  const trocarCasasDecimais = useCallback((v) => {
+    setCasasDecimais(v);
+    try { localStorage.setItem(CASAS_KEY, String(v)); } catch {}
+  }, []);
+
   const value = {
     suportado,
     status,
     portaInfo,
     baudRate,
+    dataBits,
+    stopBits,
+    parity,
+    casasDecimais,
     ultimaLeitura,
     rawData,
     erro,
@@ -295,6 +361,11 @@ export function BalancaProvider({ children }) {
     desconectar,
     lerPeso,
     trocarBaudRate,
+    trocarDataBits,
+    trocarStopBits,
+    trocarParity,
+    trocarCasasDecimais,
+    formatarPeso: (peso) => formatarPeso(peso, casasDecimais),
   };
 
   return <BalancaContext.Provider value={value}>{children}</BalancaContext.Provider>;
