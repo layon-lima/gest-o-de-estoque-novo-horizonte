@@ -99,7 +99,9 @@ export default function Movimentacoes() {
   async function handleSubmit(e) {
     e.preventDefault();
     const produto = produtos.find((p) => p.id === form.produto_id);
-    if (!produto) return;
+    if (!produto) { toast({ variant: 'destructive', title: 'Produto obrigatório', description: 'Selecione o produto da movimentação.' }); return; }
+    if (!form.tipo) { toast({ variant: 'destructive', title: 'Tipo obrigatório', description: 'Selecione o tipo de movimentação.' }); return; }
+    if (form.tipo !== 'transferencia' && !form.deposito_id) { toast({ variant: 'destructive', title: 'Depósito obrigatório', description: 'Selecione o depósito da movimentação.' }); return; }
     setSaving(true);
     try {
       if (form.tipo === 'transferencia') {
@@ -329,7 +331,7 @@ export default function Movimentacoes() {
                 </div>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={saving || !form.produto_id || (form.tipo === 'transferencia' && (!form.deposito_origem_id || !form.deposito_destino_id))}>
+            <Button type="submit" className="w-full" disabled={saving || !form.produto_id || !form.tipo || (form.tipo !== 'transferencia' ? !form.deposito_id : (!form.deposito_origem_id || !form.deposito_destino_id))}>
               {form.tipo === 'transferencia' ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
               {saving ? 'Registrando…' : form.tipo === 'transferencia' ? 'Transferir' : 'Registrar Movimentação'}
             </Button>
