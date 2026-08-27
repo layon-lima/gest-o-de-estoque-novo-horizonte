@@ -722,3 +722,12 @@ export function useBalanca() {
   if (!ctx) throw new Error('useBalanca deve ser usado dentro de BalancaProvider');
   return ctx;
 }
+
+// HMR: módulos de Context não suportam hot-reload granular quando o Provider
+// vive num módulo pai (App.jsx). Força recarga completa para evitar mismatch
+// Provider/Consumer após edição deste arquivo.
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    window.location.reload();
+  });
+}
