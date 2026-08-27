@@ -109,7 +109,7 @@ export default function BalancaConfig() {
         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
         <div>
           <p><strong>Configuração típica Toledo Prix:</strong> 4800 baud, 8 data bits, 1 stop bit, paridade Nenhuma, CKS habilitado.</p>
-          <p className="mt-1"><strong>Máx. decimais:</strong> controla quantas casas decimais exibir no peso. Se o visor mostra 1000, o sistema mostra 1.000. Se mostra -10, mostra -10.</p>
+          <p className="mt-1"><strong>Máx. decimais:</strong> define o ponto decimal do peso lido da balança. Se o visor mostra "436,3", ajuste para 1. Se mostra "43.630" (inteiro), ajuste para 0.</p>
         </div>
       </div>
     </div>

@@ -22,6 +22,20 @@ const DATABITS_KEY = 'balanca_data_bits';
 const STOPBITS_KEY = 'balanca_stop_bits';
 const PARITY_KEY = 'balanca_parity';
 const CASAS_KEY = 'balanca_casas_decimais';
+const CASAS_VERSION_KEY = 'balanca_casas_version';
+const CASAS_VERSION = 2; // v1 = 3 decimais padrão (só formatação), v2 = 0 decimais padrão (define ponto decimal do frame)
+
+// Migração: se o usuário tinha o padrão antigo (3 decimais) salvo, reseta para o novo padrão (0)
+try {
+  const cVersion = localStorage.getItem(CASAS_VERSION_KEY);
+  if (!cVersion || parseInt(cVersion, 10) < CASAS_VERSION) {
+    const savedCasas = localStorage.getItem(CASAS_KEY);
+    if (!savedCasas || savedCasas === '3') {
+      localStorage.removeItem(CASAS_KEY);
+    }
+    localStorage.setItem(CASAS_VERSION_KEY, String(CASAS_VERSION));
+  }
+} catch {}
 
 function loadSetting(key, defaultValue) {
   try {
@@ -42,68 +56,74 @@ function formatarPeso(peso, casasDecimais = 3) {
 
 /**
  * Faz o parse de um frame do protocolo P03 (contínuo) da balança Toledo.
- * Formato do frame: [STX][SWA][SWB][SWC][IIIIII][TTTTTT][CR][(CS)]
- *   STX = 0x02 (início do frame)
- *   SWA = byte de status A — bits 2,1,0 determinam o multiplicador decimal
- *   SWB = byte de status B — bit 0=líquido, bit 1=negativo, bit 2=sobrecarga, bit 3=movimento
+ * Formato: [STX?][SWA][SWB][SWC][6 dígitos peso][6 dígitos tara][CR][CS?]
+ *   STX = 0x02 (OPCIONAL — "Transmissão do STX: Não aplicável" = não transmitido)
+ *   SWA = byte de status A (bit 1=sub-zero, bit 2=sobrecarga)
+ *   SWB = byte de status B (unidade, dados válidos)
  *   SWC = byte de status C
- *   IIIIII = 6 dígitos ASCII do peso (0x30-0x39), SEM ponto decimal
- *   TTTTTT = 6 dígitos ASCII da tara
+ *   6 dígitos ASCII do peso (0x30-0x39), SEM ponto decimal
+ *   6 dígitos ASCII da tara
  *   CR = 0x0D (fim do frame)
+ *   CS = checksum (opcional, quando CKS habilitado)
  *
- * O peso real = valor dos 6 dígitos × multiplicador (definido por SWA).
- * Ex.: visor 436.3 kg → frame "004363" com SWA=0x2B (bits 011 = ×0.1) → 4363 × 0.1 = 436.3
- *
- * @param {number[]|Uint8Array} bytes — bytes crus do frame (incluindo STX)
- * @returns {number|null} — peso em kg, ou null se frame inválido/sobrecarga
+ * O ponto decimal NÃO está no frame — é determinado pelo configurável casasDecimais.
+ * Ex.: visor "436,3" → frame "004363" com casasDecimais=1 → 4363 / 10 = 436.3
  */
-function parseFrameP03(bytes) {
-  if (!bytes || bytes.length < 10) return null;
+function parseFrameP03(bytes, casasDecimais = 0) {
+  if (!bytes || bytes.length < 8) return null;
 
-  // Encontra STX (0x02) no frame
-  let start = Array.from(bytes).indexOf(0x02);
-  if (start < 0 || bytes.length - start < 10) return null;
+  const arr = Array.from(bytes);
 
-  const swa = bytes[start + 1];
-  const swb = bytes[start + 2];
+  // Encontra CR (0x0D) — fim do frame.
+  // STX é OPCIONAL no protocolo P03 contínuo — a configuração da balança
+  // diz "Transmissão do STX: Não aplicável", então não podemos depender dele.
+  const crIdx = arr.indexOf(0x0D);
+  if (crIdx < 0) return null;
 
-  // SWA bits 2,1,0 → multiplicador decimal
-  const multBits = swa & 0x07;
-  const multiplicadores = {
-    0b001: 10,      // Display × 10
-    0b010: 1,       // Display × 1
-    0b011: 0.1,     // Display × 0.1
-    0b100: 0.01,    // Display × 0.01
-    0b101: 0.001,   // Display × 0.001
-    0b110: 0.0001,  // Display × 0.0001
-  };
-  const multiplicador = multiplicadores[multBits];
-  if (multiplicador === undefined) return null;
+  // Frame: [STX?][SWA][SWB][SWC][6 dígitos peso][6 dígitos tara][CR]
+  // Os 6 dígitos da tara estão logo antes do CR (crIdx-6 a crIdx-1).
+  // Os 6 dígitos do peso estão antes da tara (crIdx-12 a crIdx-7), com ou sem STX.
+  // Tenta offset 12 (sem STX) e 13 (com STX).
+  for (const offset of [12, 13]) {
+    if (crIdx < offset) continue;
 
-  // SWB flags
-  const negativo = (swb & 0x02) !== 0;   // bit 1 = peso negativo
-  const sobrecarga = (swb & 0x04) !== 0;  // bit 2 = sobrecarga
-
-  if (sobrecarga) return null;
-
-  // Extrai 6 dígitos do peso (bytes 4-9 após STX)
-  let pesoRaw = 0;
-  let valido = true;
-  for (let i = 0; i < 6; i++) {
-    const b = bytes[start + 4 + i];
-    if (b >= 0x30 && b <= 0x39) {
-      pesoRaw = pesoRaw * 10 + (b - 0x30);
-    } else {
-      valido = false;
-      break;
+    let valido = true;
+    for (let i = 0; i < 6; i++) {
+      const b = arr[crIdx - offset + i];
+      if (b < 0x30 || b > 0x39) { valido = false; break; }
     }
+    if (!valido) continue;
+
+    // Extrai o peso bruto (6 dígitos)
+    let pesoRaw = 0;
+    for (let i = 0; i < 6; i++) {
+      pesoRaw = pesoRaw * 10 + (arr[crIdx - offset + i] - 0x30);
+    }
+
+    // SWA está 3 bytes antes do peso: (crIdx - offset - 3)
+    const swaIdx = crIdx - offset - 3;
+
+    // SWA: bit 1 = sub-zero (negativo), bit 2 = sobrecarga
+    let negativo = false;
+    let sobrecarga = false;
+    if (swaIdx >= 0) {
+      const swa = arr[swaIdx];
+      negativo = (swa & 0x02) !== 0;
+      sobrecarga = (swa & 0x04) !== 0;
+    }
+
+    if (sobrecarga) return null;
+
+    // O ponto decimal não está no frame — é determinado pelo configurável casasDecimais.
+    // Ex.: visor "436,3" → frame "004363" com casasDecimais=1 → 4363 / 10 = 436.3
+    const divisor = Math.pow(10, casasDecimais);
+    let peso = pesoRaw / divisor;
+    if (negativo) peso = -peso;
+
+    return peso;
   }
-  if (!valido) return null;
 
-  let peso = pesoRaw * multiplicador;
-  if (negativo) peso = -peso;
-
-  return peso;
+  return null;
 }
 
 /** Converte array de bytes para representação hexadecimal para diagnóstico de protocolo. */
@@ -146,7 +166,7 @@ export function BalancaProvider({ children }) {
   const [dataBits, setDataBits] = useState(() => parseInt(loadSetting(DATABITS_KEY, '8'), 10));
   const [stopBits, setStopBits] = useState(() => parseInt(loadSetting(STOPBITS_KEY, '1'), 10));
   const [parity, setParity] = useState(() => loadSetting(PARITY_KEY, 'none'));
-  const [casasDecimais, setCasasDecimais] = useState(() => parseInt(loadSetting(CASAS_KEY, '3'), 10));
+  const [casasDecimais, setCasasDecimais] = useState(() => parseInt(loadSetting(CASAS_KEY, '0'), 10));
 
   const portRef = useRef(null);
   const readerRef = useRef(null);
@@ -175,7 +195,7 @@ export function BalancaProvider({ children }) {
    * Se o loop morrer por qualquer motivo (sem shouldStop), reinicia automaticamente
    * com backoff exponencial até MAX_RETRIES tentativas.
    * A balança envia frames continuamente — não é necessário enviar comandos.
-   * Cada frame é delimitado por STX (0x02) no início e CR (0x0D) no fim.
+   * Cada frame é delimitado por CR (0x0D) no fim. STX é opcional e pode não ser transmitido.
    */
   const iniciarLeituraContinua = useCallback(async () => {
     const port = portRef.current;
@@ -229,30 +249,21 @@ export function BalancaProvider({ children }) {
               setRawData(rawDataRef.current);
             }
 
-            // Processa frames P03 completos: [STX] ... [CR]
-            // STX = 0x02, CR = 0x0D — não usa LF como delimitador (pode aparecer em bytes de status)
+            // Processa frames P03 completos delimitados por CR (0x0D).
+            // STX é OPCIONAL neste protocolo — não depende dele para sincronizar.
             while (true) {
-              const stxIdx = buffer.indexOf(0x02);
-              if (stxIdx < 0) {
-                buffer = [];
-                break;
-              }
-              // Descarta bytes antes do STX (ruído/alinhamento)
-              if (stxIdx > 0) buffer = buffer.slice(stxIdx);
-
-              // Procura CR (0x0D) após o STX
-              const crIdx = buffer.indexOf(0x0D, 1);
+              const crIdx = buffer.indexOf(0x0D);
               if (crIdx < 0) {
                 // Frame incompleto — aguarda mais dados
-                if (buffer.length > 256) buffer = buffer.slice(-17);
+                if (buffer.length > 256) buffer = buffer.slice(-20);
                 break;
               }
 
-              // Frame completo: bytes[0..crIdx] (STX ... CR)
+              // Frame completo: bytes[0..crIdx] (dados até CR inclusive)
               const frame = buffer.slice(0, crIdx + 1);
               buffer = buffer.slice(crIdx + 1);
 
-              const peso = parseFrameP03(frame);
+              const peso = parseFrameP03(frame, casasDecimaisRef.current);
               if (peso !== null) {
                 const anterior = ultimaLeituraRef.current;
                 // Só atualiza a tela quando o peso muda — espelha o visor físico da balança
@@ -267,7 +278,7 @@ export function BalancaProvider({ children }) {
               }
             }
 
-            if (buffer.length > 256) buffer = buffer.slice(-17);
+            if (buffer.length > 256) buffer = buffer.slice(-20);
           }
         } catch (e) {
           if (shouldStopRef.current) break;
@@ -300,11 +311,7 @@ export function BalancaProvider({ children }) {
       if (!shouldStopRef.current && tentativas >= MAX_RETRIES) {
         setStatus('erro');
         const raw = rawDataRef.current || '';
-        if (raw) {
-          setErro(`A balança parou de responder após ${MAX_RETRIES} tentativas. Últimos dados recebidos (hex): ${raw}. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
-        } else {
-          setErro(`Não foi possível manter a comunicação com a balança após ${MAX_RETRIES} tentativas. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.`);
-        }
+        setErro('A balança parou de responder. Verifique o cabo USB, o driver do conversor serial e se a balança está ligada.');
       }
     } finally {
       loopRunningRef.current = false;
@@ -526,7 +533,7 @@ export function BalancaProvider({ children }) {
       if (msg === 'timeout') {
         const raw = rawDataRef.current || '';
         if (dadosRecebidosRef.current && raw) {
-          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (hex): ${raw}. Verifique se o BAUD RATE da balança (${baudRateRef.current}) corresponde ao configurado na balança (ex.: 4800). Confira também se o protocolo está como P03 contínuo (C14=P03).`);
+          setErro('A balança está enviando dados mas não foi possível ler o peso. Verifique na página Balança se o baud rate é 4800 e se o número de decimais corresponde ao visor.');
         } else {
           setErro('Tempo esgotado: a balança não enviou dados em 8 segundos. Verifique se está ligada, se o cabo está conectado e se o driver USB do conversor serial está instalado neste PC.');
         }
