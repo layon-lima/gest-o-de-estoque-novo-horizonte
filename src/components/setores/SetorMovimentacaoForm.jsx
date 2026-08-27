@@ -61,6 +61,7 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
     if (!produtoSelecionado) { toast({ variant: 'destructive', title: 'Produto obrigatório', description: 'Selecione o produto da movimentação.' }); return; }
     if (!form.tipo) { toast({ variant: 'destructive', title: 'Tipo obrigatório', description: 'Selecione o tipo de movimentação.' }); return; }
     if (!form.deposito_id) { toast({ variant: 'destructive', title: 'Depósito obrigatório', description: 'Selecione o depósito da movimentação.' }); return; }
+    if (!form.quantidade) { toast({ variant: 'destructive', title: 'Quantidade obrigatória', description: 'Informe a quantidade da movimentação.' }); return; }
     setSaving(true);
     try {
       await registrarMovimentacao({ form, produto: produtoSelecionado, lotes, saldos, movimentacoes, controlaValidade });
@@ -182,7 +183,7 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
           <Label htmlFor="sf-obs">Observação</Label>
           <Textarea id="sf-obs" rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
         </div>
-        <Button type="submit" className="w-full" disabled={saving || !form.produto_id || !form.tipo || !form.deposito_id}>
+        <Button type="submit" className="w-full" disabled={saving || !form.produto_id || !form.tipo || !form.deposito_id || !form.quantidade}>
           <Plus className="w-4 h-4 mr-2" />
           {saving ? 'Registrando…' : 'Registrar Movimentação'}
         </Button>
