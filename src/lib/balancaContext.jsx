@@ -44,6 +44,7 @@ export function BalancaProvider({ children }) {
   const [ultimaLeitura, setUltimaLeitura] = useState(null);
   const [erro, setErro] = useState(null);
   const [lendo, setLendo] = useState(false);
+  const [rawData, setRawData] = useState('');
 
   const portRef = useRef(null);
   const readerRef = useRef(null);
@@ -69,13 +70,14 @@ export function BalancaProvider({ children }) {
       while (!shouldStopRef.current) {
         const { value, done } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        setRawData((prev) => (prev + chunk).slice(-300));
 
         // Processa frames completos (delimitados por CR ou LF)
         let nlIdx;
         while ((nlIdx = buffer.search(/[\r\n]/)) >= 0) {
           const frame = buffer.substring(0, nlIdx);
-          // Avança buffer para depois do delimitador (pula CR+LF se vierem juntos)
           let skip = 1;
           if (buffer[nlIdx] === '\r' && buffer[nlIdx + 1] === '\n') skip = 2;
           buffer = buffer.substring(nlIdx + skip);
@@ -90,7 +92,17 @@ export function BalancaProvider({ children }) {
           }
         }
 
-        // Segurança: se o buffer crescer demais sem delimitador, descarta
+        // Fallback: sem delimitador mas buffer com dados suficientes — tenta parsear direto
+        if (buffer.length >= 12 && !/[\r\n]/.test(buffer)) {
+          const peso = parseFrameCougar(buffer);
+          if (peso !== null) {
+            const leitura = { peso, timestamp: new Date().toISOString() };
+            ultimaLeituraRef.current = leitura;
+            setUltimaLeitura(leitura);
+          }
+          buffer = '';
+        }
+
         if (buffer.length > 256) buffer = '';
       }
     } catch (e) {
@@ -217,6 +229,7 @@ export function BalancaProvider({ children }) {
     setErro(null);
     setStatus('desconectado');
     ultimaLeituraRef.current = null;
+    setRawData('');
   }, [pararLeitura]);
 
   /**
@@ -275,6 +288,7 @@ export function BalancaProvider({ children }) {
     portaInfo,
     baudRate,
     ultimaLeitura,
+    rawData,
     erro,
     lendo,
     conectar,

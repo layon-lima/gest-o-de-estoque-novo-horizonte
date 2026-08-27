@@ -6,7 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 const BAUD_OPTIONS = [4800, 9600, 19200];
 
 export default function BalancaControles() {
-  const { suportado, status, baudRate, ultimaLeitura, lendo, conectar, desconectar, lerPeso, trocarBaudRate } = useBalanca();
+  const { suportado, status, baudRate, ultimaLeitura, rawData, lendo, conectar, desconectar, lerPeso, trocarBaudRate } = useBalanca();
   const { toast } = useToast();
 
   const conectado = status === 'conectado';
@@ -85,6 +85,22 @@ export default function BalancaControles() {
       </div>
       {conectado && (
         <p className="text-xs text-muted-foreground text-center">Posicione o peso na balança e clique em "Testar Leitura".</p>
+      )}
+
+      {conectado && (
+        <div className="space-y-1 border-t pt-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">Dados recebidos da balança</span>
+            {rawData ? (
+              <span className="text-xs text-green-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> recebendo</span>
+            ) : (
+              <span className="text-xs text-amber-500">aguardando dados...</span>
+            )}
+          </div>
+          <pre className="text-xs font-mono bg-muted/40 border rounded-md p-2 max-h-24 overflow-auto whitespace-pre-wrap break-all text-muted-foreground">
+            {rawData || 'Nenhum byte recebido. Se aparecer assim, o problema pode ser baud rate ou paridade. Tente trocar o baud rate acima.'}
+          </pre>
+        </div>
       )}
     </div>
   );
