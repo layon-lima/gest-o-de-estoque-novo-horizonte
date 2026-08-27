@@ -12,13 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import SearchSelect from '@/components/SearchSelect';
 import { exportPDF, exportCSV, sharePDF } from '@/lib/exports';
 import { formatMoeda, formatKg, round3 } from '@/lib/pesagem';
 
@@ -46,8 +40,8 @@ function valorTicket(ticket, pedido) {
 
 export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pedidos, pessoas, produtos, tickets }) {
   const { toast } = useToast();
-  const [clienteId, setClienteId] = useState('todos');
-  const [pedidoId, setPedidoId] = useState('todos');
+  const [clienteId, setClienteId] = useState('all');
+  const [pedidoId, setPedidoId] = useState('all');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [busy, setBusy] = useState(null); // 'pdf' | 'share' | null
@@ -59,12 +53,30 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
   const clientes = useMemo(() => pessoas.filter((p) => p.is_cliente), [pessoas]);
   const pedidosAtivos = useMemo(() => pedidos.filter((p) => p.status !== 'cancelado'), [pedidos]);
 
+  // Pedidos disponíveis no combobox, filtrados dinamicamente pelo cliente selecionado
+  const pedidosOptions = useMemo(() => {
+    const list = clienteId === 'all' ? pedidosAtivos : pedidosAtivos.filter((p) => p.cliente_id === clienteId);
+    return list.map((p) => ({
+      value: p.id,
+      label: `${p.numero ? p.numero + ' · ' : ''}${clienteNome(p.cliente_id)}`,
+    }));
+  }, [pedidosAtivos, clienteId, pessoas]);
+
+  // Ao trocar o cliente, reseta o pedido se ele não pertencer ao cliente escolhido
+  function handleClienteChange(v) {
+    setClienteId(v);
+    if (v !== 'all' && pedidoId !== 'all') {
+      const belongs = pedidosAtivos.some((p) => p.id === pedidoId && p.cliente_id === v);
+      if (!belongs) setPedidoId('all');
+    }
+  }
+
   // Filtra pedidos pelos critérios selecionados
   const pedidosFiltrados = useMemo(() => {
     return pedidosAtivos
       .filter((p) => {
-        if (clienteId !== 'todos' && p.cliente_id !== clienteId) return false;
-        if (pedidoId !== 'todos' && p.id !== pedidoId) return false;
+        if (clienteId !== 'all' && p.cliente_id !== clienteId) return false;
+        if (pedidoId !== 'all' && p.id !== pedidoId) return false;
         return true;
       })
       .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
@@ -244,28 +256,24 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Cliente</Label>
-            <Select value={clienteId} onValueChange={setClienteId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os clientes</SelectItem>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={clienteId}
+              onChange={handleClienteChange}
+              allLabel="Todos os clientes"
+              placeholder="Buscar cliente..."
+              options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Pedido</Label>
-            <Select value={pedidoId} onValueChange={setPedidoId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os pedidos</SelectItem>
-                {pedidosAtivos.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.numero ? `${p.numero} · ` : ''}{clienteNome(p.cliente_id)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchSelect
+              value={pedidoId}
+              onChange={setPedidoId}
+              allLabel="Todos os pedidos"
+              placeholder="Buscar pedido..."
+              options={pedidosOptions}
+            />
           </div>
 
           <div className="space-y-1.5">
