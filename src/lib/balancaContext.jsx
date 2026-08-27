@@ -83,8 +83,18 @@ export function BalancaProvider({ children }) {
   const shouldStopRef = useRef(false);
   const ultimaLeituraRef = useRef(null);
   const casasDecimaisRef = useRef(casasDecimais);
+  const baudRateRef = useRef(baudRate);
+  const dataBitsRef = useRef(dataBits);
+  const stopBitsRef = useRef(stopBits);
+  const parityRef = useRef(parity);
 
-  useEffect(() => { casasDecimaisRef.current = casasDecimais; }, [casasDecimais]);
+  useEffect(() => {
+    casasDecimaisRef.current = casasDecimais;
+    baudRateRef.current = baudRate;
+    dataBitsRef.current = dataBits;
+    stopBitsRef.current = stopBits;
+    parityRef.current = parity;
+  }, [casasDecimais, baudRate, dataBits, stopBits, parity]);
 
   /**
    * Inicia o loop de leitura contínua do protocolo Cougar p03.
@@ -179,41 +189,74 @@ export function BalancaProvider({ children }) {
     }
   }, []);
 
-  // Feature detection + auto-reconexão com portas já autorizadas
+  // Tenta abrir uma porta já autorizada e iniciar a leitura contínua
+  const tentarAutoConectar = useCallback(async (port) => {
+    if (!port || portRef.current) return;
+    try {
+      await port.open({
+        baudRate: baudRateRef.current,
+        dataBits: dataBitsRef.current,
+        stopBits: stopBitsRef.current,
+        parity: parityRef.current,
+      });
+      portRef.current = port;
+      setPortaInfo(port.getInfo());
+      setStatus('conectado');
+      shouldStopRef.current = false;
+      iniciarLeituraContinua();
+    } catch {
+      // Porta não autorizada ou em uso — ignora silenciosamente
+    }
+  }, [iniciarLeituraContinua]);
+
+  // Feature detection + auto-conexão ao plugar o cabo (porta já autorizada)
   useEffect(() => {
     if (!('serial' in navigator)) {
       setSuportado(false);
       setStatus('nao_suportado');
       return;
     }
+
+    // Conecta portas já autorizadas que existem no momento da montagem
     let cancelled = false;
     (async () => {
       try {
         const ports = await navigator.serial.getPorts();
         if (ports.length > 0 && !cancelled) {
-          const port = ports[0];
-          try {
-            await port.open({ baudRate, dataBits, stopBits, parity });
-            if (cancelled) {
-              try { await port.close(); } catch {}
-              return;
-            }
-            portRef.current = port;
-            setPortaInfo(port.getInfo());
-            setStatus('conectado');
-            shouldStopRef.current = false;
-            iniciarLeituraContinua();
-          } catch {
-            // Silencioso — usuário conecta manualmente
-          }
+          await tentarAutoConectar(ports[0]);
         }
       } catch {
         // Silencioso
       }
     })();
+
+    // Quando um cabo é plugado fisicamente, tenta conectar automaticamente
+    const handleConnect = (event) => {
+      if (cancelled || portRef.current) return;
+      tentarAutoConectar(event.target);
+    };
+
+    // Quando o cabo é desconectado fisicamente, atualiza o status
+    const handleDisconnect = (event) => {
+      if (portRef.current === event.target) {
+        shouldStopRef.current = true;
+        const reader = readerRef.current;
+        if (reader) { try { reader.cancel(); } catch {} }
+        portRef.current = null;
+        setPortaInfo(null);
+        setStatus('desconectado');
+        ultimaLeituraRef.current = null;
+      }
+    };
+
+    navigator.serial.addEventListener('connect', handleConnect);
+    navigator.serial.addEventListener('disconnect', handleDisconnect);
+
     return () => {
       cancelled = true;
       shouldStopRef.current = true;
+      navigator.serial.removeEventListener('connect', handleConnect);
+      navigator.serial.removeEventListener('disconnect', handleDisconnect);
       const reader = readerRef.current;
       if (reader) { try { reader.cancel(); } catch {} }
       const port = portRef.current;
