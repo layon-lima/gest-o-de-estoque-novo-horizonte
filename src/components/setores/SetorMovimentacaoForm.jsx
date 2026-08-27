@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { formatQtd } from '@/lib/format';
 import { registrarMovimentacao } from '@/lib/movimentacoes';
 import { sortGavetas } from '@/lib/gavetas';
+import { saldoTotalProduto, depositosComSaldoDoProduto, gavetasComSaldoDoProduto } from '@/lib/saldos';
 
 const emptyForm = {
   produto_id: '',
@@ -34,6 +35,19 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
   const produtosSetor = useMemo(() => produtos.filter((p) => p.setor_id === setor.id), [produtos, setor.id]);
   const produtoSelecionado = produtos.find((p) => p.id === form.produto_id);
   const controlaValidade = !!setor.controla_validade;
+
+  // Saldo real do produto e locais com estoque — para oferecer apenas opções
+  // válidas nas combos de depósito/gaveta conforme o produto selecionado.
+  const saldoTotal = useMemo(() => saldoTotalProduto(form.produto_id, saldos), [form.produto_id, saldos]);
+  const temSaldo = saldoTotal > 0;
+  const depositosComSaldo = useMemo(
+    () => depositosComSaldoDoProduto(form.produto_id, saldos, depositos),
+    [form.produto_id, saldos, depositos]
+  );
+  const gavetasComSaldoDep = useMemo(
+    () => gavetasComSaldoDoProduto(form.produto_id, form.deposito_id, saldos, gavetas),
+    [form.produto_id, form.deposito_id, saldos, gavetas]
+  );
 
   const fornecedores = useMemo(() => {
     const nomes = new Set();
@@ -84,14 +98,14 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
             maquinas={maquinas}
             gavetas={gavetas}
             value={form.produto_id}
-            onChange={(v) => setForm({ ...form, produto_id: v })}
+            onChange={(v) => setForm({ ...form, produto_id: v, deposito_id: '', gaveta_id: '' })}
             placeholder="Buscar produto do setor…"
           />
           {produtoSelecionado && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Estoque atual:</span>
               <span className="font-semibold tabular-nums px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                {formatQtd(produtoSelecionado.quantidade || 0)} {produtoSelecionado.unidade || ''}
+                {formatQtd(saldoTotal)} {produtoSelecionado.unidade || ''}
               </span>
             </div>
           )}
@@ -119,9 +133,10 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
             <SearchSelect
               value={form.deposito_id}
               onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v, gaveta_id: '' })}
-              allLabel="— Nenhum —"
+              allLabel={form.tipo === 'saida' ? '— Sem saldo —' : '— Nenhum —'}
               placeholder="Buscar depósito..."
-              options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+              disabled={form.tipo === 'saida' && !temSaldo}
+              options={(form.tipo === 'saida' ? depositosComSaldo : depositos).map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
             />
           </div>
           <div className="space-y-1.5">
@@ -132,7 +147,7 @@ export default function SetorMovimentacaoForm({ setor, produtos, maquinas, gavet
               allLabel="— Nenhum —"
               placeholder="Buscar gaveta..."
               disabled={!form.deposito_id}
-              options={sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+              options={(form.tipo === 'saida' ? gavetasComSaldoDep : sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id))).map((g) => ({ value: g.id, label: g.codigo }))}
             />
           </div>
         </div>

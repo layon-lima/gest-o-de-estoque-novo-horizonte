@@ -221,3 +221,37 @@ export function buildEstoqueTree(produtoId, { saldos = [], depositos = [], gavet
     gavetas: Object.values(dep.gavetas),
   }));
 }
+
+// Saldo total real do produto (soma das parcelas em SaldoEstoque).
+export function saldoTotalProduto(produtoId, saldos = []) {
+  return (saldos || [])
+    .filter((s) => s.produto_id === produtoId && (s.quantidade || 0) > 0)
+    .reduce((sum, s) => sum + (s.quantidade || 0), 0);
+}
+
+// Depósitos onde o produto possui saldo positivo.
+export function depositosComSaldoDoProduto(produtoId, saldos = [], depositos = []) {
+  const depIds = new Set(
+    (saldos || [])
+      .filter((s) => s.produto_id === produtoId && (s.quantidade || 0) > 0)
+      .map((s) => s.deposito_id)
+      .filter(Boolean)
+  );
+  return (depositos || []).filter((d) => depIds.has(d.id));
+}
+
+// Gavetas onde o produto possui saldo positivo dentro de um depósito.
+export function gavetasComSaldoDoProduto(produtoId, depositoId, saldos = [], gavetas = []) {
+  const gavIds = new Set(
+    (saldos || [])
+      .filter(
+        (s) =>
+          s.produto_id === produtoId &&
+          s.deposito_id === depositoId &&
+          (s.quantidade || 0) > 0
+      )
+      .map((s) => s.gaveta_id)
+      .filter(Boolean)
+  );
+  return (gavetas || []).filter((g) => gavIds.has(g.id));
+}

@@ -12,6 +12,7 @@ import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
 import { registrarMovimentacao, registrarTransferencia } from '@/lib/movimentacoes';
+import { saldoTotalProduto, depositosComSaldoDoProduto, gavetasComSaldoDoProduto } from '@/lib/saldos';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
@@ -58,17 +59,33 @@ export default function Movimentacoes() {
     ? lotes.filter((l) => l.produto_id === produtoSelecionado.id)
     : [];
 
-  // Depósitos que têm saldo do produto selecionado (para origem na transferência)
-  const depositosComSaldo = useMemo(() => {
-    if (!produtoSelecionado) return [];
-    const depIds = new Set(
-      (saldos || [])
-        .filter((s) => s.produto_id === produtoSelecionado.id && (s.quantidade || 0) > 0)
-        .map((s) => s.deposito_id)
-        .filter(Boolean)
-    );
-    return (depositos || []).filter((d) => depIds.has(d.id));
-  }, [produtoSelecionado, saldos, depositos]);
+  // Saldo real do produto (soma das parcelas em SaldoEstoque) e depósitos/gavetas
+  // onde ele possui estoque — usado para oferecer apenas opções válidas nas combos.
+  const saldoTotal = useMemo(
+    () => saldoTotalProduto(form.produto_id, saldos),
+    [form.produto_id, saldos]
+  );
+  const temSaldo = saldoTotal > 0;
+  const depositosComSaldo = useMemo(
+    () => depositosComSaldoDoProduto(form.produto_id, saldos, depositos),
+    [form.produto_id, saldos, depositos]
+  );
+  const gavetasComSaldoDep = useMemo(
+    () => gavetasComSaldoDoProduto(form.produto_id, form.deposito_id, saldos, gavetas),
+    [form.produto_id, form.deposito_id, saldos, gavetas]
+  );
+  const gavetasComSaldoOrigem = useMemo(
+    () => gavetasComSaldoDoProduto(form.produto_id, form.deposito_origem_id, saldos, gavetas),
+    [form.produto_id, form.deposito_origem_id, saldos, gavetas]
+  );
+  const tipoOptions = useMemo(() => {
+    const opts = [{ value: 'entrada', label: 'Entrada Nota Fiscal' }];
+    if (temSaldo) {
+      opts.push({ value: 'saida', label: 'Baixa Estoque' });
+      opts.push({ value: 'transferencia', label: 'Transferência de Depósito' });
+    }
+    return opts;
+  }, [temSaldo]);
 
   const saldoOrigem = useMemo(() => {
     if (!produtoSelecionado || !form.deposito_origem_id) return 0;
@@ -138,14 +155,14 @@ export default function Movimentacoes() {
                 maquinas={maquinas}
                 gavetas={gavetas}
                 value={form.produto_id}
-                onChange={(v) => setForm({ ...form, produto_id: v, codigo_lote: '', data_validade: '' })}
+                onChange={(v) => setForm({ ...form, produto_id: v, tipo: 'entrada', deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', codigo_lote: '', data_validade: '' })}
                 placeholder="Buscar produto por nome, código, referência…"
               />
               {produtoSelecionado && (
                 <div className="flex items-center gap-2 mt-1 text-xs">
                   <span className="text-muted-foreground">Estoque atual:</span>
                   <span className="font-semibold tabular-nums px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                    {formatQtd(produtoSelecionado.quantidade || 0)} {produtoSelecionado.unidade || ''}
+                    {formatQtd(saldoTotal)} {produtoSelecionado.unidade || ''}
                   </span>
                   {(produtoSelecionado.estoque_minimo || 0) > 0 && (
                     <span className="text-muted-foreground">
@@ -164,7 +181,7 @@ export default function Movimentacoes() {
                   value={form.tipo}
                   onChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '' })}
                   placeholder="Tipo..."
-                  options={[{ value: 'entrada', label: 'Entrada Nota Fiscal' }, { value: 'saida', label: 'Baixa Estoque' }, { value: 'transferencia', label: 'Transferência de Depósito' }]}
+                  options={tipoOptions}
                 />
               </div>
               <div className="space-y-1.5">
@@ -196,7 +213,7 @@ export default function Movimentacoes() {
                       allLabel="— Todas —"
                       placeholder="Buscar gaveta..."
                       disabled={!form.deposito_origem_id}
-                      options={sortGavetas(gavetas.filter((g) => g.deposito_id === form.deposito_origem_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+                      options={gavetasComSaldoOrigem.map((g) => ({ value: g.id, label: g.codigo }))}
                     />
                   </div>
                   {form.deposito_origem_id && (
@@ -242,9 +259,10 @@ export default function Movimentacoes() {
                   <SearchSelect
                     value={form.deposito_id}
                     onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v, gaveta_id: '' })}
-                    allLabel="— Nenhum —"
+                    allLabel={form.tipo === 'saida' ? '— Sem saldo —' : '— Nenhum —'}
                     placeholder="Buscar depósito..."
-                    options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+                    disabled={form.tipo === 'saida' && !temSaldo}
+                    options={(form.tipo === 'saida' ? depositosComSaldo : depositos).map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -255,7 +273,7 @@ export default function Movimentacoes() {
                     allLabel="— Nenhum —"
                     placeholder="Buscar gaveta..."
                     disabled={!form.deposito_id}
-                    options={sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id)).map((g) => ({ value: g.id, label: g.codigo }))}
+                    options={(form.tipo === 'saida' ? gavetasComSaldoDep : sortGavetas(gavetas.filter((g) => !form.deposito_id || g.deposito_id === form.deposito_id))).map((g) => ({ value: g.id, label: g.codigo }))}
                   />
                 </div>
               </div>
