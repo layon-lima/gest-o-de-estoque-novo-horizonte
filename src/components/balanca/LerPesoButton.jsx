@@ -4,7 +4,7 @@ import { useBalanca } from '@/lib/balancaContext';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function LerPesoButton({ onPesoLido, className }) {
-  const { suportado, status, lendo, lerPeso, formatarPeso, conectarComAutoDeteccao } = useBalanca();
+  const { suportado, status, lendo, lerPeso, formatarPeso, conectarComAutoDeteccao, erro } = useBalanca();
   const { toast } = useToast();
 
   async function handleClick() {
@@ -17,7 +17,7 @@ export default function LerPesoButton({ onPesoLido, className }) {
       return;
     }
 
-    // Se a balança não está conectada, conecta com auto-detecção de baud rate
+    // Se a balança não está conectada, abre a porta UMA vez (sem cycling de baud rate)
     if (status !== 'conectado') {
       toast({
         title: 'Conectando balança...',
@@ -27,8 +27,8 @@ export default function LerPesoButton({ onPesoLido, className }) {
       if (!ok) {
         toast({
           variant: 'destructive',
-          title: 'Não foi possível ler',
-          description: 'A balança não enviou dados. Verifique se o driver USB do conversor serial está instalado neste PC e se o cabo está firme.',
+          title: 'Não foi possível conectar',
+          description: erro || 'Verifique se o driver USB do conversor serial está instalado neste PC e se o cabo está firme.',
         });
         return;
       }
@@ -43,7 +43,7 @@ export default function LerPesoButton({ onPesoLido, className }) {
       toast({
         variant: 'destructive',
         title: 'Falha na leitura',
-        description: 'Verifique se a balança está ligada e enviando dados.',
+        description: erro || 'A balança não enviou dados reconhecíveis. Verifique se está ligada e com o protocolo Cougar p03 ativo.',
       });
     }
   }

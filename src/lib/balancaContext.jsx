@@ -56,6 +56,11 @@ function parseFrameCougar(frame) {
   return null;
 }
 
+/** Converte string para representação hexadecimal para diagnóstico de protocolo. */
+function bytesToHex(str) {
+  return Array.from(str).map(c => '0x' + c.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase()).join(' ');
+}
+
 export function BalancaProvider({ children }) {
   const [suportado, setSuportado] = useState(true);
   const [status, setStatus] = useState('desconectado'); // desconectado | conectando | conectado | erro | nao_suportado
@@ -83,6 +88,7 @@ export function BalancaProvider({ children }) {
   const shouldStopRef = useRef(false);
   const ultimaLeituraRef = useRef(null);
   const dadosRecebidosRef = useRef(false);
+  const rawDataRef = useRef('');
   const casasDecimaisRef = useRef(casasDecimais);
   const baudRateRef = useRef(baudRate);
   const dataBitsRef = useRef(dataBits);
@@ -119,7 +125,8 @@ export function BalancaProvider({ children }) {
         dadosRecebidosRef.current = true;
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
-        setRawData((prev) => (prev + chunk).slice(-300));
+        rawDataRef.current = (rawDataRef.current + chunk).slice(-300);
+        setRawData(rawDataRef.current);
 
         // Processa frames completos (delimitados por CR ou LF)
         let nlIdx;
@@ -166,6 +173,9 @@ export function BalancaProvider({ children }) {
           portRef.current = null;
           setPortaInfo(null);
           ultimaLeituraRef.current = null;
+        } else {
+          // Outros erros não devem matar o loop silenciosamente
+          console.error('[Balanca] Erro no loop de leitura:', e);
         }
       }
     } finally {
@@ -349,7 +359,12 @@ export function BalancaProvider({ children }) {
     } catch (e) {
       const msg = e.message || String(e);
       if (msg === 'timeout') {
-        setErro('Tempo esgotado: a balança não enviou leitura em 6 segundos. Verifique se está ligada, se o cabo está conectado e se o protocolo está como Cougar p03 contínuo.');
+        const raw = rawDataRef.current || '';
+        if (raw) {
+          setErro(`A balança está enviando dados mas não foi possível interpretar o peso. Dados recebidos (formato hexadecimal): ${bytesToHex(raw)}. Verifique se o protocolo da balança está como Cougar p03 contínuo. Se o problema persistir, copie estes dados e entre em contato com o suporte.`);
+        } else {
+          setErro('Tempo esgotado: a balança não enviou dados em 6 segundos. Verifique se está ligada, se o cabo está conectado e se o protocolo está como Cougar p03 contínuo.');
+        }
       } else if (msg === 'porta_perdida') {
         setErro('A conexão com a balança foi perdida. Reconecte na página Balança.');
         setStatus('desconectado');
@@ -390,9 +405,10 @@ export function BalancaProvider({ children }) {
   }, []);
 
   /**
-   * Conecta a balança testando automaticamente diferentes baud rates.
-   * Considera sucesso quando QUALQUER byte chega (não precisa parsear o peso).
-   * Assim detectamos a taxa correta mesmo se o parser ainda não reconhecer o frame.
+   * Conecta a balança abrindo a porta UMA ÚNICA VEZ na taxa salva.
+   * NÃO faz ciclo de baud rates — fechar/reabrir a porta interrompe o fluxo de dados
+   * do adaptador USB-serial (a luz do adaptador para de piscar).
+   * Se a porta já está aberta (auto-conexão), apenas reutiliza — nunca fecha.
    */
   const conectarComAutoDeteccao = useCallback(async () => {
     if (!('serial' in navigator)) {
@@ -400,83 +416,52 @@ export function BalancaProvider({ children }) {
       return false;
     }
     setErro(null);
+
+    // Se a porta já está aberta e conectada, NÃO fecha — apenas garante leitura ativa
+    if (portRef.current && portRef.current.readable) {
+      if (!readerRef.current) {
+        shouldStopRef.current = false;
+        iniciarLeituraContinua();
+      }
+      setStatus('conectado');
+      return true;
+    }
+
     setStatus('conectando');
     try {
       const port = await navigator.serial.requestPort();
-      await pararLeitura();
-      const oldPort = portRef.current;
-      if (oldPort) {
-        try { await oldPort.close(); } catch {}
-        portRef.current = null;
-      }
 
-      const taxas = [baudRate, 9600, 4800, 2400, 1200, 19200];
-      const unicas = [...new Set(taxas)];
-
-      let ultimaTaxaRecebeuBytes = null;
-
-      for (const taxa of unicas) {
-        try {
-          await port.open({ baudRate: taxa, dataBits, stopBits, parity });
-        } catch {
-          continue;
-        }
-        portRef.current = port;
-        shouldStopRef.current = false;
-        ultimaLeituraRef.current = null;
-        dadosRecebidosRef.current = false;
-        setUltimaLeitura(null);
-        setRawData('');
-
-        iniciarLeituraContinua();
-
-        // Aguarda até 4s por qualquer byte (dadosRecebidosRef) ou peso parseado (ultimaLeituraRef)
-        const deadline = Date.now() + 4000;
-        let recebeuBytes = false;
-        let pesoOk = false;
-        while (Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 200));
-          if (ultimaLeituraRef.current) { pesoOk = true; recebeuBytes = true; break; }
-          if (dadosRecebidosRef.current) { recebeuBytes = true; }
-        }
-
-        if (recebeuBytes) {
-          setBaudRate(taxa);
-          baudRateRef.current = taxa;
-          try { localStorage.setItem(BAUD_KEY, String(taxa)); } catch {}
-          setPortaInfo(port.getInfo());
-          setStatus('conectado');
-          if (!pesoOk) {
-            // Bytes chegaram mas o parser não reconheceu — dados crus podem ajudar no diagnóstico
-            setErro('Conectado na taxa ' + taxa + ', mas o formato dos dados não foi reconhecido. A balança está enviando dados — verifique o protocolo (deve ser Cougar p03 contínuo) ou ajuste as casas decimais nas configurações.');
-          }
-          return true;
-        }
-
-        ultimaTaxaRecebeuBytes = false;
-
-        // Sem dados — para o reader, fecha e tenta próxima taxa
-        await pararLeitura();
-        try { await port.close(); } catch {}
-        portRef.current = null;
-      }
-
-      setStatus('erro');
-      setErro('A balança conectou mas não enviou nenhum byte em nenhuma taxa de transmissão (9600, 4800, 2400, 1200, 19200). Causas mais comuns: (1) driver USB do conversor serial não instalado neste PC — instale o driver do fabricante (FTDI/CH340/Prolific); (2) cabo USB solto ou danificado; (3) a balança está desligada ou com o protocolo serial desativado no visor.');
-      return false;
+      // Abre UMA VEZ na taxa salva — sem ciclar entre baud rates
+      await port.open({ baudRate, dataBits, stopBits, parity });
+      portRef.current = port;
+      setPortaInfo(port.getInfo());
+      shouldStopRef.current = false;
+      ultimaLeituraRef.current = null;
+      dadosRecebidosRef.current = false;
+      rawDataRef.current = '';
+      setUltimaLeitura(null);
+      setRawData('');
+      setStatus('conectado');
+      iniciarLeituraContinua();
+      return true;
     } catch (e) {
       if (e.name === 'NotFoundError' || e.name === 'AbortError') {
         setStatus('desconectado');
       } else if (e.name === 'InvalidStateError') {
-        setStatus('erro');
-        setErro('A porta já está aberta por outro aplicativo. Feche o outro programa e tente novamente.');
+        // A porta já estava aberta — usa ela
+        setStatus('conectado');
+        if (!readerRef.current) {
+          shouldStopRef.current = false;
+          iniciarLeituraContinua();
+        }
+        return true;
       } else {
         setStatus('erro');
         setErro(`Erro ao abrir porta: ${e.message || e}`);
       }
       return false;
     }
-  }, [baudRate, dataBits, stopBits, parity, pararLeitura, iniciarLeituraContinua]);
+  }, [baudRate, dataBits, stopBits, parity, iniciarLeituraContinua]);
 
   const value = {
     suportado,
