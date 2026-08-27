@@ -32,21 +32,28 @@ function formatarPeso(peso, casasDecimais = 3) {
  * Ex.: " +0012345k" ou "M +0012345k" (em movimento) ou "O +9999999k" (sobrecarga)
  */
 function parseFrameCougar(frame) {
-  const str = frame.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
+  // Remove STX, ETX e outros caracteres de controle
+  let str = frame.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
   if (!str || str.length < 2) return null;
 
-  // Procura número (com sinal opcional) antes da unidade (k, g, l, etc.)
-  const unitMatch = str.match(/(-?\+?\s*\d+[.,]?\d*)\s*[kglot]/i);
-  if (unitMatch) {
-    const peso = parseFloat(unitMatch[1].replace(/[+\s]/g, '').replace(',', '.'));
+  // Cougar p03 contínuo: [status][+/-][peso][unidade]
+  // O peso é o número imediatamente após o sinal de polaridade (+ ou -)
+  // Ex.: " +001000k" → 1000, " -0000010k" → -10
+  const signMatch = str.match(/([+-])\s*(\d+[.,]?\d*)/);
+  if (signMatch) {
+    const sign = signMatch[1] === '-' ? -1 : 1;
+    const peso = parseFloat(signMatch[2].replace(',', '.')) * sign;
     if (!isNaN(peso)) return peso;
   }
 
-  // Fallback: extrai o último número da string (inclui sinal negativo)
-  const matches = str.match(/-?\+?\s*\d+[.,]?\d*/g);
-  if (!matches || matches.length === 0) return null;
-  const peso = parseFloat(matches[matches.length - 1].replace(/[+\s]/g, '').replace(',', '.'));
-  return isNaN(peso) ? null : peso;
+  // Fallback: primeiro número encontrado (com sinal se houver)
+  const numMatch = str.match(/-?\d+[.,]?\d*/);
+  if (numMatch) {
+    const peso = parseFloat(numMatch[0].replace(',', '.'));
+    if (!isNaN(peso)) return peso;
+  }
+
+  return null;
 }
 
 export function BalancaProvider({ children }) {
@@ -113,6 +120,7 @@ export function BalancaProvider({ children }) {
           if (frame.length > 0) {
             const peso = parseFrameCougar(frame);
             if (peso !== null) {
+              console.log('[Balanca] frame:', JSON.stringify(frame), '→ peso:', peso);
               const leitura = { peso, timestamp: new Date().toISOString() };
               ultimaLeituraRef.current = leitura;
               setUltimaLeitura(leitura);
