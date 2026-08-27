@@ -120,10 +120,16 @@ export function BalancaProvider({ children }) {
           if (frame.length > 0) {
             const peso = parseFrameCougar(frame);
             if (peso !== null) {
-              console.log('[Balanca] frame:', JSON.stringify(frame), '→ peso:', peso);
-              const leitura = { peso, timestamp: new Date().toISOString() };
-              ultimaLeituraRef.current = leitura;
-              setUltimaLeitura(leitura);
+              const anterior = ultimaLeituraRef.current;
+              // Só atualiza a tela quando o peso muda — espelha o visor físico da balança
+              if (!anterior || anterior.peso !== peso) {
+                const leitura = { peso, timestamp: new Date().toISOString() };
+                ultimaLeituraRef.current = leitura;
+                setUltimaLeitura(leitura);
+              } else {
+                // Atualiza só o timestamp para que lerPeso saiba que a leitura é fresca
+                ultimaLeituraRef.current = { ...anterior, timestamp: new Date().toISOString() };
+              }
             }
           }
         }
