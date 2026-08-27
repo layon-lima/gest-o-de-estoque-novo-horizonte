@@ -27,6 +27,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
+import LerPesoButton from '@/components/balanca/LerPesoButton';
 
 export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed, onReload }) {
   const [pesoBruto, setPesoBruto] = useState('');
@@ -237,7 +238,10 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
           <div className="space-y-1.5">
             <Label>Peso Bruto (kg) *</Label>
-            <Input type="text" inputMode="decimal" value={pesoBruto} onChange={(e) => setPesoBruto(e.target.value)} placeholder="0,00" autoFocus />
+            <div className="flex gap-2">
+              <Input type="text" inputMode="decimal" value={pesoBruto} onChange={(e) => setPesoBruto(e.target.value)} placeholder="0,00" autoFocus />
+              <LerPesoButton onPesoLido={(p) => setPesoBruto(p)} />
+            </div>
           </div>
 
           {liquido > 0 && (

@@ -19,6 +19,8 @@ import Abastecimento from '@/pages/Abastecimento';
 import Pesagem from '@/pages/Pesagem';
 import Relatorios from '@/pages/Relatorios';
 import Inventario from '@/pages/Inventario';
+import Balanca from '@/pages/Balanca';
+import { BalancaProvider } from '@/lib/balancaContext';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, navigateToLogin } = useAuth();
@@ -56,6 +58,7 @@ const AuthenticatedApp = () => {
         <Route path="/pesagem" element={<Pesagem />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/inventario" element={<Inventario />} />
+        <Route path="/balanca" element={<Balanca />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
@@ -72,7 +75,9 @@ function App() {
         <QueryClientProvider client={queryClientInstance}>
           <Router>
             <ScrollToTop />
-            <AuthenticatedApp />
+            <BalancaProvider>
+              <AuthenticatedApp />
+            </BalancaProvider>
           </Router>
           <Toaster />
         </QueryClientProvider>

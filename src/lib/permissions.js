@@ -36,3 +36,4 @@ export const allowedPagesForUser = (user) => {
 };
 
 export const canAccessUsuarios = (user) => user?.role === 'admin';
+export const canAccessBalanca = (user) => user?.role === 'admin';

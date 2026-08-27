@@ -25,6 +25,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
 import { normalizePlaca, nextTicketNumber } from '@/lib/pesagem';
+import LerPesoButton from '@/components/balanca/LerPesoButton';
 
 const empty = { tipo: '', motorista: '', placa: '', peso_tara: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
 
@@ -180,7 +181,10 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Tara (kg) *</Label>
-                  <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
+                  <div className="flex gap-2">
+                    <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
+                    <LerPesoButton onPesoLido={(p) => setForm({ ...form, peso_tara: p })} />
+                  </div>
                 </div>
                 {form.tipo !== 'venda' && (
                   <>

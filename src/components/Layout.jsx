@@ -6,6 +6,7 @@ import BottomTabBar from './BottomTabBar';
 import { useAuth } from '@/lib/AuthContext';
 import {
   allowedPagesForUser,
+  canAccessBalanca,
   canAccessUsuarios,
   pageKeyForPath,
   userCanAccess,
@@ -19,8 +20,9 @@ export default function Layout() {
 
   const pageKey = pageKeyForPath(location.pathname);
   const isUsuarios = location.pathname === '/usuarios';
+  const isBalanca = location.pathname === '/balanca';
   const isUsuariosAllowed = canAccessUsuarios(user);
-  const canAccess = isUsuarios ? isUsuariosAllowed : userCanAccess(user, pageKey);
+  const canAccess = isUsuarios ? isUsuariosAllowed : isBalanca ? canAccessBalanca(user) : userCanAccess(user, pageKey);
   const allowed = allowedPagesForUser(user);
 
   useEffect(() => {

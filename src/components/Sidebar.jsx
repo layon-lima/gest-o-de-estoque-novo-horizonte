@@ -113,6 +113,26 @@ export default function Sidebar({ open, onClose }) {
             </NavLink>
           ))}
 
+          {user?.role === 'admin' && (
+            <div className="pt-2 mt-2 border-t border-foreground/10">
+              <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-foreground/50 font-semibold">Administração</p>
+              <NavLink
+                to="/balanca"
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-foreground/70 hover:bg-foreground/10 hover:text-foreground'
+                  }`
+                }
+              >
+                <Scale className="w-5 h-5 shrink-0" />
+                Balança
+              </NavLink>
+            </div>
+          )}
+
           {setoresUser.length > 0 && (
             <div className="pt-2 mt-2 border-t border-foreground/10">
              <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-foreground/50 font-semibold">Setores</p>
