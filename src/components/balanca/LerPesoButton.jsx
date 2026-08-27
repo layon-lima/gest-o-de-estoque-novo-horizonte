@@ -4,7 +4,7 @@ import { useBalanca } from '@/lib/balancaContext';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function LerPesoButton({ onPesoLido, className }) {
-  const { suportado, status, lendo, lerPeso, formatarPeso, conectar } = useBalanca();
+  const { suportado, status, lendo, lerPeso, formatarPeso, conectarComAutoDeteccao } = useBalanca();
   const { toast } = useToast();
 
   async function handleClick() {
@@ -17,23 +17,21 @@ export default function LerPesoButton({ onPesoLido, className }) {
       return;
     }
 
-    // Se a balança não está conectada, tenta conectar automaticamente (o clique conta como gesto do usuário)
+    // Se a balança não está conectada, conecta com auto-detecção de baud rate
     if (status !== 'conectado') {
       toast({
         title: 'Conectando balança...',
         description: 'Selecione a porta USB da balança na janela que abriu.',
       });
-      const ok = await conectar();
+      const ok = await conectarComAutoDeteccao();
       if (!ok) {
         toast({
           variant: 'destructive',
-          title: 'Não foi possível conectar',
-          description: 'Clique no indicador de balança no topo da página para tentar novamente.',
+          title: 'Não foi possível ler',
+          description: 'A balança não enviou dados. Verifique se o driver USB do conversor serial está instalado neste PC e se o cabo está firme.',
         });
         return;
       }
-      // Aguarda a balança começar a enviar dados após a conexão
-      await new Promise((r) => setTimeout(r, 1000));
     }
 
     const peso = await lerPeso();
@@ -45,7 +43,7 @@ export default function LerPesoButton({ onPesoLido, className }) {
       toast({
         variant: 'destructive',
         title: 'Falha na leitura',
-        description: 'A balança conectou mas não enviou dados. Verifique se está ligada, se o cabo USB está firme e se o protocolo é Cougar p03 contínuo. Se o problema persistir, confira as configurações no indicador de balança no topo.',
+        description: 'Verifique se a balança está ligada e enviando dados.',
       });
     }
   }

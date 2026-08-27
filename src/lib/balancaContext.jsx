@@ -387,6 +387,87 @@ export function BalancaProvider({ children }) {
     try { localStorage.setItem(CASAS_KEY, String(v)); } catch {}
   }, []);
 
+  /**
+   * Conecta a balança testando automaticamente diferentes baud rates.
+   * Se a porta abrir mas nenhum dado chegar, fecha e reabre com outra taxa
+   * até encontrar a que funciona. Salva a taxa funcionante no localStorage.
+   */
+  const conectarComAutoDeteccao = useCallback(async () => {
+    if (!('serial' in navigator)) {
+      setSuportado(false);
+      return false;
+    }
+    setErro(null);
+    setStatus('conectando');
+    try {
+      const port = await navigator.serial.requestPort();
+      await pararLeitura();
+      const oldPort = portRef.current;
+      if (oldPort) {
+        try { await oldPort.close(); } catch {}
+        portRef.current = null;
+      }
+
+      const taxas = [baudRate, 9600, 4800, 2400, 1200, 19200];
+      const unicas = [...new Set(taxas)];
+
+      for (const taxa of unicas) {
+        try {
+          await port.open({ baudRate: taxa, dataBits, stopBits, parity });
+        } catch {
+          continue;
+        }
+        portRef.current = port;
+        shouldStopRef.current = false;
+        ultimaLeituraRef.current = null;
+        setUltimaLeitura(null);
+        setRawData('');
+
+        iniciarLeituraContinua();
+
+        // Aguarda até 2.5s por dados
+        const deadline = Date.now() + 2500;
+        let recebeu = false;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 150));
+          if (ultimaLeituraRef.current) {
+            recebeu = true;
+            break;
+          }
+        }
+
+        if (recebeu) {
+          setBaudRate(taxa);
+          baudRateRef.current = taxa;
+          try { localStorage.setItem(BAUD_KEY, String(taxa)); } catch {}
+          setPortaInfo(port.getInfo());
+          setStatus('conectado');
+          return true;
+        }
+
+        // Sem dados — para o reader, fecha e tenta próxima taxa
+        await pararLeitura();
+        try { await port.close(); } catch {}
+        portRef.current = null;
+      }
+
+      setStatus('erro');
+      setErro('A balança conectou mas não enviou dados em nenhuma taxa de transmissão. Verifique se o driver USB do conversor serial está instalado neste PC e se o cabo está firme.');
+      return false;
+    } catch (e) {
+      if (e.name === 'NotFoundError' || e.name === 'AbortError') {
+        setStatus('desconectado');
+      } else if (e.name === 'InvalidStateError') {
+        setStatus('erro');
+        setErro('A porta já está aberta por outro aplicativo. Feche o outro programa e tente novamente.');
+      } else {
+        setStatus('erro');
+        setErro(`Erro ao abrir porta: ${e.message || e}`);
+      }
+      return false;
+    }
+  }, [baudRate, dataBits, stopBits, parity, pararLeitura, iniciarLeituraContinua]);
+
   const value = {
     suportado,
     status,
@@ -401,6 +482,7 @@ export function BalancaProvider({ children }) {
     erro,
     lendo,
     conectar,
+    conectarComAutoDeteccao,
     desconectar,
     lerPeso,
     trocarBaudRate,
