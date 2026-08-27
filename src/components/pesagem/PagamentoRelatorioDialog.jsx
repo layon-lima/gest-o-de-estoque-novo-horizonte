@@ -119,6 +119,10 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
     );
   }, [dadosPorPedido]);
 
+  const fmtMoeda = (n) => formatMoeda(n);
+  const fmtKg = (n) =>
+    (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+
   function buildReport() {
     const cols = [
       'Pedido', 'Cliente', 'Tipo', 'Número', 'Data',
@@ -139,8 +143,8 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
           t.numero || '—',
           t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—',
           t.placa || '—',
-          (Number(t.peso_liquido) || 0).toFixed(2).replace('.', ','),
-          valorTicket(t, ped).toFixed(2).replace('.', ','),
+          fmtKg(t.peso_liquido),
+          fmtMoeda(valorTicket(t, ped)),
         ]);
       });
 
@@ -154,19 +158,19 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
           p.data_pagamento ? new Date(p.data_pagamento).toLocaleString('pt-BR') : '—',
           formaLabel(p.forma_pagamento),
           '',
-          (Number(p.valor) || 0).toFixed(2).replace('.', ','),
+          fmtMoeda(p.valor),
         ]);
       });
 
       // Subtotal do pedido
       rows.push([
         '', '', 'Subtotal', '', '', '',
-        d.kgCarregado.toFixed(2).replace('.', ','),
-        d.valorCarregado.toFixed(2).replace('.', ','),
+        fmtKg(d.kgCarregado),
+        fmtMoeda(d.valorCarregado),
       ]);
       rows.push([
         '', '', '', '', '', 'Saldo a Receber', '',
-        d.saldo.toFixed(2).replace('.', ','),
+        fmtMoeda(d.saldo),
       ]);
     });
 
@@ -174,16 +178,16 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
     rows.push(['', '', '', '', '', '', '', '']);
     rows.push([
       '', '', 'TOTAL GERAL', '', '', 'Carregado',
-      totais.kgCarregado.toFixed(2).replace('.', ','),
-      totais.valorCarregado.toFixed(2).replace('.', ','),
+      fmtKg(totais.kgCarregado),
+      fmtMoeda(totais.valorCarregado),
     ]);
     rows.push([
       '', '', '', '', '', 'Recebido', '',
-      totais.valorPago.toFixed(2).replace('.', ','),
+      fmtMoeda(totais.valorPago),
     ]);
     rows.push([
       '', '', '', '', '', 'Saldo Total', '',
-      round3(totais.valorCarregado - totais.valorPago).toFixed(2).replace('.', ','),
+      fmtMoeda(round3(totais.valorCarregado - totais.valorPago)),
     ]);
 
     return { cols, rows };

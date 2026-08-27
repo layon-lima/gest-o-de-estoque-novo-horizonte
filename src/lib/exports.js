@@ -9,6 +9,30 @@ function fitText(doc, value, maxWidth) {
   return t.length > 0 ? t + '…' : '';
 }
 
+/**
+ * Renderiza uma célula reduzindo a fonte para caber — nunca trunca valores.
+ * Só usa "…" em textos muito longos (ex: nomes) que não cabem mesmo no tamanho mínimo.
+ */
+function drawCell(doc, value, x, y, maxWidth, baseFontSize) {
+  const text = String(value ?? '');
+  if (!text) return;
+
+  // Tenta o tamanho base; se não couber, reduz até 5pt
+  doc.setFontSize(baseFontSize);
+  let w = doc.getTextWidth(text);
+  let fs = baseFontSize;
+  while (w > maxWidth && fs > 5) {
+    fs -= 0.5;
+    doc.setFontSize(fs);
+    w = doc.getTextWidth(text);
+  }
+
+  // Se mesmo no tamanho mínimo não couber, trunca (apenas textos longos)
+  const txt = w > maxWidth ? fitText(doc, text, maxWidth) : text;
+  doc.text(txt, x, y);
+  doc.setFontSize(baseFontSize);
+}
+
 export async function exportPDF(titulo, colunas, linhas) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -27,7 +51,8 @@ export async function exportPDF(titulo, colunas, linhas) {
   doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, margin, 22);
 
   // Calcula larguras proporcionais por coluna com base no conteúdo real.
-  doc.setFontSize(8);
+  const baseFontSize = 8;
+  doc.setFontSize(baseFontSize);
   const padding = 3;
   const colWidths = colunas.map((col, ci) => {
     let maxW = doc.getTextWidth(String(col));
@@ -51,7 +76,7 @@ export async function exportPDF(titulo, colunas, linhas) {
     doc.rect(startX, y - 6, finalWidths.reduce((a, b) => a + b, 0), headerHeight, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(baseFontSize);
     let x = startX;
     colunas.forEach((col, i) => {
       const txt = fitText(doc, col, finalWidths[i] - padding * 2);
@@ -78,7 +103,6 @@ export async function exportPDF(titulo, colunas, linhas) {
   drawHeader();
 
   doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
   doc.setTextColor(40, 40, 40);
   let rowIndex = 0;
   linhas.forEach((linha) => {
@@ -87,7 +111,7 @@ export async function exportPDF(titulo, colunas, linhas) {
       y = 20;
       drawHeader();
       doc.setFont(undefined, 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(baseFontSize);
       doc.setTextColor(40, 40, 40);
     }
     // Zebra
@@ -95,10 +119,24 @@ export async function exportPDF(titulo, colunas, linhas) {
       doc.setFillColor(245, 250, 247);
       doc.rect(startX, y - 6, finalWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
     }
+
+    // Detecta linhas de subtotal/total para destaque
+    const tipoCell = String(linha[2] ?? '');
+    const isSubtotal = tipoCell.includes('Subtotal');
+    const isTotal = tipoCell.includes('TOTAL');
+    if (isSubtotal || isTotal) {
+      doc.setFont(undefined, 'bold');
+      if (isTotal) {
+        doc.setFillColor(220, 235, 225);
+        doc.rect(startX, y - 6, finalWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+      }
+    } else {
+      doc.setFont(undefined, 'normal');
+    }
+
     let x = startX;
     linha.forEach((cell, ci) => {
-      const txt = fitText(doc, cell, finalWidths[ci] - padding * 2);
-      doc.text(txt, x + padding, y);
+      drawCell(doc, cell, x + padding, y, finalWidths[ci] - padding * 2, baseFontSize);
       x += finalWidths[ci];
     });
     drawGrid();
