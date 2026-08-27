@@ -14,17 +14,21 @@ export function getQtdNoDeposito(produtoId, depositoId, gavetaId = '', saldos = 
 }
 
 export function filterProdutos(produtos, filtros, saldos = []) {
-  // SAP: expande cada produto em uma linha por saldo (depósito/gaveta/lote),
-  // cada uma mostrando a parcela real daquela localização. Quando um depósito
-  // específico está filtrado, só aparecem as parcelas dele.
+  // SAP: se NENHUM depósito/gaveta estiver filtrado (Todos), mostra UMA linha
+  // por produto com o saldo total e marca "_todos" p/ a coluna exibir "Todos".
+  // Se um depósito/gaveta estiver selecionado, expande em uma linha por parcela
+  // (saldo) dentro do filtro, cada uma com sua quantidade.
+  const hasSaldos = (saldos || []).length > 0;
+  const expandir = !!(filtros.deposito_id || filtros.gaveta_id);
+
   let rows;
-  if ((saldos || []).length > 0) {
+  if (hasSaldos) {
     rows = [];
     for (const p of produtos) {
       const parcelas = (saldos || []).filter(
         (s) => s.produto_id === p.id && (s.quantidade || 0) > 0
       );
-      if (parcelas.length > 0) {
+      if (expandir) {
         for (const s of parcelas) {
           rows.push({
             ...p,
@@ -37,8 +41,8 @@ export function filterProdutos(produtos, filtros, saldos = []) {
           });
         }
       } else {
-        // Produto sem saldos (legacy/zero): uma linha com os dados próprios.
-        rows.push({ ...p, _rowKey: `legacy:${p.id}` });
+        const total = parcelas.reduce((sum, s) => sum + (s.quantidade || 0), 0);
+        rows.push({ ...p, quantidade: total, _todos: true, _rowKey: `total:${p.id}` });
       }
     }
   } else {
