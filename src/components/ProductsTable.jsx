@@ -6,6 +6,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
+  TableFooter,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,14 +26,7 @@ export default function ProductsTable({
   const nonZero = produtos.filter((p) => (p.quantidade || 0) > 0);
   const avg = nonZero.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZero.length || 1);
 
-  const totaisPorUnidade = produtos.reduce((acc, p) => {
-    const u = p.unidade || 'un';
-    acc[u] = (acc[u] || 0) + (p.quantidade || 0);
-    return acc;
-  }, {});
-  const totalLabel = Object.entries(totaisPorUnidade)
-    .map(([u, v]) => `${formatQtd(v)} ${u}`)
-    .join('   •   ');
+  const totalBruto = produtos.reduce((s, p) => s + (p.quantidade || 0), 0);
 
   function getStatus(qtd) {
     if (qtd === 0) return { label: 'Zerado', cls: 'bg-red-100 text-red-700 border-red-200' };
@@ -107,6 +101,22 @@ export default function ProductsTable({
               );
             })}
           </TableBody>
+          {produtos.length > 0 && (
+            <TableFooter className="sticky bottom-0 bg-muted/70 backdrop-blur-sm z-10">
+              <TableRow className="font-semibold hover:bg-transparent border-t-2 border-border">
+                <TableCell>Total</TableCell>
+                <TableCell className="text-right tabular-nums">{formatQtd(totalBruto)}</TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                {showStatus && <TableCell />}
+                {hasActions && <TableCell />}
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
 
@@ -153,10 +163,10 @@ export default function ProductsTable({
         })}
       </div>
 
-      {produtos.length > 0 && totalLabel && (
-        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t bg-muted/40 text-sm font-semibold">
-          <span>Total exibido</span>
-          <span className="tabular-nums">{totalLabel}</span>
+      {produtos.length > 0 && (
+        <div className="sm:hidden flex items-center justify-end gap-2 px-4 py-2.5 border-t bg-muted/40 text-sm font-semibold">
+          <span>Total:</span>
+          <span className="tabular-nums">{formatQtd(totalBruto)}</span>
         </div>
       )}
 
