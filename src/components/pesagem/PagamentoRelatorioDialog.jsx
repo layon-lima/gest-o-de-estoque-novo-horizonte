@@ -50,8 +50,12 @@ export default function PagamentoRelatorioDialog({ open, onClose, pagamentos, pe
   const pedidoNumero = (id) => pedidos.find((p) => p.id === id)?.numero || '—';
   const produtoNome = (id) => produtos?.find((p) => p.id === id)?.nome || '—';
 
-  const clientes = useMemo(() => pessoas.filter((p) => p.is_cliente), [pessoas]);
   const pedidosAtivos = useMemo(() => pedidos.filter((p) => p.status !== 'cancelado'), [pedidos]);
+  // Apenas clientes que possuem pelo menos um pedido ativo
+  const clientes = useMemo(() => {
+    const idsComPedido = new Set(pedidosAtivos.map((p) => p.cliente_id));
+    return pessoas.filter((p) => p.is_cliente && idsComPedido.has(p.id));
+  }, [pessoas, pedidosAtivos]);
 
   // Pedidos disponíveis no combobox, filtrados dinamicamente pelo cliente selecionado
   const pedidosOptions = useMemo(() => {
