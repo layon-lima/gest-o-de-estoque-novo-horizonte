@@ -1,50 +1,35 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileSpreadsheet, FileDown, Search, Scale, CircleDot, CheckCircle2, ChevronDown, X, History, Link2, Unlink, Trash2 } from 'lucide-react';
+import { Plus, FileSpreadsheet, FileDown, Search, CircleDot, CheckCircle2, Link2, Unlink, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { normalizePlaca, formatPlaca, nextTicketNumber, formatKg, round3, statusPorSaldo } from '@/lib/pesagem';
+import { formatPlaca, formatKg, round3, statusPorSaldo } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
+import AberturaTicketDialog from './AberturaTicketDialog';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
 import VincularTicketDialog from './VincularTicketDialog';
 
-const empty = { tipo: '', motorista: '', placa: '', peso_tara: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
-
-const TIPOS = [
-  { value: 'venda', label: 'Venda' },
-  { value: 'lavoura', label: 'Saída Para Lavoura' },
-  { value: 'compra', label: 'Entrada Por Compra' },
-  { value: 'entrada_saida', label: 'Entrada e Saída' },
-];
-
 export default function TicketsManager({ tickets, pedidos, pessoas, produtos, transportadoras, onReload, mode = 'ativos', isAdmin }) {
   const historico = mode === 'historico';
   const naovinculados = mode === 'naovinculados';
-  const [form, setForm] = useState(empty);
-  const [step, setStep] = useState('tipo');
   const [busca, setBusca] = useState('');
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [detalheTicket, setDetalheTicket] = useState(null);
   const [vincularTicket, setVincularTicket] = useState(null);
   const [excluirTicket, setExcluirTicket] = useState(null);
   const [excluindo, setExcluindo] = useState(false);
-  const [sairAberturaOpen, setSairAberturaOpen] = useState(false);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedidoDoTicket = (id) => pedidos.find((p) => p.id === id);
-  const motoristas = useMemo(() => pessoas.filter((p) => p.is_motorista), [pessoas]);
 
   const abertos = useMemo(
     () => tickets.filter((t) => t.status === 'aberto').sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
@@ -75,80 +60,6 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
       return new Date(b.data_fechamento || b.data_abertura) - new Date(a.data_fechamento || a.data_abertura);
     });
   }, [tickets, busca, historico, naovinculados, naoVinculados]);
-
-  function resetForm() { setForm(empty); setStep('tipo'); }
-
-  function temDadosAbertura() {
-    return step === 'dados' && (form.motorista.trim() || form.placa.trim() || form.peso_tara.trim() || form.produto_id || form.transportadora_id || form.origem.trim() || form.destino.trim() || form.observacao.trim());
-  }
-  function tentarFecharAbertura() {
-    if (temDadosAbertura()) {
-      setSairAberturaOpen(true);
-    } else {
-      setFormAberto(false);
-      resetForm();
-    }
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.tipo) {
-      toast({ variant: 'destructive', title: 'Escolha o tipo do ticket' });
-      return;
-    }
-    if (!form.motorista.trim() || !form.placa.trim()) {
-      toast({ variant: 'destructive', title: 'Motorista e placa são obrigatórios' });
-      return;
-    }
-    if (parseQtd(form.peso_tara) <= 0) {
-      toast({ variant: 'destructive', title: 'Informe o peso tara' });
-      return;
-    }
-    if (form.tipo !== 'venda' && !form.produto_id) {
-      toast({ variant: 'destructive', title: 'Selecione o produto', description: 'Para lavoura, compra ou entrada e saída, o produto é obrigatório.' });
-      return;
-    }
-    if (form.tipo !== 'venda' && !form.transportadora_id) {
-      toast({ variant: 'destructive', title: 'Selecione a transportadora' });
-      return;
-    }
-    const placaNorm = normalizePlaca(form.placa);
-    const duplicado = abertos.some((t) => normalizePlaca(t.placa) === placaNorm);
-    if (duplicado) {
-      toast({ variant: 'destructive', title: 'Ticket aberto para esta placa', description: 'Já existe um ticket aberto para esta placa. Feche-o antes de abrir outro.' });
-      return;
-    }
-    setSaving(true);
-    try {
-      const numero = nextTicketNumber(tickets);
-      const transp = transportadoras.find((t) => t.id === form.transportadora_id);
-      await base44.entities.TicketPesagem.create({
-        numero,
-        tipo: form.tipo,
-        data_abertura: new Date().toISOString(),
-        motorista: form.motorista.trim(),
-        placa: placaNorm,
-        produto_id: form.tipo !== 'venda' ? form.produto_id || '' : '',
-        transportadora_id: form.tipo !== 'venda' ? form.transportadora_id || '' : '',
-        transportadora_nome: form.tipo !== 'venda' ? transp?.nome || '' : '',
-        origem: form.origem.trim(),
-        destino: form.tipo === 'venda' ? '' : form.destino.trim(),
-        peso_tara: parseQtd(form.peso_tara),
-        peso_bruto: 0,
-        peso_liquido: 0,
-        status: 'aberto',
-        observacao: form.observacao || '',
-      });
-      toast({ title: 'Ticket aberto', description: numero });
-      resetForm();
-      setFormAberto(false);
-      onReload();
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao abrir ticket', description: String(err?.message || err) });
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleExcluir() {
     if (!excluirTicket) return;
@@ -201,130 +112,11 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
 
   return (
     <div className="space-y-4">
-      {/* Botão/Form de abertura */}
+      {/* Botão de abertura */}
       {!historico && !naovinculados && (
-        <Card className="overflow-hidden">
-          <button
-            type="button"
-            onClick={() => {
-              if (formAberto && temDadosAbertura()) {
-                setSairAberturaOpen(true);
-              } else {
-                setFormAberto((v) => { if (!v) { setForm(empty); setStep('tipo'); } return !v; });
-              }
-            }}
-            className="w-full flex items-center justify-between p-4 hover:bg-accent/40 transition-colors"
-          >
-            <span className="flex items-center gap-2 font-semibold text-sm sm:text-base"><Plus className="w-4 h-4 text-primary" /> Abrir Novo Ticket</span>
-            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${formAberto ? 'rotate-180' : ''}`} />
-          </button>
-          {formAberto && (
-            <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3 border-t">
-              {step === 'tipo' ? (
-                <div className="pt-3 space-y-3">
-                  <Label className="text-xs">Escolha o tipo de ticket *</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    value={form.tipo}
-                    onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-                  >
-                    <option value="">Selecione...</option>
-                    {TIPOS.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                  {form.tipo === 'venda' && (
-                    <p className="text-xs text-muted-foreground">Na venda, o produto, o cliente e a transportadora vêm do pedido selecionado no fechamento.</p>
-                  )}
-                  <div className="flex gap-2">
-                    <Button type="button" className="flex-1" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
-                    <Button type="button" variant="outline" onClick={() => tentarFecharAbertura()}><X className="w-4 h-4" /></Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="pt-3 space-y-3">
-                  <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
-                    <span className="text-xs text-muted-foreground">Tipo: <b className="text-foreground">{TIPOS.find((t) => t.value === form.tipo)?.label}</b></span>
-                    <button type="button" className="text-xs text-primary underline" onClick={() => setStep('tipo')}>Alterar</button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1 col-span-2">
-                      <Label className="text-xs">Motorista *</Label>
-                      <Input value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} list="motoristas-list" placeholder="Selecione um motorista cadastrado" required />
-                      <datalist id="motoristas-list">
-                        {motoristas.map((m) => (
-                          <option key={m.id} value={m.nome} />
-                        ))}
-                      </datalist>
-                      {motoristas.length === 0 && (
-                        <p className="text-xs text-destructive">Nenhum motorista cadastrado. Marque a flag "Motorista" em Cadastros › Pessoas.</p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Placa *</Label>
-                      <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" required />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Tara (kg) *</Label>
-                      <Input type="text" inputMode="decimal" value={form.peso_tara} onChange={(e) => setForm({ ...form, peso_tara: e.target.value })} placeholder="0,00" required />
-                    </div>
-                    {form.tipo !== 'venda' && (
-                      <>
-                        <div className="space-y-1 col-span-2">
-                          <Label className="text-xs">Produto *</Label>
-                          <select
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            value={form.produto_id}
-                            onChange={(e) => setForm({ ...form, produto_id: e.target.value })}
-                            required
-                          >
-                            <option value="">Selecione...</option>
-                            {produtos.map((p) => (
-                              <option key={p.id} value={p.id}>{p.nome}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1 col-span-2">
-                          <Label className="text-xs">Transportadora *</Label>
-                          <select
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            value={form.transportadora_id}
-                            onChange={(e) => setForm({ ...form, transportadora_id: e.target.value })}
-                            required
-                          >
-                            <option value="">Selecione...</option>
-                            {transportadoras.map((t) => (
-                              <option key={t.id} value={t.id}>{t.nome}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Origem</Label>
-                          <Input value={form.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} placeholder={form.tipo === 'compra' ? 'Ex.: Fornecedor' : 'Ex.: Sede'} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Destino</Label>
-                          <Input value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })} placeholder={form.tipo === 'lavoura' ? 'Ex.: Talhão 07' : form.tipo === 'compra' ? 'Ex.: Armazém' : ''} />
-                        </div>
-                      </>
-                    )}
-                    <div className="space-y-1 col-span-2">
-                      <Label className="text-xs">Observação</Label>
-                      <Textarea rows={1} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
-                    <Button type="button" variant="outline" onClick={() => tentarFecharAbertura()}><X className="w-4 h-4" /></Button>
-                  </div>
-                  {form.tipo === 'venda' && (
-                    <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
-                  )}
-                </div>
-              )}
-            </form>
-          )}
-        </Card>
+        <Button onClick={() => setFormAberto(true)} className="w-full">
+          <Plus className="w-4 h-4 mr-2" /> Abrir Novo Ticket
+        </Button>
       )}
 
       {/* Tickets abertos em destaque */}
@@ -522,22 +314,17 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         />
       )}
 
-      <AlertDialog open={sairAberturaOpen} onOpenChange={setSairAberturaOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fechar formulário?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você tem dados preenchidos que serão perdidos. Deseja fechar mesmo assim?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Continuar preenchendo</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setSairAberturaOpen(false); setFormAberto(false); resetForm(); }}>
-              Fechar sem salvar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {!historico && !naovinculados && (
+        <AberturaTicketDialog
+          open={formAberto}
+          onClose={() => setFormAberto(false)}
+          onReload={onReload}
+          tickets={tickets}
+          pessoas={pessoas}
+          produtos={produtos}
+          transportadoras={transportadoras}
+        />
+      )}
     </div>
   );
 }
