@@ -152,7 +152,7 @@ export default function Movimentacoes() {
                 maquinas={maquinas}
                 gavetas={gavetas}
                 value={form.produto_id}
-                onChange={(v) => setForm({ ...form, produto_id: v, tipo: 'entrada', deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', codigo_lote: '', data_validade: '' })}
+                onChange={(v) => setForm({ ...form, produto_id: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', codigo_lote: '', data_validade: '' })}
                 placeholder="Buscar produto por nome, código, referência…"
               />
               {produtoSelecionado && (
