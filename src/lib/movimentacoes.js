@@ -256,61 +256,102 @@ export async function registrarTransferencia({ form, produto, lotes, saldos, mov
   return { produto };
 }
 
-// Move TODO o saldo de um produto do depósito antigo para o novo endereço quando
-// o endereço físico é alterado no cadastro do produto. Move TODAS as parcelas do
-// depósito antigo (qualquer gaveta/lote), mesclando com saldo existente no destino
-// para evitar duplicação. Preserva lotes (FEFO) e gera movimentações de auditoria.
-// Retorna { movido, quantidade }. Não faz nada se não houver saldo no local antigo.
-export async function relocarSaldoCadastro({ produto, oldDepositoId, oldGavetaId = '', newDepositoId, newGavetaId = '', controlaValidade, depositos = [] }) {
-  if (!oldDepositoId || !newDepositoId) return { movido: false, quantidade: 0 };
-  if (oldDepositoId === newDepositoId && (oldGavetaId || '') === (newGavetaId || '')) return { movido: false, quantidade: 0 };
+// Move TODO o saldo de um produto para o endereço físico definido no cadastro
+// (depósito + gaveta). A ORIGEM DA VERDADE é o SaldoEstoque real — não o campo
+// produto.deposito_id, que pode estar vazio ou desatualizado. Por isso move
+// TODAS as parcelas do produto que NÃO estejam ainda no endereço destino,
+// mesclando para evitar duplicação. Preserva lotes (FEFO) e gera movimentações
+// de auditoria (uma saída por depósito de origem + uma entrada no destino).
+// Retorna { movido, quantidade }. No-op se não houver saldo fora do destino.
+export async function relocarSaldoCadastro({ produto, newDepositoId, newGavetaId = '', controlaValidade, depositos = [] }) {
+  if (!newDepositoId) return { movido: false, quantidade: 0 };
+  const newGav = newGavetaId || '';
 
   const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: produto.id });
-  // Todas as parcelas positivas no depósito antigo, independente de gaveta/lote.
-  const parcelas = saldos.filter((s) => s.deposito_id === oldDepositoId && (s.quantidade || 0) > 0);
+  const local = saldos.map((s) => ({ ...s }));
+  const isAtTarget = (s) => s.deposito_id === newDepositoId && (s.gaveta_id || '') === newGav;
+  // Parcelas com saldo positivo que NÃO estão no endereço destino.
+  const parcelas = local.filter((s) => !isAtTarget(s) && (s.quantidade || 0) > 0);
   const totalMover = parcelas.reduce((sum, s) => sum + (s.quantidade || 0), 0);
   if (totalMover <= 0) return { movido: false, quantidade: 0 };
 
-  // Atualiza cada parcela para o novo endereço, mesclando se já existir saldo
-  // no destino com o mesmo lote (evita duplicação/double-count).
+  // Agrupa por depósito de origem para a auditoria (saída por origem).
+  const porOrigem = {};
   for (const s of parcelas) {
-    const dest = saldos.find(
-      (x) =>
-        x.id !== s.id &&
-        x.produto_id === produto.id &&
-        x.deposito_id === newDepositoId &&
-        (x.gaveta_id || '') === (newGavetaId || '') &&
-        (x.lote_id || '') === (s.lote_id || '')
-    );
+    const k = s.deposito_id || '';
+    porOrigem[k] = (porOrigem[k] || 0) + (s.quantidade || 0);
+  }
+
+  const alvo = local.filter((s) => isAtTarget(s));
+
+  // Fase 1: mesclar parcelas em saldo já existente no destino (mesmo lote).
+  const restantes = [];
+  for (const s of parcelas) {
+    const dest = alvo.find((x) => (x.lote_id || '') === (s.lote_id || ''));
     if (dest) {
-      await base44.entities.SaldoEstoque.update(dest.id, { quantidade: (dest.quantidade || 0) + (s.quantidade || 0) });
+      dest.quantidade = (dest.quantidade || 0) + (s.quantidade || 0);
+      await base44.entities.SaldoEstoque.update(dest.id, { quantidade: dest.quantidade });
       await base44.entities.SaldoEstoque.delete(s.id);
     } else {
-      await base44.entities.SaldoEstoque.update(s.id, { deposito_id: newDepositoId, gaveta_id: newGavetaId || '' });
-      s.deposito_id = newDepositoId;
-      s.gaveta_id = newGavetaId || '';
+      restantes.push(s);
     }
   }
 
-  // Lotes do depósito antigo também mudam de endereço (FEFO).
+  // Fase 2: entre as restantes, consolidar por lote e mover para o destino.
+  const porLote = new Map();
+  for (const s of restantes) {
+    const k = s.lote_id || '';
+    if (!porLote.has(k)) porLote.set(k, []);
+    porLote.get(k).push(s);
+  }
+  for (const [, grupo] of porLote) {
+    const [primeiro, ...outros] = grupo;
+    await base44.entities.SaldoEstoque.update(primeiro.id, { deposito_id: newDepositoId, gaveta_id: newGav });
+    primeiro.deposito_id = newDepositoId;
+    primeiro.gaveta_id = newGav;
+    for (const s of outros) {
+      primeiro.quantidade = (primeiro.quantidade || 0) + (s.quantidade || 0);
+      await base44.entities.SaldoEstoque.update(primeiro.id, { quantidade: primeiro.quantidade });
+      await base44.entities.SaldoEstoque.delete(s.id);
+    }
+  }
+
+  // Lotes do produto também mudam para o novo endereço (FEFO).
   if (controlaValidade) {
     const lotes = await base44.entities.Lote.filter({ produto_id: produto.id });
-    const lotesMover = lotes.filter((l) => l.deposito_id === oldDepositoId);
     await Promise.all(
-      lotesMover.map((l) =>
-        base44.entities.Lote.update(l.id, { deposito_id: newDepositoId, gaveta_id: newGavetaId || '' })
-      )
+      lotes
+        .filter((l) => l.deposito_id !== newDepositoId || (l.gaveta_id || '') !== newGav)
+        .map((l) => base44.entities.Lote.update(l.id, { deposito_id: newDepositoId, gaveta_id: newGav }))
     );
   }
 
-  // Auditoria: movimentações de saída (origem) + entrada (destino).
+  // Auditoria: uma saída por depósito de origem + uma entrada no destino.
   const movimentacoes = await base44.entities.Movimentacao.list('-created_date', 100);
-  const depOrigem = depositos.find((d) => d.id === oldDepositoId);
   const depDest = depositos.find((d) => d.id === newDepositoId);
-  const labelOrigem = depOrigem ? `${depOrigem.numero}${depOrigem.nome ? ' · ' + depOrigem.nome : ''}` : 'depósito de origem';
   const labelDestino = depDest ? `${depDest.numero}${depDest.nome ? ' · ' + depDest.nome : ''}` : 'depósito de destino';
-  const baseNum = maxNumeroMovimento(movimentacoes) + 1;
+  let baseNum = maxNumeroMovimento(movimentacoes) + 1;
   const now = new Date().toISOString();
+  const labelsOrigem = [];
+  for (const [origemId, qtd] of Object.entries(porOrigem)) {
+    const depO = depositos.find((d) => d.id === origemId);
+    const labelO = depO ? `${depO.numero}${depO.nome ? ' · ' + depO.nome : ''}` : 'depósito de origem';
+    labelsOrigem.push(labelO);
+    await base44.entities.Movimentacao.create({
+      data: now,
+      numero: formatarNumeroMov(baseNum++),
+      produto_id: produto.id,
+      codigo: produto.codigo,
+      nome_produto: produto.nome,
+      quantidade: qtd,
+      setor_id: produto.setor_id,
+      deposito_id: origemId,
+      maquina_id: produto.maquina_id || '',
+      gaveta_id: '',
+      tipo: 'saida',
+      observacao: `Transferência → ${labelDestino} (realocação via cadastro)`,
+    });
+  }
   await base44.entities.Movimentacao.create({
     data: now,
     numero: formatarNumeroMov(baseNum),
@@ -319,25 +360,11 @@ export async function relocarSaldoCadastro({ produto, oldDepositoId, oldGavetaId
     nome_produto: produto.nome,
     quantidade: totalMover,
     setor_id: produto.setor_id,
-    deposito_id: oldDepositoId,
-    maquina_id: produto.maquina_id || '',
-    gaveta_id: oldGavetaId || '',
-    tipo: 'saida',
-    observacao: `Transferência → ${labelDestino} (realocação via cadastro)`,
-  });
-  await base44.entities.Movimentacao.create({
-    data: now,
-    numero: formatarNumeroMov(baseNum + 1),
-    produto_id: produto.id,
-    codigo: produto.codigo,
-    nome_produto: produto.nome,
-    quantidade: totalMover,
-    setor_id: produto.setor_id,
     deposito_id: newDepositoId,
     maquina_id: produto.maquina_id || '',
-    gaveta_id: newGavetaId || '',
+    gaveta_id: newGav,
     tipo: 'entrada',
-    observacao: `Transferência ← ${labelOrigem} (realocação via cadastro)`,
+    observacao: `Transferência ← ${labelsOrigem.join(', ')} (realocação via cadastro)`,
   });
 
   return { movido: true, quantidade: totalMover };

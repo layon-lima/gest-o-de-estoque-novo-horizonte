@@ -100,16 +100,14 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
         // EDIT: nunca zera a quantidade — ela é gerenciada pelos saldos/movimentações.
         await base44.entities.Produto.update(produto.id, { ...basePayload, quantidade: produto.quantidade });
 
-        // Se o endereço físico (depósito/gaveta) mudou, mover o saldo do local antigo para o novo.
-        const oldDep = produto.deposito_id || '';
-        const oldGav = produto.gaveta_id || '';
+        // O endereço físico do produto (depósito + gaveta) é a origem da verdade.
+        // Move TODO o saldo existente para o endereço escolhido, não importa onde
+        // o saldo esteja hoje (o SaldoEstoque é a fonte real, não produto.deposito_id).
         const newDep = form.deposito_id || '';
         const newGav = form.gaveta_id || '';
-        if (oldDep && newDep && (oldDep !== newDep || oldGav !== newGav)) {
+        if (newDep) {
           const res = await relocarSaldoCadastro({
             produto,
-            oldDepositoId: oldDep,
-            oldGavetaId: oldGav,
             newDepositoId: newDep,
             newGavetaId: newGav,
             controlaValidade,
