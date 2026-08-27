@@ -38,6 +38,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const [vincularTicket, setVincularTicket] = useState(null);
   const [excluirTicket, setExcluirTicket] = useState(null);
   const [excluindo, setExcluindo] = useState(false);
+  const [sairAberturaOpen, setSairAberturaOpen] = useState(false);
   const { toast } = useToast();
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
@@ -76,6 +77,18 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   }, [tickets, busca, historico, naovinculados, naoVinculados]);
 
   function resetForm() { setForm(empty); setStep('tipo'); }
+
+  function temDadosAbertura() {
+    return step === 'dados' && (form.motorista.trim() || form.placa.trim() || form.peso_tara.trim() || form.produto_id || form.transportadora_id || form.origem.trim() || form.destino.trim() || form.observacao.trim());
+  }
+  function tentarFecharAbertura() {
+    if (temDadosAbertura()) {
+      setSairAberturaOpen(true);
+    } else {
+      setFormAberto(false);
+      resetForm();
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -193,7 +206,13 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         <Card className="overflow-hidden">
           <button
             type="button"
-            onClick={() => setFormAberto((v) => { if (!v) { setForm(empty); setStep('tipo'); } return !v; })}
+            onClick={() => {
+              if (formAberto && temDadosAbertura()) {
+                setSairAberturaOpen(true);
+              } else {
+                setFormAberto((v) => { if (!v) { setForm(empty); setStep('tipo'); } return !v; });
+              }
+            }}
             className="w-full flex items-center justify-between p-4 hover:bg-accent/40 transition-colors"
           >
             <span className="flex items-center gap-2 font-semibold text-sm sm:text-base"><Plus className="w-4 h-4 text-primary" /> Abrir Novo Ticket</span>
@@ -219,7 +238,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   )}
                   <div className="flex gap-2">
                     <Button type="button" className="flex-1" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
-                    <Button type="button" variant="outline" onClick={() => { setFormAberto(false); resetForm(); }}><X className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" onClick={() => tentarFecharAbertura()}><X className="w-4 h-4" /></Button>
                   </div>
                 </div>
               ) : (
@@ -296,7 +315,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1" disabled={saving}><Scale className="w-4 h-4 mr-2" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
-                    <Button type="button" variant="outline" onClick={() => { setFormAberto(false); resetForm(); }}><X className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" onClick={() => tentarFecharAbertura()}><X className="w-4 h-4" /></Button>
                   </div>
                   {form.tipo === 'venda' && (
                     <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
@@ -502,6 +521,23 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           onDone={() => { setVincularTicket(null); onReload(); }}
         />
       )}
+
+      <AlertDialog open={sairAberturaOpen} onOpenChange={setSairAberturaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fechar formulário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem dados preenchidos que serão perdidos. Deseja fechar mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar preenchendo</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setSairAberturaOpen(false); setFormAberto(false); resetForm(); }}>
+              Fechar sem salvar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

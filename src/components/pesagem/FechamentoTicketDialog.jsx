@@ -35,6 +35,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const [observacao, setObservacao] = useState('');
   const [buscaPedido, setBuscaPedido] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sairOpen, setSairOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fechado, setFechado] = useState(null);
   const [gerando, setGerando] = useState(false);
@@ -83,6 +84,19 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     setBuscaPedido('');
     setConfirmOpen(false);
     setFechado(null);
+  }
+
+  function temDadosNaoSalvos() {
+    if (fechado) return false;
+    return Boolean(pesoBruto || pedidoId || transportadoraId || observacao.trim());
+  }
+  function tentarSair() {
+    if (temDadosNaoSalvos()) {
+      setSairOpen(true);
+    } else {
+      reset();
+      onClose();
+    }
   }
 
   async function imprimir(onlyPrint = false) {
@@ -171,7 +185,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   if (!ticket) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onClose(); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) tentarSair(); }}>
       <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
@@ -326,7 +340,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+            <Button variant="outline" className="flex-1" onClick={tentarSair}>Cancelar</Button>
             <Button className="flex-1" onClick={handleConfirmar} disabled={saving || (isVenda && pedidosAbertos.length === 0)}>
               {saving ? 'Fechando...' : 'Confirmar Fechamento'}
             </Button>
@@ -347,6 +361,23 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmarFechamento}>Confirmar mesmo assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={sairOpen} onOpenChange={setSairOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair sem salvar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem dados preenchidos que serão perdidos. Deseja sair mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setSairOpen(false); reset(); onClose(); }}>
+              Sair sem salvar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
