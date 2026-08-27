@@ -4,7 +4,6 @@ import { Menu, ShieldX } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BottomTabBar from './BottomTabBar';
 import BalancaStatusBadge from '@/components/balanca/BalancaStatusBadge';
-import PermissionOnboarding from '@/components/PermissionOnboarding';
 import { useAuth } from '@/lib/AuthContext';
 import {
   allowedPagesForUser,
@@ -77,7 +76,6 @@ export default function Layout() {
         </main>
         <BottomTabBar />
       </div>
-      <PermissionOnboarding />
     </div>
   );
 }
