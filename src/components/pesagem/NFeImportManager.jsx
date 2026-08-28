@@ -33,7 +33,10 @@ export default function NFeImportManager({ tickets, onReload }) {
   const [resultados, setResultados] = useState([]);
   const { toast } = useToast();
 
-  const fecharVenda = tickets.filter((t) => t.status === 'fechado' && t.tipo === 'venda');
+  // Passa TODOS os tickets para o matcher — ele filtra internamente.
+  // Assim a busca por número de ticket (extraído do infCpl) funciona mesmo
+  // se o tipo/status do ticket divergir do esperado.
+  const todosTickets = tickets;
 
   const processarArquivo = useCallback(async (file, ticketList) => {
     let xmlText;
@@ -126,7 +129,7 @@ export default function NFeImportManager({ tickets, onReload }) {
     const novosResultados = [];
 
     for (const file of xmlFiles) {
-      const resultado = await processarArquivo(file, fecharVenda);
+      const resultado = await processarArquivo(file, todosTickets);
       novosResultados.push(resultado);
       setResultados((prev) => [resultado, ...prev]);
     }
@@ -144,7 +147,7 @@ export default function NFeImportManager({ tickets, onReload }) {
       title: 'Importação concluída',
       description: `${matched} vinculada(s) · ${ambiguous} pendente(s) de confirmação · ${none} sem match · ${duplicates} duplicada(s).`,
     });
-  }, [fecharVenda, processarArquivo, toast, onReload]);
+  }, [todosTickets, processarArquivo, toast, onReload]);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();

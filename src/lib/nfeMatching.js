@@ -54,11 +54,10 @@ export function matchNfeToTicket(nfeData, tickets) {
     if (porNumero.length > 1) {
       return { status: 'ambiguous', candidates: porNumero };
     }
-    // Número extraído mas ticket não encontrado — retorna none com info de diagnóstico
-    return { status: 'none', motivo: `Ticket ${nfeData.numeroTicket} não encontrado no sistema.` };
+    // Não encontrou por número — cai para o fallback de placa + peso
   }
 
-  // Considera apenas tickets de venda fechados para os fallbacks abaixo
+  // Filtros de fallback consideram apenas tickets de venda fechados
   const candidatos = tickets.filter(
     (t) => t.status === 'fechado' && t.tipo === 'venda'
   );
