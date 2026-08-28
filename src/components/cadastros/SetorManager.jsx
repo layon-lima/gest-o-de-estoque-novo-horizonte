@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 import { SETOR_ICONS } from '@/lib/setorIcon';
 import SetorIcon from '@/components/setorIcon';
 import SearchInput from './SearchInput';
@@ -55,8 +56,11 @@ export default function SetorManager() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Setor.delete(id);
-    invalidateEntidade('Setor');
+    try {
+      await safeDelete('Setor', id);
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   function handleEdit(item) {

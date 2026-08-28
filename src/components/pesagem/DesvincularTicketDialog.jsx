@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { base44 } from '@/api/base44Client';
+import { safeDelete, safeUpdate, isNotFoundError } from '@/lib/entityOps';
 import { useToast } from '@/components/ui/use-toast';
 import { formatKg, formatPlaca, round3, statusPorSaldo } from '@/lib/pesagem';
 
@@ -23,17 +24,21 @@ export default function DesvincularTicketDialog({ ticket, pedido, onClose, onDon
     const liq = Number(ticket?.peso_liquido) || 0;
     if (!pedido) return;
     const novoSaldo = round3((Number(pedido.saldo_kg) || 0) + liq);
-    await base44.entities.PedidoPesagem.update(pedido.id, {
-      saldo_kg: novoSaldo,
-      status: statusPorSaldo(novoSaldo, pedido.total_kg, pedido.status),
-    });
+    try {
+      await base44.entities.PedidoPesagem.update(pedido.id, {
+        saldo_kg: novoSaldo,
+        status: statusPorSaldo(novoSaldo, pedido.total_kg, pedido.status),
+      });
+    } catch (e) {
+      if (!isNotFoundError(e)) throw e;
+    }
   }
 
   async function handleExcluir() {
     setBusy(true);
     try {
       await restaurarSaldo();
-      await base44.entities.TicketPesagem.delete(ticket.id);
+      await safeDelete('TicketPesagem', ticket.id);
       toast({ title: 'Ticket excluído', description: 'Saldo do pedido restaurado.' });
       onDone?.();
     } catch (err) {
@@ -47,7 +52,11 @@ export default function DesvincularTicketDialog({ ticket, pedido, onClose, onDon
     setBusy(true);
     try {
       await restaurarSaldo();
-      await base44.entities.TicketPesagem.update(ticket.id, { pedido_id: '' });
+      try {
+        await safeUpdate('TicketPesagem', ticket.id, { pedido_id: '' });
+      } catch (e) {
+        if (String(e?.message || e) !== 'PHANTOM_RECORD') throw e;
+      }
       toast({ title: 'Ticket desvinculado', description: 'Agora aparece em "Não vinculados".' });
       onDone?.();
     } catch (err) {

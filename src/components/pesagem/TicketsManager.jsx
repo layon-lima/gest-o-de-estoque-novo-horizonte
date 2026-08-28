@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { base44 } from '@/api/base44Client';
+import { safeDelete, isNotFoundError } from '@/lib/entityOps';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { formatPlaca, formatKg, round3, statusPorSaldo, normalizePlaca } from '@/lib/pesagem';
@@ -205,9 +206,9 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         await base44.entities.PedidoPesagem.update(ped.id, {
           saldo_kg: novoSaldo,
           status: statusPorSaldo(novoSaldo, ped.total_kg, ped.status),
-        });
+        }).catch((e) => { if (!isNotFoundError(e)) throw e; });
       }
-      await base44.entities.TicketPesagem.delete(excluirTicket.id);
+      await safeDelete('TicketPesagem', excluirTicket.id);
       toast({ title: 'Ticket excluído', description: ped ? 'Saldo do pedido restaurado.' : excluirTicket.numero });
       setExcluirTicket(null);
       onReload();

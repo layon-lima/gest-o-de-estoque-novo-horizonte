@@ -9,6 +9,7 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 import SearchInput from './SearchInput';
 import { sortGavetas } from '@/lib/gavetas';
 import { formatQtd } from '@/lib/format';
@@ -115,8 +116,11 @@ export default function GavetaManager() {
       });
       return;
     }
-    await base44.entities.Gaveta.delete(id);
-    invalidateEntidade('Gaveta');
+    try {
+      await safeDelete('Gaveta', id);
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   function handleEdit(item) {

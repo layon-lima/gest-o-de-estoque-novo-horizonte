@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 import { formatQtd } from '@/lib/format';
 
 export default function LavourasManager() {
@@ -46,9 +47,12 @@ function CulturasPanel({ culturas }) {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Cultura.delete(id);
-    toast({ title: 'Cultura removida' });
-    invalidateEntidade('Cultura');
+    try {
+      await safeDelete('Cultura', id);
+      toast({ title: 'Cultura removida' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   return (
@@ -117,9 +121,12 @@ function LavourasPanel({ lavouras, culturas }) {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Lavoura.delete(id);
-    toast({ title: 'Lavoura removida' });
-    invalidateEntidade('Lavoura');
+    try {
+      await safeDelete('Lavoura', id);
+      toast({ title: 'Lavoura removida' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   return (

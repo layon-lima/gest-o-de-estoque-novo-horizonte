@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 
 const empty = { nome: '', documento: '', telefone: '', cidade: '', uf: '', endereco: '', cnh: '', cnh_validade: '', is_cliente: true, is_fornecedor: false, is_transportadora: false, is_motorista: false, observacao: '' };
 
@@ -73,9 +74,12 @@ export default function PessoasManager() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Pessoa.delete(id);
-    toast({ title: 'Pessoa removida' });
-    invalidateEntidade('Pessoa');
+    try {
+      await safeDelete('Pessoa', id);
+      toast({ title: 'Pessoa removida' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   return (

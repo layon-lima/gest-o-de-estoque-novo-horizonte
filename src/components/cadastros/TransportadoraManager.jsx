@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 
 const empty = { nome: '', documento: '', ie: '', telefone: '', cidade: '', uf: '', endereco: '', observacao: '' };
 
@@ -58,9 +59,12 @@ export default function TransportadoraManager() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Transportadora.delete(id);
-    toast({ title: 'Transportadora removida' });
-    invalidateEntidade('Transportadora');
+    try {
+      await safeDelete('Transportadora', id);
+      toast({ title: 'Transportadora removida' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   return (

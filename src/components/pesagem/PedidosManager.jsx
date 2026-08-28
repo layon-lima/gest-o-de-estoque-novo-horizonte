@@ -9,7 +9,7 @@ import { parseQtd, formatQtd } from '@/lib/format';
 import { formatKg, formatMoeda, nextPedidoNumber } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { base44 } from '@/api/base44Client';
-import { queryClientInstance } from '@/lib/query-client';
+import { safeDelete, safeUpdate } from '@/lib/entityOps';
 import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
 import DesvincularTicketDialog from './DesvincularTicketDialog';
@@ -94,26 +94,11 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
       if (tks.length > 0) {
         await Promise.all(
           tks.map((t) =>
-            base44.entities.TicketPesagem.update(t.id, { pedido_id: '' }).catch(() => {})
+            safeUpdate('TicketPesagem', t.id, { pedido_id: '' }).catch(() => {})
           )
         );
       }
-      try {
-        await base44.entities.PedidoPesagem.delete(pedido.id);
-      } catch (delErr) {
-        // Se o pedido já não existe no backend (registro fantasma do cache),
-        // trata como sucesso e apenas limpa o cache local.
-        const msg = String(delErr?.message || delErr || '');
-        if (!/not found/i.test(msg)) throw delErr;
-      }
-      // Remove o pedido do cache IMEDIATAMENTE (update otimista) para a UI
-      // não continuar exibindo o registro excluído durante o refetch.
-      queryClientInstance.setQueriesData({ queryKey: ['ent', 'PedidoPesagem'] }, (old) =>
-        (old || []).filter((p) => p.id !== pedido.id)
-      );
-      queryClientInstance.setQueriesData({ queryKey: ['ent', 'TicketPesagem'] }, (old) =>
-        (old || []).map((t) => (t.pedido_id === pedido.id ? { ...t, pedido_id: '' } : t))
-      );
+      await safeDelete('PedidoPesagem', pedido.id);
       toast({ title: 'Pedido excluído', description: pedido.numero || 'Pedido removido.' });
       setSelecionado(null);
       onReload();

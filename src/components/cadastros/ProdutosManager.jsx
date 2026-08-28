@@ -10,6 +10,7 @@ import FilterBar from '@/components/FilterBar';
 import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 
 export default function ProdutosManager() {
   const [formOpen, setFormOpen] = useState(false);
@@ -35,9 +36,12 @@ export default function ProdutosManager() {
   function handleEdit(produto) { setEditing(produto); setFormOpen(true); }
 
   async function handleDelete(produto) {
-    await base44.entities.Produto.delete(produto.id);
-    toast({ title: 'Produto excluído' });
-    invalidateEntidade('Produto');
+    try {
+      await safeDelete('Produto', produto.id);
+      toast({ title: 'Produto excluído' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   return (

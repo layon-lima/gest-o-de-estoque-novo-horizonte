@@ -9,6 +9,7 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 import SearchInput from './SearchInput';
 import { nextDepositoNumber } from '@/lib/depositos';
 
@@ -58,8 +59,7 @@ export default function DepositoManager() {
 
   async function handleDelete(id) {
     try {
-      await base44.entities.Deposito.delete(id);
-      invalidateEntidade('Deposito');
+      await safeDelete('Deposito', id);
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: err?.message });
     }

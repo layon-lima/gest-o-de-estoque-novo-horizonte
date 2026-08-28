@@ -19,6 +19,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { formatQtd } from '@/lib/format';
 import { formatMoeda, round3 } from '@/lib/pesagem';
+import { safeDelete } from '@/lib/entityOps';
 import PagamentoFormDialog from './PagamentoFormDialog';
 import PagamentoRelatorioDialog from './PagamentoRelatorioDialog';
 
@@ -85,7 +86,7 @@ export default function PagamentosManager({ pagamentos, pedidos, pessoas, produt
   async function handleExcluir() {
     if (!excluir) return;
     try {
-      await base44.entities.Pagamento.delete(excluir.id);
+      await safeDelete('Pagamento', excluir.id);
       toast({ title: 'Pagamento excluído' });
       setExcluir(null);
       onReload();

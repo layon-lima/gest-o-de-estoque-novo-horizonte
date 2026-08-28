@@ -11,6 +11,7 @@ import { formatQtd, parseQtd, formatDose } from '@/lib/format';
 import { parseItens } from '@/lib/osAplicacao';
 import { gerarPDFOS } from '@/lib/osPdf';
 import { invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 import ConsumoRealDialog from '@/components/aplicacao/ConsumoRealDialog';
 
 const STATUS_LABELS = {
@@ -56,10 +57,13 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
   }
 
   async function handleDelete() {
-    await base44.entities.OrdemServicoAplicacao.delete(os.id);
-    toast({ title: 'OS excluída' });
-    invalidateEntidade('OrdemServicoAplicacao');
-    onOpenChange(false);
+    try {
+      await safeDelete('OrdemServicoAplicacao', os.id);
+      toast({ title: 'OS excluída' });
+      onOpenChange(false);
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   async function handleCancelar() {

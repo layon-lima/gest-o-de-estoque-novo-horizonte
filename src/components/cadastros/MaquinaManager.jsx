@@ -10,6 +10,7 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { safeDelete } from '@/lib/entityOps';
 import { findSetorCombustivel, produtosCombustivel } from '@/lib/abastecimento';
 import SearchInput from './SearchInput';
 import { nextMaquinaCodigo } from '@/lib/maquinas';
@@ -81,8 +82,11 @@ export default function MaquinaManager() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Maquina.delete(id);
-    invalidateEntidade('Maquina');
+    try {
+      await safeDelete('Maquina', id);
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    }
   }
 
   function handleEdit(item) {
