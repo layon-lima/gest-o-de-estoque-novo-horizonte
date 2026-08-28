@@ -76,7 +76,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
 
   const tiposComTicket = useMemo(() => {
     const set = new Set();
-    tickets.filter((t) => t.status !== 'aberto').forEach((t) => { if (t.tipo) set.add(t.tipo); });
+    tickets.forEach((t) => { if (t.tipo) set.add(t.tipo); });
     return Array.from(set);
   }, [tickets]);
 
@@ -325,6 +325,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="text-left p-2 font-medium">Ticket</th>
+                  <th className="text-left p-2 font-medium">Tipo</th>
                   <th className="text-left p-2 font-medium">Abertura</th>
                   <th className="text-left p-2 font-medium">Fechamento</th>
                   <th className="text-left p-2 font-medium">Motorista</th>
@@ -345,6 +346,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   return (
                     <tr key={t.id} className="border-t hover:bg-muted/40 cursor-pointer" onClick={() => setDetalheTicket(t)}>
                       <td className="p-2 font-mono text-xs">{t.numero}</td>
+                      <td className="p-2"><Badge variant="outline" className="text-[10px] py-0 px-1.5">{TIPO_LABEL[t.tipo] || t.tipo}</Badge></td>
                       <td className="p-2 text-xs whitespace-nowrap">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '—'}</td>
                       <td className="p-2 text-xs whitespace-nowrap">{t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—'}</td>
                       <td className="p-2">{t.motorista}</td>
