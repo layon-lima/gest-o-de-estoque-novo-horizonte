@@ -86,13 +86,7 @@ export function parseNfeVendaXml(xmlText) {
   const veicTransp = transp ? getElements(transp, 'veicTransp')[0] : null;
   const placa = veicTransp ? getText(veicTransp, 'placa') : '';
   const transporta = transp ? getElements(transp, 'transporta')[0] : null;
-  let motorista = transporta ? getText(transporta, 'xNome') : '';
-
-  // Fallback: extrai o motorista do infCpl (rodapé), logo após "MOTORISTA"
-  if (!motorista && infCpl) {
-    const m = infCpl.match(/MOTORISTA\s+(.+?)(?:\||$)/i);
-    if (m) motorista = m[1].trim();
-  }
+  const motorista = transporta ? getText(transporta, 'xNome') : '';
 
   // Informações complementares: onde o usuário escreve o número do ticket, motorista, placa
   const infAdic = getElements(doc, 'infAdic')[0];
