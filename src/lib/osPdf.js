@@ -1,7 +1,15 @@
 // Geração de PDF da Ordem de Serviço de Aplicação (documento impresso para campo).
 import { jsPDF } from 'jspdf';
-import { formatQtd, parseQtd } from '@/lib/format';
+import { formatQtd } from '@/lib/format';
 import { parseItens } from '@/lib/osAplicacao';
+
+// Formata número sem zeros à direita: 0,00 → "0"; 0,50 → "0,5"; 1,50 → "1,5"
+function formatNum(v) {
+  const n = Number(v) || 0;
+  let str = n.toFixed(2).replace('.', ',');
+  str = str.replace(/,00$/, '').replace(/,0$/, '');
+  return str;
+}
 
 export function gerarPDFOS(os, { cultura, lavoura }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -53,18 +61,18 @@ export function gerarPDFOS(os, { cultura, lavoura }) {
   doc.text('Produtos / Previsão de Consumo', margin, y);
   y += 5;
 
-  // Cabeçalho da tabela
+  // Cabeçalho da tabela — colunas espaçadas para evitar sobreposição
   const colProduto = margin;
-  const colUn = 120;
-  const colDose = 135;
-  const colPrev = 160;
-  const colReal = 185;
+  const colUn = 118;
+  const colDose = 148;
+  const colPrev = 172;
+  const colReal = 196;
 
   doc.setFontSize(9);
   doc.setFillColor(240, 240, 240);
   doc.rect(margin, y - 4, contentW, 6, 'F');
   doc.text('Produto', colProduto, y);
-  doc.text('Un.', colUn, y, { align: 'left' });
+  doc.text('Un.', colUn, y);
   doc.text('Dose/ha', colDose, y, { align: 'right' });
   doc.text('Previsto', colPrev, y, { align: 'right' });
   doc.text('Realizado', colReal, y, { align: 'right' });
@@ -77,11 +85,11 @@ export function gerarPDFOS(os, { cultura, lavoura }) {
       doc.addPage();
       y = 16;
     }
-    doc.text(String(item.nome || '').slice(0, 55), colProduto, y);
+    doc.text(String(item.nome || '').slice(0, 48), colProduto, y);
     doc.text(item.unidade || '', colUn, y);
-    doc.text(formatQtd(item.dose_por_hect || 0), colDose, y, { align: 'right' });
-    doc.text(formatQtd(item.previsto || 0), colPrev, y, { align: 'right' });
-    doc.text(os.status === 'executada' ? formatQtd(item.realizado || 0) : '_______', colReal, y, { align: 'right' });
+    doc.text(formatNum(item.dose_por_hect || 0), colDose, y, { align: 'right' });
+    doc.text(formatNum(item.previsto || 0), colPrev, y, { align: 'right' });
+    doc.text(os.status === 'executada' ? formatNum(item.realizado || 0) : '_______', colReal, y, { align: 'right' });
     y += 6;
   }
 
