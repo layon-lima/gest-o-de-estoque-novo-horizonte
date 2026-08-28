@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Scale, X, ShoppingCart, Sprout, Truck, ArrowLeftRight } from 'lucide-react';
+import { Scale, X, ShoppingCart, Sprout, Truck, ArrowLeftRight, CheckCircle2, AlertTriangle, Search } from 'lucide-react';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -28,10 +29,9 @@ import { parseQtd, formatQtd } from '@/lib/format';
 import { normalizePlaca, nextTicketNumber, formatKg } from '@/lib/pesagem';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
-import LerPesoButton from '@/components/balanca/LerPesoButton';
 import SearchSelect from '@/components/SearchSelect';
 
-const empty = { tipo: '', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', origem: '', destino: '', observacao: '' };
+const empty = { tipo: '', motorista: '', placa: '', peso: '', produto_id: '', transportadora_id: '', cliente_id: '', pedido_id: '', origem: '', destino: '', observacao: '' };
 
 const TIPOS = [
   { value: 'venda', label: 'Venda', icon: ShoppingCart, desc: 'Saída para venda ao cliente' },
@@ -40,9 +40,10 @@ const TIPOS = [
   { value: 'entrada_saida', label: 'Entrada e Saída', icon: ArrowLeftRight, desc: 'Operação avulsa' },
 ];
 
-export default function AberturaTicketDialog({ open, onClose, onReload, tickets, pessoas, produtos, transportadoras }) {
+export default function AberturaTicketDialog({ open, onClose, onReload, tickets, pessoas, produtos, transportadoras, pedidos }) {
   const [form, setForm] = useState(empty);
   const [step, setStep] = useState('tipo');
+  const [buscaPedido, setBuscaPedido] = useState('');
   const [saving, setSaving] = useState(false);
   const [sairOpen, setSairOpen] = useState(false);
   const { toast } = useToast();
@@ -50,6 +51,27 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
   const podeDigitar = podeDigitarPeso(user);
 
   const motoristas = useMemo(() => pessoas.filter((p) => p.is_motorista), [pessoas]);
+  const clientes = useMemo(() => pessoas.filter((p) => p.is_cliente), [pessoas]);
+
+  const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
+  const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
+
+  const isVenda = form.tipo === 'venda';
+  const pedidosAbertos = useMemo(() => (isVenda ? pedidos.filter((p) => p.status === 'aberto') : []), [pedidos, isVenda]);
+  const pedidoSel = useMemo(() => pedidos.find((p) => p.id === form.pedido_id), [pedidos, form.pedido_id]);
+
+  const transpsDoPedido = useMemo(() => {
+    if (!pedidoSel) return [];
+    const ids = (pedidoSel.transportadora_ids || '').split(',').map((s) => s.trim()).filter(Boolean);
+    return ids.map((id) => transportadoras.find((t) => t.id === id)).filter(Boolean);
+  }, [pedidoSel, transportadoras]);
+
+  const pedidosVisiveis = useMemo(() => {
+    if (pedidoSel) return [pedidoSel];
+    const q = buscaPedido.toLowerCase().trim();
+    if (!q) return pedidosAbertos;
+    return pedidosAbertos.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q) || produtoNome(p.produto_id).toLowerCase().includes(q));
+  }, [pedidosAbertos, buscaPedido, pedidoSel]);
 
   const taraSugerida = useMemo(() => {
     const placaNorm = normalizePlaca(form.placa);
@@ -63,10 +85,10 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
     return tara > 0 ? tara : null;
   }, [form.placa, tickets]);
 
-  function resetForm() { setForm(empty); setStep('tipo'); }
+  function resetForm() { setForm(empty); setStep('tipo'); setBuscaPedido(''); }
 
   function temDados() {
-    return step === 'dados' && (form.motorista.trim() || form.placa.trim() || form.peso.trim() || form.produto_id || form.transportadora_id || form.origem.trim() || form.destino.trim() || form.observacao.trim());
+    return step === 'dados' && (form.motorista.trim() || form.placa.trim() || form.peso.trim() || form.produto_id || form.transportadora_id || form.cliente_id || form.pedido_id || form.origem.trim() || form.destino.trim() || form.observacao.trim());
   }
 
   function tentarSair() {
@@ -92,11 +114,15 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
       toast({ variant: 'destructive', title: 'Informe o peso da 1ª pesagem' });
       return;
     }
-    if (form.tipo !== 'venda' && !form.produto_id) {
-      toast({ variant: 'destructive', title: 'Selecione o produto', description: 'Para lavoura, compra ou entrada e saída, o produto é obrigatório.' });
+    if (isVenda && !form.pedido_id) {
+      toast({ variant: 'destructive', title: 'Selecione o pedido', description: 'Na venda, o cliente, o produto e a transportadora vêm do pedido.' });
       return;
     }
-    if (form.tipo !== 'venda' && !form.transportadora_id) {
+    if (!isVenda && !form.produto_id) {
+      toast({ variant: 'destructive', title: 'Selecione o produto' });
+      return;
+    }
+    if (!isVenda && !form.transportadora_id) {
       toast({ variant: 'destructive', title: 'Selecione a transportadora' });
       return;
     }
@@ -109,18 +135,25 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
     setSaving(true);
     try {
       const numero = nextTicketNumber(tickets);
-      const transp = transportadoras.find((t) => t.id === form.transportadora_id);
+      const transpId = isVenda
+        ? (transpsDoPedido.length === 1 ? transpsDoPedido[0].id : '')
+        : (form.transportadora_id || '');
+      const transp = transportadoras.find((t) => t.id === transpId);
+      const cliId = isVenda ? (pedidoSel?.cliente_id || '') : (form.cliente_id || '');
       await base44.entities.TicketPesagem.create({
         numero,
         tipo: form.tipo,
         data_abertura: new Date().toISOString(),
         motorista: form.motorista.trim(),
         placa: placaNorm,
-        produto_id: form.tipo !== 'venda' ? form.produto_id || '' : '',
-        transportadora_id: form.tipo !== 'venda' ? form.transportadora_id || '' : '',
-        transportadora_nome: form.tipo !== 'venda' ? transp?.nome || '' : '',
+        produto_id: isVenda ? (pedidoSel?.produto_id || '') : (form.produto_id || ''),
+        cliente_id: cliId,
+        cliente_nome: cliId ? clienteNome(cliId) : '',
+        transportadora_id: transpId,
+        transportadora_nome: transp ? transp.nome : '',
+        pedido_id: isVenda ? (form.pedido_id || '') : '',
         origem: form.origem.trim(),
-        destino: form.tipo === 'venda' ? '' : form.destino.trim(),
+        destino: isVenda ? '' : form.destino.trim(),
         peso_tara: parseQtd(form.peso),
         peso_bruto: 0,
         peso_liquido: 0,
@@ -176,7 +209,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                 })}
               </div>
               {form.tipo === 'venda' && (
-                <p className="text-xs text-muted-foreground">Na venda, o produto, o cliente e a transportadora vêm do pedido selecionado no fechamento.</p>
+                <p className="text-xs text-muted-foreground">Na venda, o pedido define o cliente, o produto e a transportadora. Selecione o pedido no próximo passo.</p>
               )}
               <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-3 bg-background/95 backdrop-blur border-t">
                 <Button type="button" className="flex-1 h-12 text-base" disabled={!form.tipo} onClick={() => setStep('dados')}>Continuar</Button>
@@ -189,6 +222,61 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                 <span className="text-xs text-muted-foreground">Tipo: <b className="text-foreground">{TIPOS.find((t) => t.value === form.tipo)?.label}</b></span>
                 <button type="button" className="text-xs text-primary underline" onClick={() => setStep('tipo')}>Alterar</button>
               </div>
+
+              {isVenda && (
+                <div className="space-y-2 rounded-xl border-2 border-primary/30 bg-primary/5 p-3">
+                  <Label className="text-xs">Pedido *</Label>
+                  {pedidosAbertos.length === 0 ? (
+                    <p className="text-sm text-destructive">Nenhum pedido aberto disponível. Cadastre um pedido antes de abrir um ticket de venda.</p>
+                  ) : pedidoSel ? (
+                    <div className="space-y-2">
+                      <div className="rounded-lg border bg-background p-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs text-muted-foreground">{pedidoSel.numero}</span>
+                          <button type="button" className="text-xs text-destructive underline" onClick={() => setForm({ ...form, pedido_id: '' })}>Trocar pedido</button>
+                        </div>
+                        <p className="font-medium truncate">{clienteNome(pedidoSel.cliente_id)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{produtoNome(pedidoSel.produto_id)}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground pt-1">
+                          <span>Saldo: <b className="text-foreground">{formatKg(pedidoSel.saldo_kg)}</b></span>
+                          <span>Transportadora(s): <b className="text-foreground">{transpsDoPedido.length ? transpsDoPedido.map((t) => t.nome).join(', ') : '—'}</b></span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input value={buscaPedido} onChange={(e) => setBuscaPedido(e.target.value)} placeholder="Buscar pedido por cliente ou produto..." className="pl-9" />
+                      </div>
+                      <div className="max-h-56 overflow-auto scrollbar-thin space-y-2 rounded-lg border bg-background p-2">
+                        {pedidosVisiveis.length === 0 ? (
+                          <p className="px-2 py-3 text-sm text-muted-foreground text-center">Nenhum pedido encontrado.</p>
+                        ) : pedidosVisiveis.map((p) => {
+                          const pesoSaca = p.peso_saca_kg || 0;
+                          const saldoSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => { setForm({ ...form, pedido_id: p.id }); setBuscaPedido(''); }}
+                              className={`w-full text-left rounded-lg border p-3 transition-colors hover:bg-accent hover:border-primary/50`}
+                            >
+                              <div className="flex justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs">Motorista *</Label>
@@ -225,8 +313,17 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                     podeDigitar={podeDigitar}
                   />
                 </div>
-                {form.tipo !== 'venda' && (
+                {!isVenda && (
                   <>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Cliente</Label>
+                      <SearchSelect
+                        value={form.cliente_id}
+                        onChange={(v) => setForm({ ...form, cliente_id: v })}
+                        placeholder="Buscar cliente..."
+                        options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
+                      />
+                    </div>
                     <div className="space-y-1 sm:col-span-2">
                       <Label className="text-xs">Produto *</Label>
                       <SearchSelect
@@ -261,12 +358,9 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                 </div>
               </div>
               <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-4 bg-background/95 backdrop-blur border-t">
-                <Button type="submit" className="flex-1 h-12 text-base" disabled={saving}><Scale className="w-5 h-5" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
+                <Button type="submit" className="flex-1 h-12 text-base" disabled={saving || (isVenda && !form.pedido_id)}><Scale className="w-5 h-5" /> {saving ? 'Abrindo...' : 'Abrir Ticket'}</Button>
                 <Button type="button" variant="outline" onClick={tentarSair} className="h-12 px-6">Cancelar</Button>
               </div>
-              {form.tipo === 'venda' && (
-                <p className="text-xs text-muted-foreground">Na venda, o produto e o cliente vêm do pedido selecionado no fechamento.</p>
-              )}
             </div>
           )}
         </form>

@@ -22,12 +22,22 @@
     "produto_id": {
       "type": "string",
       "title": "Produto",
-      "description": "Produto vinculado ao ticket (lavoura/compra/entrada_saida). Em venda, vem do pedido no fechamento."
+      "description": "Produto vinculado ao ticket (lavoura/compra/entrada_saida). Em venda, vem do pedido (definido na abertura)."
+    },
+    "cliente_id": {
+      "type": "string",
+      "title": "Cliente",
+      "description": "Refer\u00eancia ao Cliente. Em venda, vem do pedido (definido na abertura)."
+    },
+    "cliente_nome": {
+      "type": "string",
+      "title": "Cliente (nome)",
+      "description": "Nome do cliente espelhado para exibi\u00e7\u00e3o r\u00e1pida."
     },
     "transportadora_id": {
       "type": "string",
       "title": "Transportadora",
-      "description": "Refer\u00eancia \u00e0 Transportadora. Em venda, vem do pedido no fechamento."
+      "description": "Refer\u00eancia \u00e0 Transportadora. Em venda, vem do pedido (definido na abertura/fechamento)."
     },
     "transportadora_nome": {
       "type": "string",
@@ -72,14 +82,14 @@
     },
     "peso_liquido": {
       "type": "number",
-      "title": "Peso L\u00edquido (kg)",
+      "title": "Peso L\u00edquido",
       "description": "Calculado: peso_bruto - peso_tara.",
       "default": 0
     },
     "pedido_id": {
       "type": "string",
       "title": "Pedido",
-      "description": "Refer\u00eancia ao PedidoPesagem vinculado no fechamento."
+      "description": "Refer\u00eancia ao PedidoPesagem vinculado (definido na abertura em vendas)."
     },
     "status": {
       "type": "string",

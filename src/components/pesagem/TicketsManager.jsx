@@ -395,6 +395,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           pessoas={pessoas}
           produtos={produtos}
           transportadoras={transportadoras}
+          pedidos={pedidos}
         />
       )}
     </div>

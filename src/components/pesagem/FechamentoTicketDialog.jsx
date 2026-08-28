@@ -29,7 +29,6 @@ import { calcLiquido, formatKg, formatMoeda, formatPlaca, baixarEstoqueVendaTick
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
-import LerPesoButton from '@/components/balanca/LerPesoButton';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
 import SearchSelect from '@/components/SearchSelect';
 
@@ -52,15 +51,26 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
   const isInverted = (ticket?.peso_bruto || 0) > 0 && (ticket?.peso_tara || 0) === 0;
-  const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto') : [];
+  const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto' || p.id === ticket?.pedido_id) : [];
+
+  const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
+  const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
+  const transpNome = (id) => transportadoras.find((t) => t.id === id)?.nome || '—';
+
+  // Pré-seleciona o pedido vinculado na abertura (venda).
+  useEffect(() => {
+    if (isVenda && ticket?.pedido_id) setPedidoId(ticket.pedido_id);
+  }, [ticket, isVenda]);
+
+  const pedidoSel = useMemo(() => pedidos.find((p) => p.id === pedidoId), [pedidos, pedidoId]);
+  const saldo = pedidoSel?.saldo_kg || 0;
 
   const pedidosVisiveis = useMemo(() => {
-    const selecionado = pedidosAbertos.find((p) => p.id === pedidoId);
-    if (selecionado) return [selecionado];
+    if (pedidoSel) return [pedidoSel];
     const q = buscaPedido.toLowerCase().trim();
     if (!q) return pedidosAbertos;
     return pedidosAbertos.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q) || produtoNome(p.produto_id).toLowerCase().includes(q));
-  }, [pedidosAbertos, buscaPedido, pedidoId]);
+  }, [pedidosAbertos, buscaPedido, pedidoSel]);
 
   const liquido = useMemo(
     () => isInverted
@@ -69,12 +79,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     [pesoBruto, ticket, isInverted]
   );
 
-  const pedidoSel = pedidos.find((p) => p.id === pedidoId);
-  const saldo = pedidoSel?.saldo_kg || 0;
   const excede = pedidoSel && liquido > saldo;
-  const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
-  const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
-  const transpNome = (id) => transportadoras.find((t) => t.id === id)?.nome || '—';
 
   const transpsDoPedido = useMemo(() => {
     if (!pedidoSel) return [];
@@ -100,7 +105,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   function temDadosNaoSalvos() {
     if (fechado) return false;
-    return Boolean(pesoBruto || pedidoId || transportadoraId || observacao.trim());
+    return Boolean(pesoBruto || transportadoraId || observacao.trim());
   }
   function tentarSair() {
     if (temDadosNaoSalvos()) {
@@ -137,6 +142,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
         peso_liquido: liquido,
         pedido_id: isVenda ? pedidoId : '',
         produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
+        cliente_id: isVenda && pedidoSel ? pedidoSel.cliente_id : (ticket.cliente_id || ''),
+        cliente_nome: isVenda && pedidoSel ? clienteNome(pedidoSel.cliente_id) : (ticket.cliente_nome || ''),
         transportadora_id: transpId,
         transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
         status: 'fechado',
@@ -173,6 +180,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
         peso_liquido: liquido,
         pedido_id: isVenda ? pedidoId : '',
         produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
+        cliente_id: isVenda && pedidoSel ? pedidoSel.cliente_id : (ticket.cliente_id || ''),
+        cliente_nome: isVenda && pedidoSel ? clienteNome(pedidoSel.cliente_id) : (ticket.cliente_nome || ''),
         transportadora_id: transpId,
         transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
         status: 'fechado',
@@ -194,7 +203,6 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
       toast({ variant: 'destructive', title: isInverted ? 'Informe o peso tara' : 'Informe o peso bruto' });
       return;
     }
-    // O líquido é sempre |bruto - tara| — não importa qual pesagem foi maior
     if (liquido <= 0) {
       toast({ variant: 'destructive', title: 'Pesagens iguais', description: 'A 2ª pesagem deve ser diferente da 1ª.' });
       return;
@@ -216,12 +224,14 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   if (!ticket) return null;
 
+  const clienteTicket = isVenda ? (pedidoSel?.cliente_id || '') : (ticket.cliente_id || '');
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) tentarSair(); }}>
       <DialogContent className="inset-0 max-w-none h-full max-h-none translate-x-0 translate-y-0 rounded-none overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
-          <DialogDescription>Registre o peso da 2ª pesagem{isVenda ? ' e vincule um pedido' : ''} para concluir a pesagem.</DialogDescription>
+          <DialogDescription>Registre o peso da 2ª pesagem para concluir a pesagem.</DialogDescription>
         </DialogHeader>
 
         {fechado ? (
@@ -252,6 +262,10 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Tipo</p>
               <p className="font-medium">{TIPO_LABEL[ticket.tipo] || '—'}</p>
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Cliente</p>
+              <p className="font-medium truncate">{clienteTicket ? clienteNome(clienteTicket) : '—'}</p>
             </div>
             <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Produto</p>
@@ -294,11 +308,20 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
           {isVenda && (
           <div className="space-y-1.5">
-            <Label>Pedido *</Label>
-            {pedidosAbertos.length === 0 ? (
+            {pedidoSel ? (
+              <div className="rounded-lg border p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Pedido vinculado</span>
+                  <span className="font-mono text-xs">{pedidoSel.numero}</span>
+                </div>
+                <p className="font-medium truncate">{clienteNome(pedidoSel.cliente_id)}</p>
+                <p className="text-xs text-muted-foreground truncate">{produtoNome(pedidoSel.produto_id)}</p>
+              </div>
+            ) : pedidosAbertos.length === 0 ? (
               <p className="text-sm text-destructive">Nenhum pedido aberto disponível. Cadastre um pedido antes de fechar.</p>
             ) : (
               <>
+                <Label>Pedido *</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input value={buscaPedido} onChange={(e) => setBuscaPedido(e.target.value)} placeholder="Buscar pedido por cliente ou produto..." className="pl-9" />
