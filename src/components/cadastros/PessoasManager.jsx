@@ -11,7 +11,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 
-const empty = { nome: '', documento: '', telefone: '', cidade: '', is_cliente: true, is_fornecedor: false, is_transportadora: false, is_motorista: false, observacao: '' };
+const empty = { nome: '', documento: '', telefone: '', cidade: '', uf: '', endereco: '', cnh: '', cnh_validade: '', is_cliente: true, is_fornecedor: false, is_transportadora: false, is_motorista: false, observacao: '' };
 
 export default function PessoasManager() {
   const [form, setForm] = useState(empty);
@@ -59,6 +59,10 @@ export default function PessoasManager() {
       documento: p.documento || '',
       telefone: p.telefone || '',
       cidade: p.cidade || '',
+      uf: p.uf || '',
+      endereco: p.endereco || '',
+      cnh: p.cnh || '',
+      cnh_validade: p.cnh_validade || '',
       is_cliente: !!p.is_cliente,
       is_fornecedor: !!p.is_fornecedor,
       is_transportadora: !!p.is_transportadora,
@@ -87,14 +91,32 @@ export default function PessoasManager() {
             <Label>CNPJ / CPF</Label>
             <Input value={form.documento} onChange={(e) => setForm({ ...form, documento: e.target.value })} placeholder="00.000.000/0000-00" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5 col-span-1">
               <Label>Telefone</Label>
               <Input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 col-span-1">
               <Label>Cidade</Label>
               <Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} />
+            </div>
+            <div className="space-y-1.5 col-span-1">
+              <Label>UF</Label>
+              <Input value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} className="uppercase" placeholder="SP" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Endereço</Label>
+            <Input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} placeholder="Rua, nº, bairro" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>CNH</Label>
+              <Input value={form.cnh} onChange={(e) => setForm({ ...form, cnh: e.target.value })} placeholder="Nº da CNH (motorista)" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Validade da CNH</Label>
+              <Input type="date" value={form.cnh_validade} onChange={(e) => setForm({ ...form, cnh_validade: e.target.value })} />
             </div>
           </div>
           <div className="flex flex-wrap gap-4 pt-1">
@@ -170,8 +192,9 @@ export default function PessoasManager() {
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                       {p.documento && <span className="font-mono">{p.documento}</span>}
-                      {p.cidade && <span>{p.cidade}</span>}
+                      {p.cidade && <span>{p.cidade}{p.uf ? `/${p.uf}` : ''}</span>}
                       {p.telefone && <span>{p.telefone}</span>}
+                      {p.is_motorista && p.cnh && <span>CNH: {p.cnh}</span>}
                     </div>
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}><Pencil className="w-4 h-4" /></Button>
