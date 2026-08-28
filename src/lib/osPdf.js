@@ -1,12 +1,7 @@
 // Geração de PDF da Ordem de Serviço de Aplicação (documento impresso para campo).
 import { jsPDF } from 'jspdf';
-import { formatQtd, parseQtd } from '@/lib/format';
+import { formatQtd, formatDose } from '@/lib/format';
 import { parseItens } from '@/lib/osAplicacao';
-
-// Dose pode ter até 4 casas decimais — usa parseQtd para aceitar vírgula decimal (pt-BR)
-function formatDose(v) {
-  return (parseQtd(v) || 0).toFixed(4).replace('.', ',');
-}
 
 export function gerarPDFOS(os, { cultura, lavoura }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });

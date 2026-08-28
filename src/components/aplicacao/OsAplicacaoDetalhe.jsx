@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Printer, CheckCircle2, Trash2, FileText } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { formatQtd, parseQtd } from '@/lib/format';
+import { formatQtd, parseQtd, formatDose } from '@/lib/format';
 import { parseItens } from '@/lib/osAplicacao';
 import { gerarPDFOS } from '@/lib/osPdf';
 import { invalidateEntidade } from '@/lib/useEntidades';
@@ -148,7 +148,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                     <tr key={idx} className="border-t">
                       <td className="p-2 whitespace-nowrap font-medium">{it.nome}</td>
                       <td className="p-2 text-center whitespace-nowrap text-muted-foreground">{it.unidade}</td>
-                      <td className="p-2 text-right whitespace-nowrap tabular-nums">{formatQtd(it.dose_por_hect || 0)}</td>
+                      <td className="p-2 text-right whitespace-nowrap tabular-nums">{formatDose(it.dose_por_hect || 0)}</td>
                       <td className="p-2 text-right whitespace-nowrap tabular-nums font-semibold">{formatQtd(it.previsto || 0)}</td>
                       {os.status === 'executada' && (
                         <td className="p-2 text-right whitespace-nowrap tabular-nums font-semibold text-primary">{formatQtd(it.realizado || 0)}</td>

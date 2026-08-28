@@ -8,6 +8,12 @@ export function formatQtd(n) {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Formata a dose/ha com até 4 casas decimais, aceitando vírgula decimal (pt-BR).
+// Necessário porque a dose é digitada como texto e pode conter vírgula (ex.: "0,5").
+export function formatDose(v) {
+  return (parseQtd(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+}
+
 // Formato para campos de entrada: 2 decimais, sem separador de milhar (ex.: 1500,00).
 export function formatInputQtd(n) {
   const num = Number(n);
