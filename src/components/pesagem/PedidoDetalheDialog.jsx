@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Unlink, Trash2 } from 'lucide-react';
+import { Pencil, Unlink, Trash2, Infinity as InfinityIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { formatKg, formatMoeda, formatPlaca, round3 } from '@/lib/pesagem';
+import { formatKg, formatMoeda, formatPlaca, round3, somaLiquidoTickets } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 
 export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets, pagamentos, onClose, isAdmin, onEditPedido, onDesvincularTicket, onDeletePedido }) {
@@ -19,16 +19,20 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
   const ticketsDoPedido = (pedido ? (tickets || []).filter((t) => t.pedido_id === pedido.id) : [])
     .sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
 
-  const pct = pedido && pedido.total_kg > 0 ? Math.max(0, Math.min(100, ((pedido.saldo_kg || 0) / pedido.total_kg) * 100)) : 0;
-  const carregadoKg = pedido ? Math.max(0, (pedido.total_kg || 0) - (pedido.saldo_kg || 0)) : 0;
-  const carregadoPct = pedido && pedido.total_kg > 0 ? (carregadoKg / pedido.total_kg) * 100 : 0;
+  const semLimite = pedido?.sem_limite;
+  const carregadoKgCalculado = pedido ? somaLiquidoTickets(tickets, pedido.id) : 0;
+  const pct = !semLimite && pedido && pedido.total_kg > 0 ? Math.max(0, Math.min(100, ((pedido.saldo_kg || 0) / pedido.total_kg) * 100)) : 0;
+  const carregadoKg = semLimite ? carregadoKgCalculado : (pedido ? Math.max(0, (pedido.total_kg || 0) - (pedido.saldo_kg || 0)) : 0);
+  const carregadoPct = !semLimite && pedido && pedido.total_kg > 0 ? (carregadoKg / pedido.total_kg) * 100 : 0;
   const pesoSaca = pedido ? (pedido.peso_saca_kg || 0) : 0;
   const emSacas = (kg) => pesoSaca > 0 ? kg / pesoSaca : 0;
   const carregadoSacas = pedido ? emSacas(carregadoKg) : 0;
   const totalSacas = pedido ? emSacas(pedido.total_kg || 0) : 0;
   const restanteSacas = pedido ? emSacas(pedido.saldo_kg || 0) : 0;
 
-  const valorPesado = pedido ? round3(emSacas(carregadoKg) * (pedido.valor_saca || 0)) : 0;
+  const valorPesado = semLimite
+    ? (pedido ? round3(emSacas(carregadoKg) * (pedido.valor_saca || 0)) : 0)
+    : (pedido ? round3(emSacas(carregadoKg) * (pedido.valor_saca || 0)) : 0);
   const totalPago = pedido ? (pagamentos || []).filter((pg) => pg.pedido_id === pedido.id).reduce((s, pg) => s + (Number(pg.valor) || 0), 0) : 0;
   const saldoReceber = round3(valorPesado - totalPago);
 
@@ -58,22 +62,40 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
 
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2">
-                <Badge variant={pedido.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{pedido.status}</Badge>
-                <span className="text-xs text-muted-foreground">Saldo: <b className="text-foreground">{formatQtd(restanteSacas)} sacas</b> de {formatQtd(totalSacas)} sacas</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant={pedido.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{pedido.status}</Badge>
+                  {semLimite && <Badge className="bg-sky-100 text-sky-700 gap-1"><InfinityIcon className="w-3 h-3" /> Sem limite</Badge>}
+                </div>
+                {!semLimite && <span className="text-xs text-muted-foreground">Saldo: <b className="text-foreground">{formatQtd(restanteSacas)} sacas</b> de {formatQtd(totalSacas)} sacas</span>}
               </div>
 
-              <div className="rounded-lg border bg-primary/5 p-4">
-                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Restante</p>
-                    <p className="text-3xl font-bold text-primary leading-tight mt-0.5">{formatQtd(restanteSacas)} <span className="text-base font-semibold">sacas</span></p>
-                  </div>
-                  <div className="sm:text-right">
-                    <p className="text-xs text-muted-foreground">Carregado</p>
-                    <p className="text-lg font-semibold">{formatQtd(carregadoSacas)} <span className="text-xs font-medium text-muted-foreground">({carregadoPct.toFixed(1)}%)</span></p>
+              {semLimite ? (
+                <div className="rounded-lg border-2 border-sky-200 bg-sky-50 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Carregado</p>
+                      <p className="text-3xl font-bold text-sky-700 leading-tight mt-0.5">{formatKg(carregadoKg)}</p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-xs text-muted-foreground">Tipo</p>
+                      <p className="text-sm font-semibold text-sky-600">Sem limite de saldo</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-lg border bg-primary/5 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Restante</p>
+                      <p className="text-3xl font-bold text-primary leading-tight mt-0.5">{formatQtd(restanteSacas)} <span className="text-base font-semibold">sacas</span></p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-xs text-muted-foreground">Carregado</p>
+                      <p className="text-lg font-semibold">{formatQtd(carregadoSacas)} <span className="text-xs font-medium text-muted-foreground">({carregadoPct.toFixed(1)}%)</span></p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg border p-3">
@@ -86,11 +108,11 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Sacas</p>
-                  <p className="font-semibold">{formatQtd(pedido.qtd_sacas || 0)}</p>
+                  <p className="font-semibold">{semLimite ? '—' : formatQtd(pedido.qtd_sacas || 0)}</p>
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Peso/saca</p>
-                  <p className="font-semibold">{formatKg(pedido.peso_saca_kg || 0)}</p>
+                  <p className="font-semibold">{semLimite ? '—' : formatKg(pedido.peso_saca_kg || 0)}</p>
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Valor/saca</p>
@@ -108,9 +130,11 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                 <div className="flex justify-between border-t pt-1 mt-0.5"><span className="text-muted-foreground font-medium">Saldo a receber:</span><span className="font-bold text-primary">{formatMoeda(saldoReceber)}</span></div>
               </div>
 
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
-              </div>
+              {!semLimite && (
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              )}
 
               {pedido.observacao && (
                 <div className="rounded-lg border bg-muted/40 p-3 text-sm">

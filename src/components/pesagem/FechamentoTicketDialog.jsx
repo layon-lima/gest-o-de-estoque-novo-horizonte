@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, Search, Printer, FileDown, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Search, Printer, FileDown, X, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,10 +30,11 @@ import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
 import SearchSelect from '@/components/SearchSelect';
+import QuebrarTicketDialog from '@/components/pesagem/QuebrarTicketDialog';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
 
-export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, open, onClose, onClosed, onReload }) {
+export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, tickets, open, onClose, onClosed, onReload }) {
   const [pesoBruto, setPesoBruto] = useState('');
   const [pedidoId, setPedidoId] = useState('');
   const [transportadoraId, setTransportadoraId] = useState('');
@@ -41,6 +42,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   const [buscaPedido, setBuscaPedido] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sairOpen, setSairOpen] = useState(false);
+  const [quebrarOpen, setQuebrarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fechado, setFechado] = useState(null);
   const [gerando, setGerando] = useState(false);
@@ -78,7 +80,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     [pesoBruto, ticket, isInverted]
   );
 
-  const excede = pedidoSel && liquido > saldo;
+  const semLimite = isVenda && pedidoSel?.sem_limite;
+  const excede = pedidoSel && !semLimite && liquido > saldo;
 
   const transpsDoPedido = useMemo(() => {
     if (!pedidoSel) return [];
@@ -99,6 +102,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     setObservacao('');
     setBuscaPedido('');
     setConfirmOpen(false);
+    setQuebrarOpen(false);
     setFechado(null);
   }
 
@@ -300,7 +304,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                     <p className="px-2 py-3 text-sm text-muted-foreground text-center">Nenhum pedido encontrado.</p>
                   ) : pedidosVisiveis.map((p) => {
                     const selected = p.id === pedidoId;
-                    const consumoExcede = selected && liquido > (p.saldo_kg || 0);
+                    const pSemLimite = !!p.sem_limite;
+                    const consumoExcede = selected && !pSemLimite && liquido > (p.saldo_kg || 0);
                     const pesoSaca = p.peso_saca_kg || 0;
                     const saldoSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
                     const liquidoSacas = pesoSaca > 0 ? liquido / pesoSaca : 0;
@@ -314,16 +319,25 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                         <div className="flex justify-between gap-2">
                           <div className="min-w-0">
                             <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                            <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
+                            <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)}{pSemLimite ? '' : ` · ${formatQtd(saldoSacas)} sacas disponível`}</p>
                           </div>
-                          {selected && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {pSemLimite && <Badge className="bg-sky-100 text-sky-700 text-[10px]">Sem limite</Badge>}
+                            {selected && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                          </div>
                         </div>
                         {selected && (
                           <div className="mt-2 flex items-center gap-2 text-xs">
-                            <Badge variant={consumoExcede ? 'destructive' : 'secondary'} className={consumoExcede ? '' : 'bg-green-100 text-green-700'}>
-                              {consumoExcede ? <><AlertTriangle className="w-3 h-3 mr-1" /> Excede saldo</> : 'Dentro do saldo'}
-                            </Badge>
-                            <span className="text-muted-foreground">Consumirá {formatQtd(liquidoSacas)} sacas</span>
+                            {pSemLimite ? (
+                              <Badge className="bg-sky-100 text-sky-700">Sem limite — não bloqueia</Badge>
+                            ) : (
+                              <>
+                                <Badge variant={consumoExcede ? 'destructive' : 'secondary'} className={consumoExcede ? '' : 'bg-green-100 text-green-700'}>
+                                  {consumoExcede ? <><AlertTriangle className="w-3 h-3 mr-1" /> Excede saldo</> : 'Dentro do saldo'}
+                                </Badge>
+                                <span className="text-muted-foreground">Consumirá {formatQtd(liquidoSacas)} sacas</span>
+                              </>
+                            )}
                           </div>
                         )}
                       </button>
@@ -336,6 +350,16 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           )}
 
           {isVenda && pedidoSel && (() => {
+            if (semLimite) {
+              return (
+                <div className="rounded-lg border-2 border-sky-300 bg-sky-50 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-sky-100 text-sky-700">Sem limite</Badge>
+                    <span className="text-xs text-muted-foreground">Este pedido não bloqueia por saldo.</span>
+                  </div>
+                </div>
+              );
+            }
             const ps = pedidoSel.peso_saca_kg || 0;
             const saldoSacas = ps > 0 ? saldo / ps : 0;
             return (
@@ -351,6 +375,21 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
               </div>
             );
           })()}
+
+          {excede && (
+            <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-700">Saldo excedido</p>
+                  <p className="text-xs text-amber-600">O líquido ({formatKg(liquido)}) ultrapassa o saldo ({formatKg(saldo)}). Excedente: {formatKg(liquido - saldo)}.</p>
+                </div>
+              </div>
+              <Button className="w-full bg-amber-600 hover:bg-amber-700" onClick={() => setQuebrarOpen(true)}>
+                <Scissors className="w-4 h-4 mr-2" /> Quebrar Ticket
+              </Button>
+            </div>
+          )}
 
           {isVenda && transpsDoPedido.length > 1 && (
             <div className="space-y-1.5">
@@ -414,6 +453,24 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <QuebrarTicketDialog
+        open={quebrarOpen}
+        onClose={() => setQuebrarOpen(false)}
+        onDone={() => { setQuebrarOpen(false); reset(); onClose?.(); if (onReload) onReload(); }}
+        ticket={ticket}
+        pesoBruto={pesoBruto}
+        isInverted={isInverted}
+        liquido={liquido}
+        pedidoSel={pedidoSel}
+        pedidos={pedidos}
+        pessoas={pessoas}
+        produtos={produtos}
+        transportadoras={transportadoras}
+        transportadoraId={transportadoraId}
+        observacao={observacao}
+        tickets={tickets}
+      />
     </Dialog>
   );
 }

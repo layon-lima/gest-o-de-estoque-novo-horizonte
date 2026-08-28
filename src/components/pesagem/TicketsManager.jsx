@@ -420,6 +420,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           pessoas={pessoas}
           produtos={produtos}
           transportadoras={transportadoras}
+          tickets={tickets}
           open={!!fecharTicket}
           onClose={() => setFecharTicket(null)}
           onClosed={() => { setFecharTicket(null); onReload(); }}

@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileSpreadsheet, FileDown, Search } from 'lucide-react';
+import { Plus, FileSpreadsheet, FileDown, Search, Infinity as InfinityIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { formatKg, formatMoeda, nextPedidoNumber } from '@/lib/pesagem';
+import { formatKg, formatMoeda, nextPedidoNumber, somaLiquidoTickets } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { base44 } from '@/api/base44Client';
 import { queryClientInstance } from '@/lib/query-client';
@@ -142,6 +142,31 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
       ) : (
         <div className="space-y-3">
           {filtrados.map((p) => {
+            const carregadoKg = somaLiquidoTickets(tickets, p.id);
+            if (p.sem_limite) {
+              return (
+                <button key={p.id} type="button" onClick={() => setSelecionado(p)} className="w-full text-left">
+                  <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {p.numero && <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{p.numero}</span>}
+                          <p className="font-semibold truncate">{clienteNome(p.cliente_id)}</p>
+                          <Badge variant={p.status === 'aberto' ? 'default' : 'secondary'} className="capitalize">{p.status}</Badge>
+                          <Badge className="bg-sky-100 text-sky-700 gap-1"><InfinityIcon className="w-3 h-3" /> Sem limite</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{produtoNome(p.produto_id)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Carregado</p>
+                        <p className="text-xl font-bold text-primary leading-tight">{formatKg(carregadoKg)}</p>
+                        <p className="text-xs text-muted-foreground">Sem limite de saldo</p>
+                      </div>
+                    </div>
+                  </Card>
+                </button>
+              );
+            }
             const pct = p.total_kg > 0 ? Math.max(0, Math.min(100, ((p.saldo_kg || 0) / p.total_kg) * 100)) : 0;
             const pesoSaca = p.peso_saca_kg || 0;
             const restanteSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;

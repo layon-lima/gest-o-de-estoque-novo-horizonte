@@ -169,7 +169,8 @@ export async function baixarEstoqueVendaTicket({ produto, quantidadeKg, ticketNu
 
 // Fecha um ticket de pesagem: atualiza o ticket, o pedido (venda) e baixa o estoque.
 export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isVenda, pedidoId, transportadoraId, observacao, pedidoSel, clienteNome, transpNome, produtos }) {
-  const novoSaldo = pedidoSel ? Math.round((Number(pedidoSel.saldo_kg) - liquido) * 1000) / 1000 : 0;
+  const semLimite = isVenda && pedidoSel?.sem_limite;
+  const novoSaldo = (!semLimite && pedidoSel) ? Math.round((Number(pedidoSel.saldo_kg) - liquido) * 1000) / 1000 : (pedidoSel?.saldo_kg || 0);
 
   const updateData = {
     peso_tara: isInverted ? parseQtd(pesoBruto) : (ticket.peso_tara || 0),
@@ -192,10 +193,12 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
   let baixaError = null;
 
   if (isVenda && pedidoSel) {
-    await base44.entities.PedidoPesagem.update(pedidoId, {
-      saldo_kg: novoSaldo,
-      status: novoSaldo <= 0 ? 'concluido' : 'aberto',
-    });
+    if (!semLimite) {
+      await base44.entities.PedidoPesagem.update(pedidoId, {
+        saldo_kg: novoSaldo,
+        status: novoSaldo <= 0 ? 'concluido' : 'aberto',
+      });
+    }
     const prodVenda = produtos.find((p) => p.id === pedidoSel.produto_id);
     if (prodVenda) {
       try {
@@ -217,4 +220,108 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
   }
 
   return { ticket: closedTicket, baixaError };
+}
+
+// Quebra um ticket em dois quando o peso excede o saldo do pedido original.
+// O ticket original é ajustado para fechar o pedido exatamente (liquido = saldo_kg),
+// e o excedente vira um novo ticket vinculado ao novo pedido escolhido pelo usuário.
+export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pedidoSel, novoPedido, transportadoraId, observacao, clienteNome, transpNome, produtos, tickets }) {
+  const secondWeight = parseQtd(pesoBruto);
+  const firstWeight = isInverted ? (Number(ticket.peso_bruto) || 0) : (Number(ticket.peso_tara) || 0);
+  const saldoOriginal = Number(pedidoSel.saldo_kg) || 0;
+  const liquidoExcesso = round3(liquido - saldoOriginal);
+
+  // Ticket original: ajustado para fechar o pedido exatamente
+  const pesosOriginal = isInverted
+    ? { peso_bruto: firstWeight, peso_tara: round3(firstWeight - saldoOriginal), peso_liquido: saldoOriginal }
+    : { peso_tara: firstWeight, peso_bruto: round3(firstWeight + saldoOriginal), peso_liquido: saldoOriginal };
+
+  // Ticket complementar: o restante do peso
+  const pesosNovo = isInverted
+    ? { peso_bruto: round3(firstWeight - saldoOriginal), peso_tara: secondWeight, peso_liquido: liquidoExcesso }
+    : { peso_tara: round3(firstWeight + saldoOriginal), peso_bruto: secondWeight, peso_liquido: liquidoExcesso };
+
+  const now = new Date().toISOString();
+  const transpId = transportadoraId || (pedidoSel.transportadora_ids || '').split(',')[0]?.trim() || '';
+  const transpNm = transpId ? transpNome(transpId) : (ticket.transportadora_nome || '');
+
+  // 1. Atualiza o ticket original com os pesos ajustados
+  const updateOriginal = {
+    ...pesosOriginal,
+    pedido_id: pedidoSel.id,
+    produto_id: pedidoSel.produto_id,
+    cliente_id: pedidoSel.cliente_id,
+    cliente_nome: clienteNome(pedidoSel.cliente_id),
+    transportadora_id: transpId,
+    transportadora_nome: transpNm,
+    status: 'fechado',
+    data_fechamento: now,
+    observacao: observacao || '',
+  };
+  await base44.entities.TicketPesagem.update(ticket.id, updateOriginal);
+  const closedOriginal = { ...ticket, ...updateOriginal };
+
+  // 2. Cria o novo ticket complementar
+  const novoNumero = nextTicketNumber(tickets);
+  const novoTicket = await base44.entities.TicketPesagem.create({
+    numero: novoNumero,
+    tipo: 'venda',
+    produto_id: pedidoSel.produto_id,
+    cliente_id: pedidoSel.cliente_id,
+    cliente_nome: clienteNome(pedidoSel.cliente_id),
+    transportadora_id: transpId,
+    transportadora_nome: transpNm,
+    origem: ticket.origem || '',
+    destino: ticket.destino || '',
+    data_abertura: ticket.data_abertura,
+    data_fechamento: now,
+    motorista: ticket.motorista,
+    placa: ticket.placa,
+    ...pesosNovo,
+    pedido_id: novoPedido.id,
+    status: 'fechado',
+    observacao: `complemento do ticket ${ticket.numero}${observacao ? ' — ' + observacao : ''}`,
+  });
+
+  // 3. Atualiza os pedidos
+  if (!pedidoSel.sem_limite) {
+    await base44.entities.PedidoPesagem.update(pedidoSel.id, {
+      saldo_kg: 0,
+      status: 'concluido',
+    });
+  }
+  if (!novoPedido.sem_limite) {
+    const novoSaldo = round3((Number(novoPedido.saldo_kg) || 0) - liquidoExcesso);
+    await base44.entities.PedidoPesagem.update(novoPedido.id, {
+      saldo_kg: novoSaldo,
+      status: novoSaldo <= 0 ? 'concluido' : 'aberto',
+    });
+  }
+
+  // 4. Baixa estoque para ambos os tickets
+  const prodVenda = produtos.find((p) => p.id === pedidoSel.produto_id);
+  let baixaErrorOriginal = null;
+  let baixaErrorNovo = null;
+
+  if (prodVenda) {
+    try {
+      await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: saldoOriginal, ticketNumero: ticket.numero });
+    } catch (e) {
+      baixaErrorOriginal = String(e?.message || e);
+    }
+    try {
+      await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquidoExcesso, ticketNumero: novoNumero });
+    } catch (e) {
+      baixaErrorNovo = String(e?.message || e);
+    }
+  }
+
+  invalidateEntidade('TicketPesagem');
+  invalidateEntidade('PedidoPesagem');
+  invalidateEntidade('SaldoEstoque');
+  invalidateEntidade('Movimentacao');
+  invalidateEntidade('Lote');
+  invalidateEntidade('Produto');
+
+  return { ticketOriginal: closedOriginal, ticketNovo: novoTicket, baixaErrorOriginal, baixaErrorNovo };
 }

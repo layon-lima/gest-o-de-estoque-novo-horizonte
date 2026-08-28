@@ -16,8 +16,10 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
 import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, statusPorSaldo, round3, nextPedidoNumber } from '@/lib/pesagem';
+import { Switch } from '@/components/ui/switch';
+import { Infinity as InfinityIcon } from 'lucide-react';
 
-const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', transportadora_ids: [], observacao: '' };
+const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', transportadora_ids: [], observacao: '', sem_limite: false };
 
 export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, transportadoras, pedido, tickets, pedidos }) {
   const isEdit = !!pedido;
@@ -36,6 +38,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         qtd_sacas: String(pedido.qtd_sacas ?? '0'),
         transportadora_ids: (pedido.transportadora_ids || '').split(',').map((s) => s.trim()).filter(Boolean),
         observacao: pedido.observacao || '',
+        sem_limite: !!pedido.sem_limite,
       });
     } else {
       setForm(empty);
@@ -58,11 +61,11 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
       toast({ variant: 'destructive', title: 'Selecione um produto' });
       return;
     }
-    if (parseQtd(form.qtd_sacas) <= 0 || parseQtd(form.peso_saca_kg) <= 0) {
+    if (!form.sem_limite && (parseQtd(form.qtd_sacas) <= 0 || parseQtd(form.peso_saca_kg) <= 0)) {
       toast({ variant: 'destructive', title: 'Quantidade e peso da saca devem ser maiores que zero' });
       return;
     }
-    if (isEdit && totalKg < carregadoKg - 0.001) {
+    if (!form.sem_limite && isEdit && totalKg < carregadoKg - 0.001) {
       toast({
         variant: 'destructive',
         title: 'Total menor que o já carregado',
@@ -74,26 +77,33 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
     try {
       const transpIds = form.transportadora_ids || [];
       const transpNomes = transpIds.map((id) => transportadoras.find((t) => t.id === id)?.nome).filter(Boolean).join(', ');
+      const semLimite = !!form.sem_limite;
       const payload = {
         cliente_id: form.cliente_id,
         produto_id: form.produto_id,
-        peso_saca_kg: parseQtd(form.peso_saca_kg),
+        sem_limite: semLimite,
+        peso_saca_kg: semLimite ? 0 : parseQtd(form.peso_saca_kg),
         valor_saca: parseQtd(form.valor_saca),
-        qtd_sacas: parseQtd(form.qtd_sacas),
-        total_kg: totalKg,
-        valor_total: valorTotal,
+        qtd_sacas: semLimite ? 0 : parseQtd(form.qtd_sacas),
+        total_kg: semLimite ? 0 : totalKg,
+        valor_total: semLimite ? 0 : valorTotal,
         transportadora_ids: transpIds.join(','),
         transportadora_nomes: transpNomes,
         observacao: form.observacao || '',
       };
       if (isEdit) {
-        const saldoKg = round3(totalKg - carregadoKg);
-        payload.saldo_kg = saldoKg;
-        payload.status = statusPorSaldo(saldoKg, totalKg, pedido.status);
+        if (semLimite) {
+          payload.saldo_kg = 0;
+          payload.status = 'aberto';
+        } else {
+          const saldoKg = round3(totalKg - carregadoKg);
+          payload.saldo_kg = saldoKg;
+          payload.status = statusPorSaldo(saldoKg, totalKg, pedido.status);
+        }
         await base44.entities.PedidoPesagem.update(pedido.id, payload);
         toast({ title: 'Pedido atualizado' });
       } else {
-        payload.saldo_kg = totalKg;
+        payload.saldo_kg = semLimite ? 0 : totalKg;
         payload.status = 'aberto';
         payload.numero = nextPedidoNumber(pedidos);
         await base44.entities.PedidoPesagem.create(payload);
@@ -137,10 +147,20 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
               placeholder="Buscar produto de venda..."
             />
           </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <InfinityIcon className="w-4 h-4 text-sky-600" />
+              <div>
+                <Label className="cursor-pointer">Pedido sem limite</Label>
+                <p className="text-xs text-muted-foreground">Não bloqueia por saldo — apenas conta o carregado.</p>
+              </div>
+            </div>
+            <Switch checked={form.sem_limite} onCheckedChange={(v) => setForm({ ...form, sem_limite: v })} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Peso 1 saca (kg) *</Label>
-              <Input type="text" inputMode="decimal" value={form.peso_saca_kg} onChange={(e) => setForm({ ...form, peso_saca_kg: e.target.value })} />
+              <Label>Peso 1 saca (kg) {form.sem_limite ? '' : '*'}</Label>
+              <Input type="text" inputMode="decimal" value={form.peso_saca_kg} onChange={(e) => setForm({ ...form, peso_saca_kg: e.target.value })} disabled={form.sem_limite} />
             </div>
             <div className="space-y-1.5">
               <Label>Valor saca (R$)</Label>
@@ -148,8 +168,8 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Quantidade de sacas *</Label>
-            <Input type="text" inputMode="decimal" value={form.qtd_sacas} onChange={(e) => setForm({ ...form, qtd_sacas: e.target.value })} />
+            <Label>Quantidade de sacas {form.sem_limite ? '' : '*'}</Label>
+            <Input type="text" inputMode="decimal" value={form.qtd_sacas} onChange={(e) => setForm({ ...form, qtd_sacas: e.target.value })} disabled={form.sem_limite} />
           </div>
           <div className="space-y-1.5">
             <Label>Transportadora(s)</Label>
@@ -183,8 +203,14 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
             )}
           </div>
           <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total equivalente:</span><span className="font-semibold">{formatKg(totalKg)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Valor total:</span><span className="font-semibold">{formatMoeda(valorTotal)}</span></div>
+            {form.sem_limite ? (
+              <div className="flex justify-between"><span className="text-muted-foreground">Tipo:</span><span className="font-semibold text-sky-600">Sem limite de saldo</span></div>
+            ) : (
+              <>
+                <div className="flex justify-between"><span className="text-muted-foreground">Total equivalente:</span><span className="font-semibold">{formatKg(totalKg)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Valor total:</span><span className="font-semibold">{formatMoeda(valorTotal)}</span></div>
+              </>
+            )}
             {isEdit && (
               <div className="flex justify-between"><span className="text-muted-foreground">Já carregado:</span><span className="font-semibold text-amber-600">{formatKg(carregadoKg)}</span></div>
             )}
