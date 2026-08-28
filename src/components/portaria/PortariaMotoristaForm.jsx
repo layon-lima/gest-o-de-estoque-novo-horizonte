@@ -7,7 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { registrarMotorista } from '@/lib/portaria';
 
-const empty = { nome: '', documento: '', telefone: '', cidade: '', observacao: '' };
+const empty = {
+  nome: '',
+  documento: '',
+  telefone: '',
+  cidade: '',
+  uf: '',
+  endereco: '',
+  cnh: '',
+  cnh_validade: '',
+  observacao: '',
+};
 
 export default function PortariaMotoristaForm({ onSaved }) {
   const [form, setForm] = useState(empty);
@@ -45,9 +55,9 @@ export default function PortariaMotoristaForm({ onSaved }) {
         <Label>Nome *</Label>
         <Input value={form.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Nome do motorista" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>CNH / CPF</Label>
+          <Label>CPF</Label>
           <Input value={form.documento} onChange={(e) => set('documento', e.target.value)} placeholder="000.000.000-00" />
         </div>
         <div className="space-y-1.5">
@@ -55,9 +65,35 @@ export default function PortariaMotoristaForm({ onSaved }) {
           <Input value={form.telefone} onChange={(e) => set('telefone', e.target.value)} placeholder="(00) 00000-0000" />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>CNH</Label>
+          <Input value={form.cnh} onChange={(e) => set('cnh', e.target.value)} placeholder="Nº da CNH" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Validade da CNH</Label>
+          <Input type="date" value={form.cnh_validade} onChange={(e) => set('cnh_validade', e.target.value)} />
+        </div>
+      </div>
       <div className="space-y-1.5">
-        <Label>Cidade</Label>
-        <Input value={form.cidade} onChange={(e) => set('cidade', e.target.value)} placeholder="Cidade" />
+        <Label>Endereço</Label>
+        <Input value={form.endereco} onChange={(e) => set('endereco', e.target.value)} placeholder="Rua, nº, bairro" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Cidade</Label>
+          <Input value={form.cidade} onChange={(e) => set('cidade', e.target.value)} placeholder="Cidade" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>UF</Label>
+          <Input
+            value={form.uf}
+            onChange={(e) => set('uf', e.target.value.toUpperCase().slice(0, 2))}
+            placeholder="SP"
+            maxLength={2}
+            className="uppercase"
+          />
+        </div>
       </div>
       <div className="space-y-1.5">
         <Label>Observação</Label>

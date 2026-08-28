@@ -7,6 +7,31 @@
       "title": "Placa",
       "description": "Placa do ve\u00edculo (normalizada e \u00fanica)."
     },
+    "modelo": {
+      "type": "string",
+      "title": "Modelo",
+      "description": "Modelo/marca do ve\u00edculo (ex.: Scania R450)."
+    },
+    "cor": {
+      "type": "string",
+      "title": "Cor"
+    },
+    "ano": {
+      "type": "string",
+      "title": "Ano"
+    },
+    "tara": {
+      "type": "number",
+      "title": "Tara (kg)",
+      "description": "Peso vazio do ve\u00edculo (cavalo + carreta).",
+      "default": 0
+    },
+    "capacidade_kg": {
+      "type": "number",
+      "title": "Capacidade (kg)",
+      "description": "Carga \u00fatil m\u00e1xima do ve\u00edculo.",
+      "default": 0
+    },
     "transportadora_id": {
       "type": "string",
       "title": "Transportadora",

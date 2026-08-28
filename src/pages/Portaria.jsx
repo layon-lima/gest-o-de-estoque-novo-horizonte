@@ -62,7 +62,7 @@ export default function Portaria() {
           ))}
         </div>
       ) : (
-        <div className="max-w-md mx-auto w-full">
+        <div className="max-w-2xl mx-auto w-full">
           <button
             onClick={() => setSel(null)}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"

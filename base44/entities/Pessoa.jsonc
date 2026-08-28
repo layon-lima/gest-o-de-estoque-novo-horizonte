@@ -19,6 +19,26 @@
       "type": "string",
       "title": "Cidade"
     },
+    "uf": {
+      "type": "string",
+      "title": "UF",
+      "description": "Sigla do estado (ex.: SP, MT, PR)."
+    },
+    "endereco": {
+      "type": "string",
+      "title": "Endere\u00e7o",
+      "description": "Logradouro, n\u00famero, bairro (opcional)."
+    },
+    "cnh": {
+      "type": "string",
+      "title": "CNH",
+      "description": "N\u00famero da Carteira Nacional de Habilita\u00e7\u00e3o (apenas motoristas)."
+    },
+    "cnh_validade": {
+      "type": "string",
+      "format": "date",
+      "title": "Validade da CNH"
+    },
     "is_cliente": {
       "type": "boolean",
       "title": "Cliente",

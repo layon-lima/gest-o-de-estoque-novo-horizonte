@@ -8,7 +8,17 @@ import { useToast } from '@/components/ui/use-toast';
 import SearchSelect from '@/components/SearchSelect';
 import { registrarVeiculo, loadMotoristas, loadTransportadoras } from '@/lib/portaria';
 
-const empty = { placa: '', transportadora_id: '', motorista_id: '', observacao: '' };
+const empty = {
+  placa: '',
+  modelo: '',
+  cor: '',
+  ano: '',
+  tara: '',
+  capacidade_kg: '',
+  transportadora_id: '',
+  motorista_id: '',
+  observacao: '',
+};
 
 export default function PortariaVeiculoForm({ onSaved }) {
   const [form, setForm] = useState(empty);
@@ -57,14 +67,38 @@ export default function PortariaVeiculoForm({ onSaved }) {
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Placa *</Label>
+          <Input
+            value={form.placa}
+            onChange={(e) => set('placa', e.target.value.toUpperCase())}
+            placeholder="ABC1D23"
+            className="font-mono uppercase"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Modelo</Label>
+          <Input value={form.modelo} onChange={(e) => set('modelo', e.target.value)} placeholder="Scania R450" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label>Cor</Label>
+          <Input value={form.cor} onChange={(e) => set('cor', e.target.value)} placeholder="Branco" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Ano</Label>
+          <Input value={form.ano} onChange={(e) => set('ano', e.target.value)} placeholder="2022" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Tara (kg)</Label>
+          <Input type="number" value={form.tara} onChange={(e) => set('tara', e.target.value)} placeholder="0" />
+        </div>
+      </div>
       <div className="space-y-1.5">
-        <Label>Placa *</Label>
-        <Input
-          value={form.placa}
-          onChange={(e) => set('placa', e.target.value.toUpperCase())}
-          placeholder="ABC1D23"
-          className="font-mono uppercase"
-        />
+        <Label>Capacidade (kg)</Label>
+        <Input type="number" value={form.capacidade_kg} onChange={(e) => set('capacidade_kg', e.target.value)} placeholder="Carga útil máxima" />
       </div>
       <div className="space-y-1.5">
         <Label>Transportadora</Label>

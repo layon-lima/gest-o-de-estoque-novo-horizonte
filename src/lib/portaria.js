@@ -32,7 +32,8 @@ export async function loadVeiculos() {
 
 // Motorista → grava na entidade Pessoa (is_motorista = true).
 // Valida duplicidade por documento (normalizado) ou nome antes de criar.
-export async function registrarMotorista({ nome, documento, telefone, cidade, observacao }) {
+export async function registrarMotorista(data) {
+  const { nome, documento, telefone, cidade, uf, endereco, cnh, cnh_validade, observacao } = data;
   const list = await loadMotoristas();
   const docN = normDoc(documento);
   const nomeN = normNome(nome);
@@ -51,6 +52,10 @@ export async function registrarMotorista({ nome, documento, telefone, cidade, ob
     documento: (documento || '').trim(),
     telefone: (telefone || '').trim(),
     cidade: (cidade || '').trim(),
+    uf: (uf || '').trim().toUpperCase(),
+    endereco: (endereco || '').trim(),
+    cnh: (cnh || '').trim(),
+    cnh_validade: cnh_validade || '',
     observacao: observacao || '',
     is_motorista: true,
   });
@@ -59,7 +64,8 @@ export async function registrarMotorista({ nome, documento, telefone, cidade, ob
 
 // Transportadora → grava na entidade Transportadora.
 // Valida duplicidade por documento (normalizado) ou nome antes de criar.
-export async function registrarTransportadora({ nome, documento, telefone, cidade, observacao }) {
+export async function registrarTransportadora(data) {
+  const { nome, documento, ie, telefone, cidade, uf, endereco, observacao } = data;
   const list = await loadTransportadoras();
   const docN = normDoc(documento);
   const nomeN = normNome(nome);
@@ -70,8 +76,11 @@ export async function registrarTransportadora({ nome, documento, telefone, cidad
   const record = await base44.entities.Transportadora.create({
     nome: nome.trim(),
     documento: (documento || '').trim(),
+    ie: (ie || '').trim(),
     telefone: (telefone || '').trim(),
     cidade: (cidade || '').trim(),
+    uf: (uf || '').trim().toUpperCase(),
+    endereco: (endereco || '').trim(),
     observacao: observacao || '',
   });
   return { action: 'criado', record };
@@ -79,7 +88,8 @@ export async function registrarTransportadora({ nome, documento, telefone, cidad
 
 // Veículo (placa) → grava na entidade Veiculo.
 // Valida duplicidade por placa (normalizada) antes de criar.
-export async function registrarVeiculo({ placa, transportadora_id, motorista_id, observacao }) {
+export async function registrarVeiculo(data) {
+  const { placa, modelo, cor, ano, tara, capacidade_kg, transportadora_id, motorista_id, observacao } = data;
   const list = await loadVeiculos();
   const placaN = normPlaca(placa);
   const exist = list.find((v) => normPlaca(v.placa) === placaN);
@@ -96,6 +106,11 @@ export async function registrarVeiculo({ placa, transportadora_id, motorista_id,
   }
   const record = await base44.entities.Veiculo.create({
     placa: placaN,
+    modelo: (modelo || '').trim(),
+    cor: (cor || '').trim(),
+    ano: (ano || '').trim(),
+    tara: Number(tara) || 0,
+    capacidade_kg: Number(capacidade_kg) || 0,
     transportadora_id: transportadora_id || '',
     motorista_id: motorista_id || '',
     observacao: observacao || '',

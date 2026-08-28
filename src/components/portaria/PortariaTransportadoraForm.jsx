@@ -7,7 +7,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { registrarTransportadora } from '@/lib/portaria';
 
-const empty = { nome: '', documento: '', telefone: '', cidade: '', observacao: '' };
+const empty = {
+  nome: '',
+  documento: '',
+  ie: '',
+  telefone: '',
+  cidade: '',
+  uf: '',
+  endereco: '',
+  observacao: '',
+};
 
 export default function PortariaTransportadoraForm({ onSaved }) {
   const [form, setForm] = useState(empty);
@@ -45,15 +54,35 @@ export default function PortariaTransportadoraForm({ onSaved }) {
         <Label>Nome / Razão Social *</Label>
         <Input value={form.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Nome da transportadora" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>CNPJ / CPF</Label>
+          <Label>CNPJ</Label>
           <Input value={form.documento} onChange={(e) => set('documento', e.target.value)} placeholder="00.000.000/0000-00" />
         </div>
+        <div className="space-y-1.5">
+          <Label>Inscrição Estadual</Label>
+          <Input value={form.ie} onChange={(e) => set('ie', e.target.value)} placeholder="IE" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Telefone</Label>
           <Input value={form.telefone} onChange={(e) => set('telefone', e.target.value)} placeholder="(00) 0000-0000" />
         </div>
+        <div className="space-y-1.5">
+          <Label>UF</Label>
+          <Input
+            value={form.uf}
+            onChange={(e) => set('uf', e.target.value.toUpperCase().slice(0, 2))}
+            placeholder="SP"
+            maxLength={2}
+            className="uppercase"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Endereço</Label>
+        <Input value={form.endereco} onChange={(e) => set('endereco', e.target.value)} placeholder="Rua, nº, bairro" />
       </div>
       <div className="space-y-1.5">
         <Label>Cidade</Label>
