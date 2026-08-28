@@ -3,12 +3,9 @@ import { jsPDF } from 'jspdf';
 import { formatQtd } from '@/lib/format';
 import { parseItens } from '@/lib/osAplicacao';
 
-// Formata número sem zeros à direita: 0,00 → "0"; 0,50 → "0,5"; 1,50 → "1,5"
-function formatNum(v) {
-  const n = Number(v) || 0;
-  let str = n.toFixed(2).replace('.', ',');
-  str = str.replace(/,00$/, '').replace(/,0$/, '');
-  return str;
+// Dose pode ter até 4 casas decimais
+function formatDose(v) {
+  return (Number(v) || 0).toFixed(4).replace('.', ',');
 }
 
 export function gerarPDFOS(os, { cultura, lavoura }) {
@@ -87,9 +84,9 @@ export function gerarPDFOS(os, { cultura, lavoura }) {
     }
     doc.text(String(item.nome || '').slice(0, 48), colProduto, y);
     doc.text(item.unidade || '', colUn, y);
-    doc.text(formatNum(item.dose_por_hect || 0), colDose, y, { align: 'right' });
-    doc.text(formatNum(item.previsto || 0), colPrev, y, { align: 'right' });
-    doc.text(os.status === 'executada' ? formatNum(item.realizado || 0) : '_______', colReal, y, { align: 'right' });
+    doc.text(formatDose(item.dose_por_hect || 0), colDose, y, { align: 'right' });
+    doc.text(formatQtd(item.previsto || 0), colPrev, y, { align: 'right' });
+    doc.text(os.status === 'executada' ? formatQtd(item.realizado || 0) : '_______', colReal, y, { align: 'right' });
     y += 6;
   }
 
