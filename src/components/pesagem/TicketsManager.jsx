@@ -335,6 +335,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   <th className="text-right p-2 font-medium">Líquido</th>
                   <th className="text-left p-2 font-medium">Pedido</th>
                   <th className="text-left p-2 font-medium">Cliente</th>
+                  <th className="text-left p-2 font-medium">Produto</th>
                   <th className="text-center p-2 font-medium">NF</th>
                   <th className="text-center p-2 font-medium">Status</th>
                   {naovinculados && isAdmin && <th className="text-center p-2 font-medium">Ação</th>}
@@ -356,6 +357,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                       <td className="p-2 text-right font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</td>
                       <td className="p-2 text-xs font-mono">{ped ? ped.numero : '—'}</td>
                       <td className="p-2 text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</td>
+                      <td className="p-2 text-xs">{produtoDoTicket(t)}</td>
                       <td className="p-2 text-center"><NfeBadge ticket={t} size="xs" /></td>
                       <td className="p-2 text-center">
                         <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
