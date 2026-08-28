@@ -1,0 +1,56 @@
+{
+  "name": "Veiculo",
+  "type": "object",
+  "properties": {
+    "placa": {
+      "type": "string",
+      "title": "Placa",
+      "description": "Placa do ve\u00edculo (normalizada e \u00fanica)."
+    },
+    "transportadora_id": {
+      "type": "string",
+      "title": "Transportadora",
+      "description": "Refer\u00eancia \u00e0 Transportadora propriet\u00e1ria do ve\u00edculo (opcional)."
+    },
+    "motorista_id": {
+      "type": "string",
+      "title": "Motorista",
+      "description": "Refer\u00eancia \u00e0 Pessoa (motorista) vinculada ao ve\u00edculo (opcional)."
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "placa"
+  ],
+  "rls": {
+    "create": null,
+    "read": null,
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

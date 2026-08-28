@@ -7,6 +7,7 @@ import {
   FileBarChart,
   Fuel,
   Scale,
+  IdCard,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
@@ -20,6 +21,7 @@ const allItems = [
   { key: 'abastecimento', to: '/abastecimento', label: 'Abast.', icon: Fuel, end: false },
   { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
   { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
+  { key: 'portaria', to: '/portaria', label: 'Portaria', icon: IdCard, end: false },
   { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
 ];
 

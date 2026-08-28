@@ -7,6 +7,7 @@ export const PAGES = [
   { key: 'cadastros', label: 'Cadastros', path: '/cadastros' },
   { key: 'relatorios', label: 'Relatórios', path: '/relatorios' },
   { key: 'inventario', label: 'Inventário', path: '/inventario' },
+  { key: 'portaria', label: 'Portaria', path: '/portaria' },
 ];
 
 export const USUARIOS_PATH = '/usuarios';
