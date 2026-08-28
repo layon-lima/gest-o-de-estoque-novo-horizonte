@@ -58,33 +58,23 @@ function fetcher(name, opts) {
     if (!entity) return [];
 
     // Offline: usa cache do IndexedDB + operações pendentes
-    if (!navigator.onLine) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       const cached = await getCachedEntityList(name);
       const pending = await getPendingCreates(name);
       if (cached || pending.length > 0) return [...pending, ...(cached || [])];
       throw new Error('Offline sem cache');
     }
 
-    try {
-      const { sort, limit } = opts;
-      let result;
-      if (sort && limit != null) result = await entity.list(sort, limit);
-      else if (sort) result = await entity.list(sort);
-      else result = await entity.list();
-      // Cacheia para uso offline
-      cacheEntityList(name, result);
-      // Mescla operações pendentes (creates offline ainda não sincronizados)
-      const pending = await getPendingCreates(name);
-      return pending.length > 0 ? [...pending, ...result] : result;
-    } catch (e) {
-      // Erro de rede apesar de "online" — tenta cache
-      const cached = await getCachedEntityList(name);
-      if (cached) {
-        const pending = await getPendingCreates(name);
-        return [...pending, ...cached];
-      }
-      throw e;
-    }
+    const { sort, limit } = opts;
+    let result;
+    if (sort && limit != null) result = await entity.list(sort, limit);
+    else if (sort) result = await entity.list(sort);
+    else result = await entity.list();
+
+    // Cacheia para uso offline (fire-and-forget)
+    cacheEntityList(name, result);
+
+    return result;
   };
 }
 
