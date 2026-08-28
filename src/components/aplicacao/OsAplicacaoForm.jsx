@@ -154,7 +154,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent fullscreen className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Nova Ordem de Serviço de Aplicação</DialogTitle>
         </DialogHeader>

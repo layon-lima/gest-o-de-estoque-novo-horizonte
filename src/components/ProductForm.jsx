@@ -157,7 +157,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent fullscreen>
         <DialogHeader>
           <DialogTitle>{produto ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
         </DialogHeader>
