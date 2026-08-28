@@ -7,6 +7,7 @@ import ProdutosManager from '@/components/cadastros/ProdutosManager';
 import PessoasManager from '@/components/cadastros/PessoasManager';
 import TransportadoraManager from '@/components/cadastros/TransportadoraManager';
 import VeiculosManager from '@/components/cadastros/VeiculosManager';
+import LavourasManager from '@/components/cadastros/LavourasManager';
 import Usuarios from '@/pages/Usuarios';
 import { useAuth } from '@/lib/AuthContext';
 import { canAccessUsuarios } from '@/lib/permissions';
@@ -31,6 +32,7 @@ export default function Cadastros() {
           <TabsTrigger value="depositos">Depósitos</TabsTrigger>
           <TabsTrigger value="maquinas">Máquinas</TabsTrigger>
           <TabsTrigger value="gavetas">Gavetas</TabsTrigger>
+          <TabsTrigger value="lavouras">Lavouras</TabsTrigger>
           {showUsuarios && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
         </TabsList>
         <TabsContent value="pessoas">
@@ -56,6 +58,9 @@ export default function Cadastros() {
         </TabsContent>
         <TabsContent value="gavetas">
           <GavetaManager />
+        </TabsContent>
+        <TabsContent value="lavouras">
+          <LavourasManager />
         </TabsContent>
         {showUsuarios && (
           <TabsContent value="usuarios">

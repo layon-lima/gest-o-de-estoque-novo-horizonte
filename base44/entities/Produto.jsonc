@@ -61,6 +61,12 @@
       "title": "Estoque M\u00ednimo",
       "default": 0
     },
+    "custo_unitario": {
+      "type": "number",
+      "title": "Custo Unit\u00e1rio (R$)",
+      "description": "Custo por unidade do produto, usado no c\u00e1lculo de custo das Ordens de Servi\u00e7o de Aplica\u00e7\u00e3o. Futuramente ser\u00e1 derivado das notas fiscais.",
+      "default": 0
+    },
     "venda": {
       "type": "boolean",
       "title": "Produto de Venda",

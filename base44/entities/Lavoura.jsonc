@@ -1,0 +1,53 @@
+{
+  "name": "Lavoura",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome",
+      "description": "Nome de identifica\u00e7\u00e3o da lavoura (ex.: Fazenda Santa Helena - Talh\u00e3o A)."
+    },
+    "numero": {
+      "type": "string",
+      "title": "N\u00famero",
+      "description": "N\u00famero/c\u00f3digo da lavoura."
+    },
+    "hectares": {
+      "type": "number",
+      "title": "Hectares",
+      "description": "\u00c1rea da lavoura em hectares.",
+      "default": 0
+    }
+  },
+  "required": [
+    "nome"
+  ],
+  "rls": {
+    "create": null,
+    "read": null,
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

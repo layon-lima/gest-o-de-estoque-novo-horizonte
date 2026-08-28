@@ -23,6 +23,9 @@ export const DEFAULTS = {
   TicketPesagem: { sort: '-data_abertura', limit: 500 },
   User: {},
   InventarioItem: {},
+  Cultura: {},
+  Lavoura: {},
+  OrdemServicoAplicacao: { sort: '-data', limit: 500 },
 };
 
 // Entidades pré-carregadas já no login (as mais usadas entre telas).

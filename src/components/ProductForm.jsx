@@ -37,6 +37,7 @@ const empty = {
   unidade_alt: '',
   fator_conversao: 0,
   estoque_minimo: 0,
+  custo_unitario: 0,
   venda: false,
   foto_url: '',
 };
@@ -90,6 +91,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
         ...form,
         estoque_minimo: parseQtd(form.estoque_minimo),
         fator_conversao: form.fator_conversao ? parseQtd(form.fator_conversao) : 0,
+        custo_unitario: form.custo_unitario ? parseQtd(form.custo_unitario) : 0,
       };
       if (produto) {
         const duplicado = findProdutoDuplicado({ produtos, dados: form, excludeId: produto.id });
@@ -260,6 +262,14 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
             <div className="space-y-1.5">
               <Label htmlFor="min">Estoque mín.</Label>
               <Input id="min" type="text" inputMode="decimal" placeholder="0,00" value={form.estoque_minimo} onChange={(e) => set('estoque_minimo', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="custo">Custo Unitário (R$)</Label>
+              <Input id="custo" type="text" inputMode="decimal" placeholder="0,00" value={form.custo_unitario} onChange={(e) => set('custo_unitario', e.target.value)} />
+              <p className="text-xs text-muted-foreground">Usado no cálculo de custo das OS de aplicação.</p>
             </div>
           </div>
 

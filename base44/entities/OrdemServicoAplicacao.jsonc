@@ -1,0 +1,119 @@
+{
+  "name": "OrdemServicoAplicacao",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string",
+      "title": "N\u00famero da OS",
+      "description": "Identificador \u00fanico sequencial (ex.: OSA-000001). Gerado automaticamente."
+    },
+    "cultura_id": {
+      "type": "string",
+      "title": "Cultura",
+      "description": "Refer\u00eancia \u00e0 Cultura (milho, soja, etc.)."
+    },
+    "cultura_nome": {
+      "type": "string",
+      "title": "Cultura (nome)",
+      "description": "Nome da cultura espelhado para exibi\u00e7\u00e3o r\u00e1pida."
+    },
+    "ano_safra": {
+      "type": "string",
+      "title": "Ano Safra",
+      "description": "Ano da safra (ex.: 2025/2026)."
+    },
+    "lavoura_id": {
+      "type": "string",
+      "title": "Lavoura",
+      "description": "Refer\u00eancia \u00e0 Lavoura."
+    },
+    "lavoura_nome": {
+      "type": "string",
+      "title": "Lavoura (nome)",
+      "description": "Nome da lavoura espelhado para exibi\u00e7\u00e3o r\u00e1pida."
+    },
+    "hectares": {
+      "type": "number",
+      "title": "Hectares",
+      "description": "\u00c1rea da lavoura em hectares (espelhado da lavoura na abertura da OS).",
+      "default": 0
+    },
+    "itens": {
+      "type": "string",
+      "title": "Itens da OS",
+      "description": "JSON array com os produtos da OS: [{ produto_id, codigo, nome, unidade, dose_por_hect, previsto, deposito_id, realizado, custo_unitario }]."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aberta",
+        "executada",
+        "cancelada"
+      ],
+      "title": "Status",
+      "description": "aberta = aguardando lan\u00e7amento do consumo real; executada = consumo lan\u00e7ado e estoque baixado; cancelada = cancelada.",
+      "default": "aberta"
+    },
+    "data": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data de Abertura"
+    },
+    "data_execucao": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data de Execu\u00e7\u00e3o",
+      "description": "Data em que o consumo real foi lan\u00e7ado."
+    },
+    "responsavel": {
+      "type": "string",
+      "title": "Respons\u00e1vel",
+      "description": "Nome do usu\u00e1rio que abriu a OS."
+    },
+    "observacao": {
+      "type": "string",
+      "title": "Observa\u00e7\u00e3o"
+    },
+    "custo_total": {
+      "type": "number",
+      "title": "Custo Total (R$)",
+      "description": "Soma do custo por produto (realizado \u00d7 custo unit\u00e1rio) calculado na execu\u00e7\u00e3o.",
+      "default": 0
+    }
+  },
+  "required": [
+    "numero",
+    "data",
+    "lavoura_id",
+    "hectares",
+    "status"
+  ],
+  "rls": {
+    "create": null,
+    "read": null,
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

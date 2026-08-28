@@ -17,6 +17,7 @@ import Cadastros from '@/pages/Cadastros';
 import Movimentacoes from '@/pages/Movimentacoes';
 import Abastecimento from '@/pages/Abastecimento';
 import Pesagem from '@/pages/Pesagem';
+import Aplicacao from '@/pages/Aplicacao';
 import Relatorios from '@/pages/Relatorios';
 import Inventario from '@/pages/Inventario';
 import Portaria from '@/pages/Portaria';
@@ -57,6 +58,7 @@ const AuthenticatedApp = () => {
         <Route path="/movimentacoes" element={<Movimentacoes />} />
         <Route path="/abastecimento" element={<Abastecimento />} />
         <Route path="/pesagem" element={<Pesagem />} />
+        <Route path="/aplicacao" element={<Aplicacao />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/inventario" element={<Inventario />} />
         <Route path="/portaria" element={<Portaria />} />

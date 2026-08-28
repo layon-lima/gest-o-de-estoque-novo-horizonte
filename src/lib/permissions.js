@@ -4,6 +4,7 @@ export const PAGES = [
   { key: 'movimentacoes', label: 'Entradas e Saídas', path: '/movimentacoes' },
   { key: 'abastecimento', label: 'Abastecimento', path: '/abastecimento' },
   { key: 'pesagem', label: 'Pesagem', path: '/pesagem' },
+  { key: 'aplicacao', label: 'Aplicação', path: '/aplicacao' },
   { key: 'cadastros', label: 'Cadastros', path: '/cadastros' },
   { key: 'relatorios', label: 'Relatórios', path: '/relatorios' },
   { key: 'inventario', label: 'Inventário', path: '/inventario' },
@@ -38,6 +39,13 @@ export const allowedPagesForUser = (user) => {
 
 export const canAccessUsuarios = (user) => user?.role === 'admin';
 export const canAccessBalanca = (user) => user?.role === 'admin';
+export const canAccessAplicacao = (user) => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const allowed = user.paginas_permitidas;
+  if (!Array.isArray(allowed)) return true;
+  return allowed.includes('aplicacao');
+};
 export const podeDigitarPeso = (user) => {
   if (!user) return false;
   if (user.role === 'admin') return true;
