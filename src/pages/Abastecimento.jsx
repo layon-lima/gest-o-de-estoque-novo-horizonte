@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { getDisplayName } from '@/lib/userName';
 import {
   findSetorCombustivel, produtosCombustivel,
-  registrarAbastecimentoPendente, confirmarAbastecimento, cancelarAbastecimento,
+  registrarAbastecimentoPendente, offlineConfirmarAbastecimento, cancelarAbastecimento,
 } from '@/lib/abastecimento';
 import { formatQtd } from '@/lib/format';
 import AbastecimentoForm from '@/components/abastecimento/AbastecimentoForm';
@@ -122,7 +122,7 @@ export default function Abastecimento() {
     }
     setSavingId(abast.id);
     try {
-      await confirmarAbastecimento({
+      await offlineConfirmarAbastecimento({
         abast,
         maquina,
         produto,

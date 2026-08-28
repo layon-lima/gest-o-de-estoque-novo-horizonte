@@ -22,10 +22,9 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { calcLiquido, formatKg, formatMoeda, formatPlaca, baixarEstoqueVendaTicket } from '@/lib/pesagem';
+import { calcLiquido, formatKg, formatMoeda, formatPlaca, offlineFecharTicket } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
@@ -134,60 +133,30 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   async function confirmarFechamento() {
     setSaving(true);
     try {
-      const novoSaldo = Math.round((saldo - liquido) * 1000) / 1000;
-      const transpId = isVenda ? transportadoraId : '';
-      await base44.entities.TicketPesagem.update(ticket.id, {
-        peso_tara: isInverted ? parseQtd(pesoBruto) : (ticket.peso_tara || 0),
-        peso_bruto: isInverted ? (ticket.peso_bruto || 0) : parseQtd(pesoBruto),
-        peso_liquido: liquido,
-        pedido_id: isVenda ? pedidoId : '',
-        produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
-        cliente_id: isVenda && pedidoSel ? pedidoSel.cliente_id : (ticket.cliente_id || ''),
-        cliente_nome: isVenda && pedidoSel ? clienteNome(pedidoSel.cliente_id) : (ticket.cliente_nome || ''),
-        transportadora_id: transpId,
-        transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
-        status: 'fechado',
-        data_fechamento: new Date().toISOString(),
-        observacao: observacao || '',
+      const { ticket: closedTicket, baixaError } = await offlineFecharTicket({
+        ticket,
+        pesoBruto,
+        isInverted,
+        liquido,
+        isVenda,
+        pedidoId,
+        transportadoraId,
+        observacao,
+        pedidoSel,
+        clienteNome,
+        transpNome,
+        produtos,
       });
-      if (isVenda) {
-        await base44.entities.PedidoPesagem.update(pedidoId, {
-          saldo_kg: novoSaldo,
-          status: novoSaldo <= 0 ? 'concluido' : 'aberto',
-        });
-        // Baixa o saldo real (SaldoEstoque) do produto vendido — origem da verdade.
-        const prodVenda = produtos.find((p) => p.id === pedidoSel.produto_id);
-        if (prodVenda) {
-          try {
-            await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquido, ticketNumero: ticket.numero });
-          } catch (e) {
-            const msg = String(e?.message || e);
-            if (msg.startsWith('SALDO_INSUFICIENTE')) {
-              const disp = msg.split(':')[1] || '0';
-              toast({ variant: 'destructive', title: 'Saldo físico insuficiente', description: `Disponível: ${formatKg(disp)}. O ticket foi fechado, mas o estoque não foi baixado — verifique o saldo.` });
-            } else if (msg === 'DEPOSITO_OBRIGATORIO') {
-              toast({ variant: 'destructive', title: 'Depósito não definido', description: 'O produto vendido não possui depósito cadastrado. Defina o depósito no cadastro para baixar o estoque.' });
-            } else {
-              toast({ variant: 'destructive', title: 'Falha ao baixar estoque', description: msg });
-            }
-          }
+      if (baixaError) {
+        if (baixaError.startsWith('SALDO_INSUFICIENTE')) {
+          const disp = baixaError.split(':')[1] || '0';
+          toast({ variant: 'destructive', title: 'Saldo físico insuficiente', description: `Disponível: ${formatKg(disp)}. O ticket foi fechado, mas o estoque não foi baixado — verifique o saldo.` });
+        } else if (baixaError === 'DEPOSITO_OBRIGATORIO') {
+          toast({ variant: 'destructive', title: 'Depósito não definido', description: 'O produto vendido não possui depósito cadastrado. Defina o depósito no cadastro para baixar o estoque.' });
+        } else {
+          toast({ variant: 'destructive', title: 'Falha ao baixar estoque', description: baixaError });
         }
       }
-      const closedTicket = {
-        ...ticket,
-        peso_tara: isInverted ? parseQtd(pesoBruto) : (ticket.peso_tara || 0),
-        peso_bruto: isInverted ? (ticket.peso_bruto || 0) : parseQtd(pesoBruto),
-        peso_liquido: liquido,
-        pedido_id: isVenda ? pedidoId : '',
-        produto_id: isVenda && pedidoSel ? pedidoSel.produto_id : (ticket.produto_id || ''),
-        cliente_id: isVenda && pedidoSel ? pedidoSel.cliente_id : (ticket.cliente_id || ''),
-        cliente_nome: isVenda && pedidoSel ? clienteNome(pedidoSel.cliente_id) : (ticket.cliente_nome || ''),
-        transportadora_id: transpId,
-        transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
-        status: 'fechado',
-        data_fechamento: new Date().toISOString(),
-        observacao: observacao || '',
-      };
       toast({ title: 'Ticket fechado', description: `Líquido: ${formatKg(liquido)}` });
       setFechado(closedTicket);
       if (onReload) onReload();

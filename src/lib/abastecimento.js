@@ -2,6 +2,9 @@ import { base44 } from '@/api/base44Client';
 import { setorControlaValidade } from '@/lib/lotes';
 import { sairSaldo } from '@/lib/saldos';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
+import { offlineCreate, offlineUpdate } from '@/lib/offlineEntity';
+import { isOnline, enqueue, genId, emitChange, isNetworkError } from '@/lib/offlineCore';
+import { queryClientInstance } from '@/lib/query-client';
 
 // Localiza o setor de combustíveis pelo nome (contém "combust").
 export function findSetorCombustivel(setores) {
@@ -28,7 +31,7 @@ export async function registrarAbastecimentoPendente({
   const qtd = Number(quantidade);
   if (!(qtd > 0)) throw new Error('Informe uma quantidade maior que zero.');
 
-  const abast = await base44.entities.Abastecimento.create({
+  return offlineCreate('Abastecimento', {
     data: new Date().toISOString(),
     maquina_id: maquina.id,
     produto_id: produto.id,
@@ -39,7 +42,6 @@ export async function registrarAbastecimentoPendente({
     foto_url: foto_url || '',
     status: 'pendente',
   });
-  return abast;
 }
 
 // Confirma a baixa de um abastecimento pendente: consome o saldo real
@@ -133,5 +135,39 @@ export async function confirmarAbastecimento({
 
 // Cancela um abastecimento pendente (sem baixar estoque).
 export async function cancelarAbastecimento(abastId) {
-  await base44.entities.Abastecimento.update(abastId, { status: 'cancelado' });
+  return offlineUpdate('Abastecimento', abastId, { status: 'cancelado' });
+}
+
+// Versão offline-aware de confirmarAbastecimento: se online, executa normalmente;
+// se offline, enfileira a operação composta e faz atualização otimista.
+export async function offlineConfirmarAbastecimento({ abast, maquina, produto, confirmado_por, setores, lotes, saldos, movimentacoes }) {
+  if (isOnline()) {
+    try {
+      return await confirmarAbastecimento({ abast, maquina, produto, confirmado_por, setores, lotes, saldos, movimentacoes });
+    } catch (e) {
+      if (!isNetworkError(e)) throw e;
+    }
+  }
+  // Offline: enfileira operação composta
+  await enqueue({
+    id: genId(),
+    type: 'compound',
+    compoundType: 'confirmar_abastecimento',
+    compoundData: {
+      abastId: abast.id,
+      confirmado_por: confirmado_por || '',
+    },
+    timestamp: Date.now(),
+  });
+  // Atualização otimista: marca como confirmado
+  queryClientInstance.setQueriesData({ queryKey: ['ent', 'Abastecimento'] }, (old) => {
+    if (!old) return old;
+    return old.map((a) =>
+      a.id === abast.id
+        ? { ...a, status: 'confirmado', confirmado_por: confirmado_por || '', data_confirmacao: new Date().toISOString(), _pending: true }
+        : a
+    );
+  });
+  emitChange();
+  return null;
 }

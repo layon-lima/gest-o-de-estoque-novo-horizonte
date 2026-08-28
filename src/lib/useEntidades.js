@@ -4,6 +4,7 @@ import { useEffect, useCallback } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { queryClientInstance } from '@/lib/query-client';
+import { cacheEntityList, getCachedEntityList, getPendingCreates } from '@/lib/offlineCore';
 
 // Ordem/limite padrão de cada entidade (espelha o que as telas já usavam).
 export const DEFAULTS = {
@@ -55,10 +56,35 @@ function fetcher(name, opts) {
   return async () => {
     const entity = base44.entities[name];
     if (!entity) return [];
-    const { sort, limit } = opts;
-    if (sort && limit != null) return entity.list(sort, limit);
-    if (sort) return entity.list(sort);
-    return entity.list();
+
+    // Offline: usa cache do IndexedDB + operações pendentes
+    if (!navigator.onLine) {
+      const cached = await getCachedEntityList(name);
+      const pending = await getPendingCreates(name);
+      if (cached || pending.length > 0) return [...pending, ...(cached || [])];
+      throw new Error('Offline sem cache');
+    }
+
+    try {
+      const { sort, limit } = opts;
+      let result;
+      if (sort && limit != null) result = await entity.list(sort, limit);
+      else if (sort) result = await entity.list(sort);
+      else result = await entity.list();
+      // Cacheia para uso offline
+      cacheEntityList(name, result);
+      // Mescla operações pendentes (creates offline ainda não sincronizados)
+      const pending = await getPendingCreates(name);
+      return pending.length > 0 ? [...pending, ...result] : result;
+    } catch (e) {
+      // Erro de rede apesar de "online" — tenta cache
+      const cached = await getCachedEntityList(name);
+      if (cached) {
+        const pending = await getPendingCreates(name);
+        return [...pending, ...cached];
+      }
+      throw e;
+    }
   };
 }
 
