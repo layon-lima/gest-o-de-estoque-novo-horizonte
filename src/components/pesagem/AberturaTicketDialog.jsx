@@ -23,7 +23,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { offlineCreate } from '@/lib/offlineEntity';
+import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { normalizePlaca, nextTicketNumber, formatKg } from '@/lib/pesagem';
@@ -140,7 +140,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
         : (form.transportadora_id || '');
       const transp = transportadoras.find((t) => t.id === transpId);
       const cliId = isVenda ? (pedidoSel?.cliente_id || '') : (form.cliente_id || '');
-      await offlineCreate('TicketPesagem', {
+      await base44.entities.TicketPesagem.create({
         numero,
         tipo: form.tipo,
         data_abertura: new Date().toISOString(),

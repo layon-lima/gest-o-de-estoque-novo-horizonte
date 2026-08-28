@@ -5,8 +5,6 @@ import Sidebar from './Sidebar';
 import BottomTabBar from './BottomTabBar';
 import BalancaStatusBadge from '@/components/balanca/BalancaStatusBadge';
 import { useAuth } from '@/lib/AuthContext';
-import { flushQueue } from '@/lib/offlineSync';
-import { getPendingCount } from '@/lib/offlineCore';
 import {
   allowedPagesForUser,
   canAccessBalanca,
@@ -27,14 +25,6 @@ export default function Layout() {
   const isUsuariosAllowed = canAccessUsuarios(user);
   const canAccess = isUsuarios ? isUsuariosAllowed : isBalanca ? canAccessBalanca(user) : userCanAccess(user, pageKey);
   const allowed = allowedPagesForUser(user);
-
-  // Sincroniza operações offline quando voltar a conexão (silencioso, sem UI)
-  useEffect(() => {
-    const sync = () => { flushQueue(); };
-    window.addEventListener('online', sync);
-    getPendingCount().then((n) => { if (n > 0) flushQueue(); });
-    return () => window.removeEventListener('online', sync);
-  }, []);
 
   useEffect(() => {
     if (!user) return;

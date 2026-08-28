@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { calcLiquido, formatKg, formatMoeda, formatPlaca, offlineFecharTicket } from '@/lib/pesagem';
+import { calcLiquido, formatKg, formatMoeda, formatPlaca, fecharTicket } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
@@ -133,7 +133,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
   async function confirmarFechamento() {
     setSaving(true);
     try {
-      const { ticket: closedTicket, baixaError } = await offlineFecharTicket({
+      const { ticket: closedTicket, baixaError } = await fecharTicket({
         ticket,
         pesoBruto,
         isInverted,

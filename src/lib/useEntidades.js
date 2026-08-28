@@ -4,8 +4,6 @@ import { useEffect, useCallback } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { queryClientInstance } from '@/lib/query-client';
-import { cacheEntityList, getCachedEntityList, getPendingCreates } from '@/lib/offlineCore';
-
 // Ordem/limite padrão de cada entidade (espelha o que as telas já usavam).
 export const DEFAULTS = {
   Produto: {},
@@ -56,25 +54,10 @@ function fetcher(name, opts) {
   return async () => {
     const entity = base44.entities[name];
     if (!entity) return [];
-
-    // Offline: usa cache do IndexedDB + operações pendentes
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = await getCachedEntityList(name);
-      const pending = await getPendingCreates(name);
-      if (cached || pending.length > 0) return [...pending, ...(cached || [])];
-      throw new Error('Offline sem cache');
-    }
-
     const { sort, limit } = opts;
-    let result;
-    if (sort && limit != null) result = await entity.list(sort, limit);
-    else if (sort) result = await entity.list(sort);
-    else result = await entity.list();
-
-    // Cacheia para uso offline (fire-and-forget)
-    cacheEntityList(name, result);
-
-    return result;
+    if (sort && limit != null) return entity.list(sort, limit);
+    if (sort) return entity.list(sort);
+    return entity.list();
   };
 }
 

@@ -3,8 +3,6 @@ import { base44 } from '@/api/base44Client';
 import { parseQtd } from '@/lib/format';
 import { sairSaldo } from '@/lib/saldos';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
-import { isOnline, enqueue, genId, emitChange, isNetworkError } from '@/lib/offlineCore';
-import { queryClientInstance } from '@/lib/query-client';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
 // Normaliza placa: uppercase, sem hífen/espaços (ex.: "ABC-1234" -> "ABC1234").
@@ -170,8 +168,6 @@ export async function baixarEstoqueVendaTicket({ produto, quantidadeKg, ticketNu
 }
 
 // Fecha um ticket de pesagem: atualiza o ticket, o pedido (venda) e baixa o estoque.
-// Função reutilizável extraída do componente FechamentoTicketDialog — usada tanto
-// no fluxo online quanto no replay de sincronização offline.
 export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isVenda, pedidoId, transportadoraId, observacao, pedidoSel, clienteNome, transpNome, produtos }) {
   const novoSaldo = pedidoSel ? Math.round((Number(pedidoSel.saldo_kg) - liquido) * 1000) / 1000 : 0;
 
@@ -210,67 +206,15 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
     }
   }
 
-  return { ticket: closedTicket, baixaError };
-}
+  // Invalida caches para a UI refletir imediatamente
+  invalidateEntidade('TicketPesagem');
+  invalidateEntidade('PedidoPesagem');
+  if (isVenda && pedidoSel) {
+    invalidateEntidade('SaldoEstoque');
+    invalidateEntidade('Movimentacao');
+    invalidateEntidade('Lote');
+    invalidateEntidade('Produto');
+  }
 
-// Versão offline-aware de fecharTicket: se online, executa normalmente;
-// se offline, enfileira a operação composta e faz atualização otimista.
-export async function offlineFecharTicket(params) {
-  if (isOnline()) {
-    try {
-      const result = await fecharTicket(params);
-      // Invalida todos os caches afetados para a UI refletir imediatamente
-      invalidateEntidade('TicketPesagem');
-      invalidateEntidade('PedidoPesagem');
-      invalidateEntidade('SaldoEstoque');
-      invalidateEntidade('Movimentacao');
-      invalidateEntidade('Produto');
-      invalidateEntidade('Lote');
-      return result;
-    } catch (e) {
-      if (!isNetworkError(e)) throw e;
-    }
-  }
-  // Offline: enfileira operação composta
-  await enqueue({
-    id: genId(),
-    type: 'compound',
-    compoundType: 'fechar_ticket',
-    compoundData: {
-      ticketId: params.ticket.id,
-      pesoBruto: params.pesoBruto,
-      isInverted: params.isInverted,
-      liquido: params.liquido,
-      isVenda: params.isVenda,
-      pedidoId: params.pedidoId,
-      transportadoraId: params.transportadoraId,
-      observacao: params.observacao,
-    },
-    timestamp: Date.now(),
-  });
-  // Atualização otimista: marca ticket como fechado
-  const closedTicket = {
-    ...params.ticket,
-    status: 'fechado',
-    peso_liquido: params.liquido,
-    data_fechamento: new Date().toISOString(),
-    _pending: true,
-  };
-  queryClientInstance.setQueriesData({ queryKey: ['ent', 'TicketPesagem'] }, (old) => {
-    if (!old) return old;
-    return old.map((t) => (t.id === params.ticket.id ? closedTicket : t));
-  });
-  // Atualização otimista: reflete o novo saldo do pedido imediatamente
-  if (params.isVenda && params.pedidoSel) {
-    const novoSaldo = Math.round((Number(params.pedidoSel.saldo_kg) - params.liquido) * 1000) / 1000;
-    queryClientInstance.setQueriesData({ queryKey: ['ent', 'PedidoPesagem'] }, (old) => {
-      if (!old) return old;
-      return old.map((p) => p.id === params.pedidoId
-        ? { ...p, saldo_kg: novoSaldo, status: novoSaldo <= 0 ? 'concluido' : 'aberto', _pending: true }
-        : p
-      );
-    });
-  }
-  emitChange();
-  return { ticket: closedTicket, baixaError: null };
+  return { ticket: closedTicket, baixaError };
 }
