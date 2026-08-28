@@ -9,6 +9,7 @@ import { parseQtd, formatQtd } from '@/lib/format';
 import { formatKg, formatMoeda, nextPedidoNumber } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { base44 } from '@/api/base44Client';
+import { queryClientInstance } from '@/lib/query-client';
 import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
 import DesvincularTicketDialog from './DesvincularTicketDialog';
@@ -105,6 +106,14 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
         const msg = String(delErr?.message || delErr || '');
         if (!/not found/i.test(msg)) throw delErr;
       }
+      // Remove o pedido do cache IMEDIATAMENTE (update otimista) para a UI
+      // não continuar exibindo o registro excluído durante o refetch.
+      queryClientInstance.setQueriesData({ queryKey: ['ent', 'PedidoPesagem'] }, (old) =>
+        (old || []).filter((p) => p.id !== pedido.id)
+      );
+      queryClientInstance.setQueriesData({ queryKey: ['ent', 'TicketPesagem'] }, (old) =>
+        (old || []).map((t) => (t.pedido_id === pedido.id ? { ...t, pedido_id: '' } : t))
+      );
       toast({ title: 'Pedido excluído', description: pedido.numero || 'Pedido removido.' });
       setSelecionado(null);
       onReload();
