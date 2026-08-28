@@ -5,6 +5,7 @@ import { sairSaldo } from '@/lib/saldos';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
 import { isOnline, enqueue, genId, emitChange, isNetworkError } from '@/lib/offlineCore';
 import { queryClientInstance } from '@/lib/query-client';
+import { invalidateEntidade } from '@/lib/useEntidades';
 
 // Normaliza placa: uppercase, sem hífen/espaços (ex.: "ABC-1234" -> "ABC1234").
 export function normalizePlaca(placa) {
@@ -217,7 +218,15 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
 export async function offlineFecharTicket(params) {
   if (isOnline()) {
     try {
-      return await fecharTicket(params);
+      const result = await fecharTicket(params);
+      // Invalida todos os caches afetados para a UI refletir imediatamente
+      invalidateEntidade('TicketPesagem');
+      invalidateEntidade('PedidoPesagem');
+      invalidateEntidade('SaldoEstoque');
+      invalidateEntidade('Movimentacao');
+      invalidateEntidade('Produto');
+      invalidateEntidade('Lote');
+      return result;
     } catch (e) {
       if (!isNetworkError(e)) throw e;
     }
@@ -251,6 +260,17 @@ export async function offlineFecharTicket(params) {
     if (!old) return old;
     return old.map((t) => (t.id === params.ticket.id ? closedTicket : t));
   });
+  // Atualização otimista: reflete o novo saldo do pedido imediatamente
+  if (params.isVenda && params.pedidoSel) {
+    const novoSaldo = Math.round((Number(params.pedidoSel.saldo_kg) - params.liquido) * 1000) / 1000;
+    queryClientInstance.setQueriesData({ queryKey: ['ent', 'PedidoPesagem'] }, (old) => {
+      if (!old) return old;
+      return old.map((p) => p.id === params.pedidoId
+        ? { ...p, saldo_kg: novoSaldo, status: novoSaldo <= 0 ? 'concluido' : 'aberto', _pending: true }
+        : p
+      );
+    });
+  }
   emitChange();
   return { ticket: closedTicket, baixaError: null };
 }
