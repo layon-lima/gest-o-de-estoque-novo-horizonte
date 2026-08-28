@@ -258,6 +258,18 @@ export default function NFeImportManager({ tickets, onReload }) {
                     </div>
                     <p className="text-xs text-muted-foreground">{r.message}</p>
 
+                    {/* Trecho do rodapé (infCpl) para conferência quando não houve match automático */}
+                    {(r.status === 'none' || r.status === 'ambiguous') && r.nfeData?.infCpl && (
+                      <details className="mt-1">
+                        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground">
+                          Ver rodapé da nota (informações complementares)
+                        </summary>
+                        <p className="mt-1 text-[11px] text-muted-foreground bg-muted/40 rounded p-2 whitespace-pre-wrap max-h-32 overflow-auto scrollbar-thin">
+                          {r.nfeData.infCpl}
+                        </p>
+                      </details>
+                    )}
+
                     {/* Candidatos para confirmação manual */}
                     {r.status === 'ambiguous' && r.candidates?.length > 0 && (
                       <div className="mt-2 space-y-1.5">

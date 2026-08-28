@@ -11,16 +11,25 @@ function getText(parent, tag) {
 }
 
 // Extrai o número do ticket (formato PES-000001) do texto de informações complementares.
+// Aceita variações de formatação: PES-000001, PES 000001, PES: 000001, PES - 000001,
+// PES.000001, TICKET: 000001, Ticket nº 000001, PES 1, etc.
 export function extrairNumeroTicketDoInfCpl(infCpl) {
   if (!infCpl) return null;
-  const match = infCpl.match(/PES[-\s]?0*\d+/i);
-  if (match) {
-    // Normaliza para o padrão PES-000001
-    const raw = match[0].replace(/[\s]/g, '');
-    const num = raw.replace(/^PES[-]?/i, '');
-    const digits = num.replace(/^0+/, '') || '0';
+
+  // 1. Procura "PES" seguido de quaisquer separadores e dígitos
+  const matchPes = infCpl.match(/PES[\s:\-.\|_º°n]*\d+/i);
+  if (matchPes) {
+    const digits = matchPes[0].replace(/^PES[\s:\-.\|_º°n]*/i, '').replace(/^0+/, '') || '0';
     return `PES-${digits.padStart(6, '0')}`;
   }
+
+  // 2. Fallback: procura número após palavras-chave "ticket", "pesagem", "tk"
+  const matchKw = infCpl.match(/(?:ticket|pesagem|tk)\s*(?:n[ºo°]?\.?)?\s*[:\-.\|_]*\s*(\d{3,})/i);
+  if (matchKw) {
+    const digits = matchKw[1].replace(/^0+/, '') || '0';
+    return `PES-${digits.padStart(6, '0')}`;
+  }
+
   return null;
 }
 
