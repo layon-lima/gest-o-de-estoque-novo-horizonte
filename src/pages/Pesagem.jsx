@@ -1,10 +1,11 @@
-import { Users, ClipboardList, Scale, History, Unlink, Wallet } from 'lucide-react';
+import { Users, ClipboardList, Scale, History, Unlink, Wallet, FileCheck2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
 import PedidosManager from '@/components/pesagem/PedidosManager';
 import TicketsManager from '@/components/pesagem/TicketsManager';
 import PagamentosManager from '@/components/pesagem/PagamentosManager';
+import NFeImportManager from '@/components/pesagem/NFeImportManager';
 
 export default function Pesagem() {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ export default function Pesagem() {
             <TabsTrigger value="tickets" className="gap-1.5"><Scale className="w-4 h-4" /> Tickets {abertosCount > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold">{abertosCount}</span>}</TabsTrigger>
             <TabsTrigger value="pedidos" className="gap-1.5"><ClipboardList className="w-4 h-4" /> Pedidos</TabsTrigger>
             <TabsTrigger value="pagamentos" className="gap-1.5"><Wallet className="w-4 h-4" /> Pagamentos</TabsTrigger>
+            <TabsTrigger value="nfe" className="gap-1.5"><FileCheck2 className="w-4 h-4" /> NF-e</TabsTrigger>
             {isAdmin && <TabsTrigger value="naovinculados" className="gap-1.5 hidden sm:flex"><Unlink className="w-4 h-4" /> Não vinculados</TabsTrigger>}
             <TabsTrigger value="historico" className="gap-1.5"><History className="w-4 h-4" /> Histórico</TabsTrigger>
           </TabsList>
@@ -50,6 +52,9 @@ export default function Pesagem() {
           </TabsContent>
           <TabsContent value="pagamentos" className="mt-4">
             <PagamentosManager pagamentos={pagamentos} pedidos={pedidos} pessoas={pessoas} produtos={produtos} tickets={tickets} onReload={load} />
+          </TabsContent>
+          <TabsContent value="nfe" className="mt-4">
+            <NFeImportManager tickets={tickets} onReload={load} />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="naovinculados" className="mt-4 hidden sm:block">

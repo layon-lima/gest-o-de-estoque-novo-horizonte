@@ -15,6 +15,7 @@ import AberturaTicketDialog from './AberturaTicketDialog';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
 import VincularTicketDialog from './VincularTicketDialog';
+import NfeBadge from './NfeBadge';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Lavoura', compra: 'Compra', entrada_saida: 'Ent/Saída' };
 
@@ -175,6 +176,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-xs">{t.numero}</span>
                       <Badge variant="outline" className="text-[10px] py-0 px-1.5">{TIPO_LABEL[t.tipo] || t.tipo}</Badge>
+                      <NfeBadge ticket={t} size="xs" />
                       <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white border">{formatPlaca(t.placa)}</span>
                       <span className="font-medium text-sm truncate">{t.motorista}</span>
                     </div>
@@ -256,6 +258,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-semibold text-xs">{t.numero}</span>
                   <div className="flex items-center gap-1.5">
+                    <NfeBadge ticket={t} size="xs" />
                     {naovinculados && isAdmin && (
                       <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); setVincularTicket(t); }}>
                         <Link2 className="w-3.5 h-3.5 mr-1" /> Vincular
@@ -297,6 +300,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   <th className="text-right p-2 font-medium">Bruto</th>
                   <th className="text-right p-2 font-medium">Líquido</th>
                   <th className="text-left p-2 font-medium">Cliente</th>
+                  <th className="text-center p-2 font-medium">NF</th>
                   <th className="text-center p-2 font-medium">Status</th>
                   {naovinculados && isAdmin && <th className="text-center p-2 font-medium">Ação</th>}
                 </tr>
@@ -315,6 +319,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                       <td className="p-2 text-right">{t.peso_bruto ? formatQtd(t.peso_bruto) : '—'}</td>
                       <td className="p-2 text-right font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</td>
                       <td className="p-2 text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</td>
+                      <td className="p-2 text-center"><NfeBadge ticket={t} size="xs" /></td>
                       <td className="p-2 text-center">
                         <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
                       </td>

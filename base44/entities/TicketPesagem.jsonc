@@ -103,6 +103,32 @@
     "observacao": {
       "type": "string",
       "title": "Observa\u00e7\u00e3o"
+    },
+    "nfe_importada": {
+      "type": "boolean",
+      "title": "NF-e Importada",
+      "description": "Indica que este ticket de venda j\u00e1 possui nota fiscal vinculada via importa\u00e7\u00e3o de XML.",
+      "default": false
+    },
+    "nfe_numero": {
+      "type": "string",
+      "title": "N\u00famero da NF-e",
+      "description": "N\u00famero da nota fiscal extra\u00eddo do XML importado."
+    },
+    "nfe_produto": {
+      "type": "string",
+      "title": "Produto (NF-e)",
+      "description": "Descri\u00e7\u00e3o do produto na nota fiscal extra\u00edda do XML."
+    },
+    "nfe_motorista": {
+      "type": "string",
+      "title": "Motorista (NF-e)",
+      "description": "Nome do motorista/transportador na nota fiscal extra\u00eddo do XML."
+    },
+    "nfe_chave": {
+      "type": "string",
+      "title": "Chave de Acesso (NF-e)",
+      "description": "Chave de acesso de 44 d\u00edgitos da NF-e. Usada para evitar reimporta\u00e7\u00e3o duplicada."
     }
   },
   "required": [

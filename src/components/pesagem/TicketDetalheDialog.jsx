@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Download, Loader2, Trash2 } from 'lucide-react';
+import { Printer, Download, Loader2, Trash2, FileCheck2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -112,6 +112,19 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
                   <div className="flex justify-between"><span className="text-muted-foreground">Produto:</span><span className="font-medium truncate">{produtoNome(pedido.produto_id)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Saldo do pedido:</span><span className="font-semibold">{formatKg(pedido.saldo_kg || 0)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Valor total:</span><span className="font-semibold">{formatMoeda(pedido.valor_total)}</span></div>
+                </div>
+              )}
+
+              {ticket.nfe_importada && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-sm space-y-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileCheck2 className="w-4 h-4 text-emerald-600" />
+                    <p className="text-xs font-semibold text-emerald-700">Nota Fiscal Vinculada</p>
+                  </div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Número da NF:</span><span className="font-medium font-mono">{ticket.nfe_numero || '—'}</span></div>
+                  <div className="flex justify-between gap-2"><span className="text-muted-foreground shrink-0">Produto (NF-e):</span><span className="font-medium text-right truncate">{ticket.nfe_produto || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Motorista (NF-e):</span><span className="font-medium truncate">{ticket.nfe_motorista || '—'}</span></div>
+                  <div className="flex justify-between gap-2"><span className="text-muted-foreground shrink-0">Chave de acesso:</span><span className="font-mono text-xs text-right break-all">{ticket.nfe_chave || '—'}</span></div>
                 </div>
               )}
 
