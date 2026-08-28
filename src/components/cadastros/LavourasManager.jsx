@@ -83,10 +83,12 @@ function CulturasPanel({ culturas }) {
 }
 
 function LavourasPanel({ lavouras, culturas }) {
-  const [form, setForm] = useState({ nome: '', numero: '', hectares: 0 });
+  const [form, setForm] = useState({ nome: '', numero: '', area_km2: '' });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
+
+  const hectaresCalculado = (Number(String(form.area_km2).replace(',', '.')) || 0) * 100;
 
   const filtered = lavouras.filter((l) => {
     const q = busca.toLowerCase().trim();
@@ -100,7 +102,8 @@ function LavourasPanel({ lavouras, culturas }) {
       toast({ variant: 'destructive', title: 'Nome obrigatório' });
       return;
     }
-    const payload = { ...form, hectares: Number(form.hectares) || 0 };
+    const payload = { ...form, hectares: hectaresCalculado };
+    delete payload.area_km2;
     if (editingId) {
       await base44.entities.Lavoura.update(editingId, payload);
       toast({ title: 'Lavoura atualizada' });
@@ -108,7 +111,7 @@ function LavourasPanel({ lavouras, culturas }) {
       await base44.entities.Lavoura.create(payload);
       toast({ title: 'Lavoura cadastrada' });
     }
-    setForm({ nome: '', numero: '', hectares: 0 });
+    setForm({ nome: '', numero: '', area_km2: '' });
     setEditingId(null);
     invalidateEntidade('Lavoura');
   }
@@ -136,14 +139,17 @@ function LavourasPanel({ lavouras, culturas }) {
             <Input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} placeholder="Nº" />
           </div>
           <div className="space-y-1.5">
-            <Label>Hectares</Label>
-            <Input type="number" step="0.01" min="0" value={form.hectares} onChange={(e) => setForm({ ...form, hectares: e.target.value })} />
+            <Label>Área (km²)</Label>
+            <Input type="text" inputMode="decimal" placeholder="0,00" value={form.area_km2} onChange={(e) => setForm({ ...form, area_km2: e.target.value })} />
+            {hectaresCalculado > 0 && (
+              <p className="text-xs text-primary font-medium">{formatQtd(hectaresCalculado)} ha</p>
+            )}
           </div>
         </div>
         <div className="flex gap-2">
           <Button type="submit" className="flex-1"><Plus className="w-4 h-4 mr-1" />{editingId ? 'Atualizar' : 'Adicionar'}</Button>
           {editingId && (
-            <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', numero: '', hectares: 0 }); }}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', numero: '', area_km2: '' }); }}>Cancelar</Button>
           )}
         </div>
       </form>
@@ -162,7 +168,7 @@ function LavourasPanel({ lavouras, culturas }) {
                   <span>{formatQtd(l.hectares || 0)} ha</span>
                 </div>
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setForm({ nome: l.nome, numero: l.numero || '', hectares: l.hectares || 0 }); setEditingId(l.id); }}><Pencil className="w-3.5 h-3.5" /></Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { setForm({ nome: l.nome, numero: l.numero || '', area_km2: l.hectares ? (l.hectares / 100).toString().replace('.', ',') : '' }); setEditingId(l.id); }}><Pencil className="w-3.5 h-3.5" /></Button>
               <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-destructive" onClick={() => handleDelete(l.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
             </div>
           ))
