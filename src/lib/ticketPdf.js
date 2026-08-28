@@ -109,6 +109,13 @@ function resolveProduto(ticket, pedido, produtoNome) {
   return '—';
 }
 
+function resolveCliente(ticket, pedido, clienteNome) {
+  if (ticket.cliente_nome) return ticket.cliente_nome;
+  if (ticket.cliente_id && clienteNome) return clienteNome(ticket.cliente_id) || '—';
+  if (ticket.tipo === 'venda' && pedido && clienteNome) return clienteNome(pedido.cliente_id) || '—';
+  return '—';
+}
+
 // --- Primitivas leves ---
 function hline(doc, x1, x2, y, color = LINE, w = 0.2) {
   doc.setDrawColor(...color); doc.setLineWidth(w);
@@ -122,7 +129,7 @@ function text(doc, x, y, str, { size = 11, bold = false, color = INK, align = 'l
 }
 
 function drawTicket(doc, ticket, ctx, logoImg) {
-  const { pedido, produtoNome } = ctx;
+  const { pedido, produtoNome, clienteNome } = ctx;
   const tipo = TIPO_LABEL[ticket.tipo] || 'AVULSA';
   const dataTxt = fmtDateTime(ticket.data_fechamento || ticket.data_abertura);
 
@@ -179,6 +186,7 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   infoRow('MOTORISTA', ticket.motorista || '—');
   infoRow('PLACA', (ticket.placa || '—').toUpperCase());
   infoRow('PRODUTO', resolveProduto(ticket, pedido, produtoNome));
+  infoRow('CLIENTE', resolveCliente(ticket, pedido, clienteNome));
   infoRow('TRANSPORTADORA', ticket.transportadora_nome || (pedido ? pedido.transportadora_nomes : '') || '—');
   infoRow('DATA - HORA', dataTxt);
 
