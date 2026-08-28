@@ -57,16 +57,16 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
 
   const thClass = (key) => {
     const a = COL_ALIGN[key];
-    if (a === 'right') return 'p-2 font-medium text-right';
-    if (a === 'center') return 'p-2 font-medium text-center';
-    return 'p-2 font-medium text-left';
+    if (a === 'right') return 'p-2 font-medium text-right whitespace-nowrap';
+    if (a === 'center') return 'p-2 font-medium text-center whitespace-nowrap';
+    return 'p-2 font-medium text-left whitespace-nowrap';
   };
 
   const tdClass = (key) => {
     const a = COL_ALIGN[key];
-    if (a === 'right') return 'p-2 text-right';
-    if (a === 'center') return 'p-2 text-center';
-    return 'p-2';
+    if (a === 'right') return 'p-2 text-right whitespace-nowrap';
+    if (a === 'center') return 'p-2 text-center whitespace-nowrap';
+    return 'p-2 whitespace-nowrap';
   };
 
   const renderCell = (key, t, ped) => {
@@ -377,7 +377,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           </p>
         ) : (
           <div className="hidden sm:block rounded-lg border overflow-auto scrollbar-thin max-h-[50vh]">
-            <table className="w-full text-sm">
+            <table className="min-w-full w-auto text-sm">
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="text-left p-2 font-medium">Ticket</th>
@@ -392,7 +392,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   const ped = pedidoDoTicket(t.pedido_id);
                   return (
                     <tr key={t.id} className="border-t hover:bg-muted/40 cursor-pointer" onClick={() => setDetalheTicket(t)}>
-                       <td className="p-2 font-mono text-xs">{t.numero}</td>
+                       <td className="p-2 font-mono text-xs whitespace-nowrap">{t.numero}</td>
                        {visibleCols.map((k) => (
                          <td key={k} className={tdClass(k)}>{renderCell(k, t, ped)}</td>
                        ))}
