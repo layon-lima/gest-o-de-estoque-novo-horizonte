@@ -166,6 +166,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         formatQtd(t.peso_tara || 0),
         formatQtd(t.peso_bruto || 0),
         formatQtd(t.peso_liquido || 0),
+        ped ? ped.numero : '',
         ped ? clienteNome(ped.cliente_id) : '',
         ped ? produtoNome(ped.produto_id) : '',
         t.nfe_importada ? (t.nfe_numero ? `Sim - ${t.nfe_numero}` : 'Sim') : 'Não',
@@ -173,7 +174,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
       ];
     });
   }
-  const expCols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Cliente', 'Produto', 'NF', 'Status'];
+  const expCols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Pedido', 'Cliente', 'Produto', 'NF', 'Status'];
   function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', expCols, buildRows()); }
   function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', expCols, buildRows()); }
 
@@ -331,6 +332,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   <th className="text-right p-2 font-medium">Tara</th>
                   <th className="text-right p-2 font-medium">Bruto</th>
                   <th className="text-right p-2 font-medium">Líquido</th>
+                  <th className="text-left p-2 font-medium">Pedido</th>
                   <th className="text-left p-2 font-medium">Cliente</th>
                   <th className="text-center p-2 font-medium">NF</th>
                   <th className="text-center p-2 font-medium">Status</th>
@@ -350,6 +352,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                       <td className="p-2 text-right">{formatQtd(t.peso_tara || 0)}</td>
                       <td className="p-2 text-right">{t.peso_bruto ? formatQtd(t.peso_bruto) : '—'}</td>
                       <td className="p-2 text-right font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</td>
+                      <td className="p-2 text-xs font-mono">{ped ? ped.numero : '—'}</td>
                       <td className="p-2 text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</td>
                       <td className="p-2 text-center"><NfeBadge ticket={t} size="xs" /></td>
                       <td className="p-2 text-center">
