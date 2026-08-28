@@ -108,11 +108,9 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
       } catch (e) {
         if (!isNotFoundError(e)) throw e;
       }
-      // 3. Busca dados FRESCOS do backend e sobrescreve o cache com a CHAVE EXATA
-      const fresh = await base44.entities.PedidoPesagem.list('-created_date', 500);
-      queryClientInstance.setQueryData(['ent', 'PedidoPesagem', '-created_date', 500], fresh);
-      // 4. Invalida para garantir refetch de fundo
-      queryClientInstance.invalidateQueries({ queryKey: ['ent', 'PedidoPesagem'] });
+      // 3. Remove o cache stale e força REFETCH (setQueryData não re-renderiza useQueries)
+      queryClientInstance.removeQueries({ queryKey: ['ent', 'PedidoPesagem'] });
+      await queryClientInstance.refetchQueries({ queryKey: ['ent', 'PedidoPesagem'] });
       toast({ title: 'Pedido excluído', description: pedido.numero || 'Pedido removido.' });
       setSelecionado(null);
       onReload();
