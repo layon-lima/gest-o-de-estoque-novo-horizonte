@@ -189,8 +189,10 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
     };
     if (!historico && !q) return [];
     return base.filter((t) => matchBusca(t) && matchFiltros(t)).sort((a, b) => {
-      // Mais recentes no topo, mais antigos para baixo
-      return new Date(b.data_fechamento || b.data_abertura) - new Date(a.data_fechamento || a.data_abertura);
+      // Ordena por número do ticket (crescente), mais recentes no topo
+      const numA = parseInt((a.numero || '').replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt((b.numero || '').replace(/\D/g, ''), 10) || 0;
+      return numB - numA;
     });
   }, [tickets, busca, historico, naovinculados, naoVinculados, dataInicio, dataFim, pedidoFiltro, placaFiltro, produtoFiltro, clienteFiltro, tipoFiltro, pedidoDoTicket]);
 
