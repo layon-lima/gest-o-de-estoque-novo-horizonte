@@ -8,17 +8,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { formatKg, formatMoeda, formatPlaca, round3 } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 
@@ -59,28 +48,9 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                     <Button variant="outline" size="sm" onClick={() => onEditPedido?.(pedido)}>
                       <Pencil className="w-4 h-4 mr-1.5" /> Editar
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="w-4 h-4 mr-1.5" /> Excluir
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Excluir pedido?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta ação não pode ser desfeita. O pedido {pedido.numero} será removido permanentemente.
-                            {ticketsDoPedido.length > 0 && ` ${ticketsDoPedido.length} ticket(s) vinculado(s) será(ão) desvinculado(s).`}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onDeletePedido?.(pedido)}>
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button variant="destructive" size="sm" onClick={() => onDeletePedido?.(pedido)}>
+                      <Trash2 className="w-4 h-4 mr-1.5" /> Excluir
+                    </Button>
                   </div>
                 )}
               </div>

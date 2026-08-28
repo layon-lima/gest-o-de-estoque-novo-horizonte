@@ -9,7 +9,8 @@ import { parseQtd, formatQtd } from '@/lib/format';
 import { formatKg, formatMoeda, nextPedidoNumber } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { base44 } from '@/api/base44Client';
-import { safeDelete, safeUpdate } from '@/lib/entityOps';
+import { queryClientInstance } from '@/lib/query-client';
+import { isNotFoundError, safeUpdate } from '@/lib/entityOps';
 import PedidoFormDialog from './PedidoFormDialog';
 import PedidoDetalheDialog from './PedidoDetalheDialog';
 import DesvincularTicketDialog from './DesvincularTicketDialog';
@@ -89,7 +90,10 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
   }
 
   async function handleDeletePedido(pedido) {
+    if (!pedido?.id) return;
+    if (!window.confirm(`Excluir o pedido ${pedido.numero || ''}? Esta ação não pode ser desfeita.`)) return;
     try {
+      // 1. Desvincula tickets associados
       const tks = (tickets || []).filter((t) => t.pedido_id === pedido.id);
       if (tks.length > 0) {
         await Promise.all(
@@ -98,7 +102,17 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
           )
         );
       }
-      await safeDelete('PedidoPesagem', pedido.id);
+      // 2. Exclui o pedido no backend (tolera not-found = fantasma)
+      try {
+        await base44.entities.PedidoPesagem.delete(pedido.id);
+      } catch (e) {
+        if (!isNotFoundError(e)) throw e;
+      }
+      // 3. Busca dados FRESCOS do backend e sobrescreve o cache com a CHAVE EXATA
+      const fresh = await base44.entities.PedidoPesagem.list('-created_date', 500);
+      queryClientInstance.setQueryData(['ent', 'PedidoPesagem', '-created_date', 500], fresh);
+      // 4. Invalida para garantir refetch de fundo
+      queryClientInstance.invalidateQueries({ queryKey: ['ent', 'PedidoPesagem'] });
       toast({ title: 'Pedido excluído', description: pedido.numero || 'Pedido removido.' });
       setSelecionado(null);
       onReload();
