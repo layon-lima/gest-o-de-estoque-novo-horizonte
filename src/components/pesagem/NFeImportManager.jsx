@@ -70,7 +70,8 @@ export default function NFeImportManager({ tickets, onReload }) {
         fileName: file.name,
         status: 'none',
         nfeData,
-        message: 'Nenhum ticket de venda fechado corresponde a esta NF-e.',
+        numeroTicketExtraido: nfeData.numeroTicket,
+        message: match.motivo || 'Nenhum ticket corresponde a esta NF-e.',
       };
     }
 
@@ -257,6 +258,11 @@ export default function NFeImportManager({ tickets, onReload }) {
                       {r.nfeData?.pesoLiquido > 0 && <span className="text-xs text-muted-foreground">{formatKg(r.nfeData.pesoLiquido)}</span>}
                     </div>
                     <p className="text-xs text-muted-foreground">{r.message}</p>
+                    {r.numeroTicketExtraido && (
+                      <p className="text-[11px] text-amber-600 font-medium">
+                        Ticket extraído da nota: <span className="font-mono">{r.numeroTicketExtraido}</span>
+                      </p>
+                    )}
 
                     {/* Trecho do rodapé (infCpl) para conferência quando não houve match automático */}
                     {(r.status === 'none' || r.status === 'ambiguous') && r.nfeData?.infCpl && (

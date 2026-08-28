@@ -41,14 +41,11 @@ export function matchNfeToTicket(nfeData, tickets) {
     }
   }
 
-  // Considera apenas tickets de venda fechados
-  const candidatos = tickets.filter(
-    (t) => t.status === 'fechado' && t.tipo === 'venda'
-  );
-
   // 1. Match por número do ticket extraído do infCpl
+  //    Busca em TODOS os tickets — o número explícito na nota é o sinal mais
+  //    forte de matching, independente do tipo/status do ticket.
   if (nfeData.numeroTicket) {
-    const porNumero = candidatos.filter(
+    const porNumero = tickets.filter(
       (t) => t.numero === nfeData.numeroTicket
     );
     if (porNumero.length === 1) {
@@ -57,7 +54,14 @@ export function matchNfeToTicket(nfeData, tickets) {
     if (porNumero.length > 1) {
       return { status: 'ambiguous', candidates: porNumero };
     }
+    // Número extraído mas ticket não encontrado — retorna none com info de diagnóstico
+    return { status: 'none', motivo: `Ticket ${nfeData.numeroTicket} não encontrado no sistema.` };
   }
+
+  // Considera apenas tickets de venda fechados para os fallbacks abaixo
+  const candidatos = tickets.filter(
+    (t) => t.status === 'fechado' && t.tipo === 'venda'
+  );
 
   // 2. Fallback: placa + peso líquido (com tolerância), reforçado por motorista
   const placaNfe = normalizePlaca(nfeData.placa);
