@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getNome } from '@/lib/estoqueFilters';
 import { formatQtd } from '@/lib/format';
+import { usePersistentState } from '@/hooks/usePersistentState';
+import ProductColumnsToggle, { buildDefaultVisibility } from '@/components/ProductColumnsToggle';
 
 export default function ProductsTable({
   produtos,
@@ -23,6 +25,12 @@ export default function ProductsTable({
   onEdit,
   onDelete,
 }) {
+  const [cols, setCols] = usePersistentState(
+    'productsTableCols',
+    buildDefaultVisibility(showStatus)
+  );
+  const toggleCol = (key, val) => setCols((prev) => ({ ...prev, [key]: val }));
+
   const nonZero = produtos.filter((p) => (p.quantidade || 0) > 0);
   const avg = nonZero.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZero.length || 1);
 
@@ -44,20 +52,24 @@ export default function ProductsTable({
 
   return (
     <div className="rounded-lg border overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/40">
+        <span className="text-xs text-muted-foreground">Toque nas colunas para mostrar/ocultar</span>
+        <ProductColumnsToggle visibility={cols} onToggle={toggleCol} showStatus={showStatus} />
+      </div>
       {/* Desktop: tabela com rolagem interna controlada */}
       <div className="hidden sm:block max-h-[420px] overflow-auto scrollbar-thin">
         <Table>
           <TableHeader className="sticky top-0 bg-muted z-10">
             <TableRow>
               <TableHead>Produto</TableHead>
-              <TableHead className="text-right">Quantidade</TableHead>
-              <TableHead>Código</TableHead>
-              <TableHead>Ref.</TableHead>
-              <TableHead>Setor</TableHead>
-              <TableHead>Depósito</TableHead>
-              <TableHead>Máquina</TableHead>
-              <TableHead>Gaveta</TableHead>
-              {showStatus && <TableHead>Status</TableHead>}
+              {cols.quantidade && <TableHead className="text-right">Quantidade</TableHead>}
+              {cols.codigo && <TableHead>Código</TableHead>}
+              {cols.referencia && <TableHead>Ref.</TableHead>}
+              {cols.setor && <TableHead>Setor</TableHead>}
+              {cols.deposito && <TableHead>Depósito</TableHead>}
+              {cols.maquina && <TableHead>Máquina</TableHead>}
+              {cols.gaveta && <TableHead>Gaveta</TableHead>}
+              {showStatus && cols.status && <TableHead>Status</TableHead>}
               {hasActions && <TableHead className="text-right">Ações</TableHead>}
             </TableRow>
           </TableHeader>
@@ -67,17 +79,19 @@ export default function ProductsTable({
               return (
                 <TableRow key={p._rowKey || p.id}>
                   <TableCell className="font-medium">{p.nome}</TableCell>
-                  <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
-                    {formatQtd(p.quantidade || 0)}
-                    <span className="text-xs text-muted-foreground ml-1">{p.unidade}</span>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo_referencia || '—'}</TableCell>
-                  <TableCell className="text-sm">{getNome(p.setor_id, setores)}</TableCell>
-                  <TableCell className="text-sm">{depLabel(p)}</TableCell>
-                  <TableCell className="text-sm">{getNome(p.maquina_id, maquinas)}</TableCell>
-                  <TableCell className="text-sm font-mono">{getNome(p.gaveta_id, gavetas, 'codigo')}</TableCell>
-                  {showStatus && (
+                  {cols.quantidade && (
+                    <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
+                      {formatQtd(p.quantidade || 0)}
+                      <span className="text-xs text-muted-foreground ml-1">{p.unidade}</span>
+                    </TableCell>
+                  )}
+                  {cols.codigo && <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>}
+                  {cols.referencia && <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo_referencia || '—'}</TableCell>}
+                  {cols.setor && <TableCell className="text-sm">{getNome(p.setor_id, setores)}</TableCell>}
+                  {cols.deposito && <TableCell className="text-sm">{depLabel(p)}</TableCell>}
+                  {cols.maquina && <TableCell className="text-sm">{getNome(p.maquina_id, maquinas)}</TableCell>}
+                  {cols.gaveta && <TableCell className="text-sm font-mono">{getNome(p.gaveta_id, gavetas, 'codigo')}</TableCell>}
+                  {showStatus && cols.status && (
                     <TableCell>
                       <Badge variant="outline" className={st.cls}>{st.label}</Badge>
                     </TableCell>
@@ -104,14 +118,14 @@ export default function ProductsTable({
             <TableFooter className="sticky bottom-0 bg-muted/70 backdrop-blur-sm z-10">
               <TableRow className="font-semibold hover:bg-transparent border-t-2 border-border">
                 <TableCell>Total</TableCell>
-                <TableCell className="text-right tabular-nums">{formatQtd(totalBruto)}</TableCell>
-                <TableCell />
-                <TableCell />
-                <TableCell />
-                <TableCell />
-                <TableCell />
-                <TableCell />
-                {showStatus && <TableCell />}
+                {cols.quantidade && <TableCell className="text-right tabular-nums">{formatQtd(totalBruto)}</TableCell>}
+                {cols.codigo && <TableCell />}
+                {cols.referencia && <TableCell />}
+                {cols.setor && <TableCell />}
+                {cols.deposito && <TableCell />}
+                {cols.maquina && <TableCell />}
+                {cols.gaveta && <TableCell />}
+                {showStatus && cols.status && <TableCell />}
                 {hasActions && <TableCell />}
               </TableRow>
             </TableFooter>
@@ -131,17 +145,19 @@ export default function ProductsTable({
                   <Badge variant="outline" className={`${st.cls} shrink-0`}>{st.label}</Badge>
                 )}
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-bold tabular-nums">{formatQtd(p.quantidade || 0)}</span>
-                <span className="text-xs text-muted-foreground">{p.unidade}</span>
-              </div>
+              {cols.quantidade && (
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg font-bold tabular-nums">{formatQtd(p.quantidade || 0)}</span>
+                  <span className="text-xs text-muted-foreground">{p.unidade}</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <div><span className="font-medium text-foreground/70">Código:</span> <span className="font-mono">{p.codigo}</span></div>
-                <div><span className="font-medium text-foreground/70">Ref.:</span> <span className="font-mono">{p.codigo_referencia || '—'}</span></div>
-                <div className="truncate"><span className="font-medium text-foreground/70">Setor:</span> {getNome(p.setor_id, setores) || '—'}</div>
-                <div className="truncate"><span className="font-medium text-foreground/70">Dep.:</span> {depLabel(p)}</div>
-                <div className="truncate"><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>
-                <div className="truncate"><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>
+                {cols.codigo && <div><span className="font-medium text-foreground/70">Código:</span> <span className="font-mono">{p.codigo}</span></div>}
+                {cols.referencia && <div><span className="font-medium text-foreground/70">Ref.:</span> <span className="font-mono">{p.codigo_referencia || '—'}</span></div>}
+                {cols.setor && <div className="truncate"><span className="font-medium text-foreground/70">Setor:</span> {getNome(p.setor_id, setores) || '—'}</div>}
+                {cols.deposito && <div className="truncate"><span className="font-medium text-foreground/70">Dep.:</span> {depLabel(p)}</div>}
+                {cols.maquina && <div className="truncate"><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>}
+                {cols.gaveta && <div className="truncate"><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>}
               </div>
               {hasActions && (
                 <div className="flex justify-end gap-1 pt-1">
