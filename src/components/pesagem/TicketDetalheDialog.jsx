@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Download, Loader2, Trash2, FileCheck2 } from 'lucide-react';
+import { Printer, Download, Loader2, Trash2, FileCheck2, FilePlus2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,12 +13,14 @@ import {
 import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
+import MarcaNfDialog from './MarcaNfDialog';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
 
-export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, transportadoras, onClose, onExcluir }) {
+export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos, transportadoras, onClose, onExcluir, onReload }) {
   const open = !!ticket;
   const [gerandoPdf, setGerandoPdf] = useState(null);
+  const [marcaNf, setMarcaNf] = useState(false);
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedido = ticket ? pedidos.find((p) => p.id === ticket.pedido_id) : null;
@@ -145,6 +147,16 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
               </Button>
             </div>
 
+            {ticket.status === 'fechado' && ticket.tipo === 'venda' && (
+              <Button variant="outline" className="w-full" onClick={() => setMarcaNf(true)}>
+                {ticket.nfe_importada ? (
+                  <><FileCheck2 className="w-4 h-4 mr-2 text-emerald-600" /> Editar NF</>
+                ) : (
+                  <><FilePlus2 className="w-4 h-4 mr-2" /> Marcar com NF</>
+                )}
+              </Button>
+            )}
+
             {onExcluir && (
               <Button variant="outline" className="w-full text-destructive hover:text-destructive" onClick={() => onExcluir(ticket)}>
                 <Trash2 className="w-4 h-4 mr-2" /> Excluir Ticket
@@ -152,6 +164,11 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
             )}
           </>
         )}
+        <MarcaNfDialog
+          ticket={marcaNf ? ticket : null}
+          onClose={() => setMarcaNf(false)}
+          onDone={() => { setMarcaNf(false); onReload?.(); }}
+        />
       </DialogContent>
     </Dialog>
   );

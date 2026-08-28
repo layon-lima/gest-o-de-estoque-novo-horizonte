@@ -28,6 +28,8 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const [pedidoFiltro, setPedidoFiltro] = useState('all');
   const [placaFiltro, setPlacaFiltro] = useState('all');
   const [produtoFiltro, setProdutoFiltro] = useState('all');
+  const [clienteFiltro, setClienteFiltro] = useState('all');
+  const [tipoFiltro, setTipoFiltro] = useState('all');
   const [fecharTicket, setFecharTicket] = useState(null);
   const [formAberto, setFormAberto] = useState(false);
   const [detalheTicket, setDetalheTicket] = useState(null);
@@ -63,6 +65,21 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
     return produtos.filter((p) => ids.has(p.id));
   }, [tickets, produtos]);
 
+  const clientesComTicket = useMemo(() => {
+    const ids = new Set();
+    tickets.filter((t) => t.status !== 'aberto').forEach((t) => {
+      const ped = pedidoDoTicket(t.pedido_id);
+      if (ped?.cliente_id) ids.add(ped.cliente_id);
+    });
+    return pessoas.filter((p) => ids.has(p.id));
+  }, [tickets, pessoas]);
+
+  const tiposComTicket = useMemo(() => {
+    const set = new Set();
+    tickets.filter((t) => t.status !== 'aberto').forEach((t) => { if (t.tipo) set.add(t.tipo); });
+    return Array.from(set);
+  }, [tickets]);
+
   const abertos = useMemo(
     () => tickets.filter((t) => t.status === 'aberto').sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)),
     [tickets]
@@ -97,6 +114,12 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         const pid = t.produto_id || (ped ? ped.produto_id : '');
         if (pid !== produtoFiltro) return false;
       }
+      if (clienteFiltro !== 'all') {
+        const ped = pedidoDoTicket(t.pedido_id);
+        const cid = ped?.cliente_id || t.cliente_id || '';
+        if (cid !== clienteFiltro) return false;
+      }
+      if (tipoFiltro !== 'all' && t.tipo !== tipoFiltro) return false;
       return true;
     };
     if (!historico && !q) return [];
@@ -104,7 +127,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
       // Mais recentes no topo, mais antigos para baixo
       return new Date(b.data_fechamento || b.data_abertura) - new Date(a.data_fechamento || a.data_abertura);
     });
-  }, [tickets, busca, historico, naovinculados, naoVinculados, dataInicio, dataFim, pedidoFiltro, placaFiltro, produtoFiltro]);
+  }, [tickets, busca, historico, naovinculados, naoVinculados, dataInicio, dataFim, pedidoFiltro, placaFiltro, produtoFiltro, clienteFiltro, tipoFiltro, pedidoDoTicket]);
 
   async function handleExcluir() {
     if (!excluirTicket) return;
@@ -145,11 +168,12 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         formatQtd(t.peso_liquido || 0),
         ped ? clienteNome(ped.cliente_id) : '',
         ped ? produtoNome(ped.produto_id) : '',
+        t.nfe_importada ? (t.nfe_numero ? `Sim - ${t.nfe_numero}` : 'Sim') : 'Não',
         t.status,
       ];
     });
   }
-  const expCols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Cliente', 'Produto', 'Status'];
+  const expCols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Cliente', 'Produto', 'NF', 'Status'];
   function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', expCols, buildRows()); }
   function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', expCols, buildRows()); }
 
@@ -214,7 +238,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         </div>
 
         {historico && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             <div className="space-y-0.5">
               <span className="text-[10px] text-muted-foreground">Data Início</span>
               <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-8 text-xs" />
@@ -234,6 +258,14 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
             <div className="space-y-0.5">
               <span className="text-[10px] text-muted-foreground">Produto</span>
               <SearchSelect value={produtoFiltro} onChange={setProdutoFiltro} allLabel="Todos" placeholder="Produto..." options={produtosComTicket.map((p) => ({ value: p.id, label: p.nome }))} />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Cliente</span>
+              <SearchSelect value={clienteFiltro} onChange={setClienteFiltro} allLabel="Todos" placeholder="Cliente..." options={clientesComTicket.map((p) => ({ value: p.id, label: p.nome }))} />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground">Tipo</span>
+              <SearchSelect value={tipoFiltro} onChange={setTipoFiltro} allLabel="Todos" placeholder="Tipo..." options={tiposComTicket.map((tp) => ({ value: tp, label: TIPO_LABEL[tp] || tp }))} />
             </div>
           </div>
         )}
@@ -360,6 +392,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         produtos={produtos}
         onClose={() => setDetalheTicket(null)}
         onExcluir={(t) => { setDetalheTicket(null); setExcluirTicket(t); }}
+        onReload={onReload}
       />
 
       <AlertDialog open={!!excluirTicket} onOpenChange={(o) => !o && setExcluirTicket(null)}>
