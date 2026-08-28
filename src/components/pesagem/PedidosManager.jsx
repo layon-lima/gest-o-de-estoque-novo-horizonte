@@ -91,9 +91,20 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
     try {
       const tks = (tickets || []).filter((t) => t.pedido_id === pedido.id);
       if (tks.length > 0) {
-        await Promise.all(tks.map((t) => base44.entities.TicketPesagem.update(t.id, { pedido_id: '' })));
+        await Promise.all(
+          tks.map((t) =>
+            base44.entities.TicketPesagem.update(t.id, { pedido_id: '' }).catch(() => {})
+          )
+        );
       }
-      await base44.entities.PedidoPesagem.delete(pedido.id);
+      try {
+        await base44.entities.PedidoPesagem.delete(pedido.id);
+      } catch (delErr) {
+        // Se o pedido já não existe no backend (registro fantasma do cache),
+        // trata como sucesso e apenas limpa o cache local.
+        const msg = String(delErr?.message || delErr || '');
+        if (!/not found/i.test(msg)) throw delErr;
+      }
       toast({ title: 'Pedido excluído', description: pedido.numero || 'Pedido removido.' });
       setSelecionado(null);
       onReload();
