@@ -25,7 +25,6 @@ export function filterProdutos(produtos, filtros, saldos = []) {
   const maqFilter = asArr(filtros.maquina_id);
 
   const hasSaldos = (saldos || []).length > 0;
-  const expandir = depFilter.length > 0 || gavFilter.length > 0;
 
   let rows;
   if (hasSaldos) {
@@ -34,21 +33,16 @@ export function filterProdutos(produtos, filtros, saldos = []) {
       const parcelas = (saldos || []).filter(
         (s) => s.produto_id === p.id && (s.quantidade || 0) > 0
       );
-      if (expandir) {
-        for (const s of parcelas) {
-          rows.push({
-            ...p,
-            quantidade: s.quantidade,
-            unidade: s.unidade || p.unidade,
-            deposito_id: s.deposito_id || p.deposito_id,
-            gaveta_id: s.gaveta_id || '',
-            lote_id: s.lote_id || '',
-            _rowKey: `${p.id}:${s.deposito_id || ''}:${s.gaveta_id || ''}:${s.lote_id || ''}:${s.id}`,
-          });
-        }
-      } else {
-        const total = parcelas.reduce((sum, s) => sum + (s.quantidade || 0), 0);
-        rows.push({ ...p, quantidade: total, _todos: true, _rowKey: `total:${p.id}` });
+      for (const s of parcelas) {
+        rows.push({
+          ...p,
+          quantidade: s.quantidade,
+          unidade: s.unidade || p.unidade,
+          deposito_id: s.deposito_id || p.deposito_id,
+          gaveta_id: s.gaveta_id || '',
+          lote_id: s.lote_id || '',
+          _rowKey: `${p.id}:${s.deposito_id || ''}:${s.gaveta_id || ''}:${s.lote_id || ''}:${s.id}`,
+        });
       }
     }
   } else {

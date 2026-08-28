@@ -35,7 +35,6 @@ export default function ProductsTable({
   }
 
   function depLabel(p) {
-    if (p._todos) return 'Todos';
     const num = getNome(p.deposito_id, depositos, 'numero');
     const nome = getNome(p.deposito_id, depositos, 'nome');
     return nome !== '—' ? `${num} — ${nome}` : num;
