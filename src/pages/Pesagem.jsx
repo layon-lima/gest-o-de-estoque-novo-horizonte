@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { Users, ClipboardList, Scale, History, Unlink, Wallet, FileCheck2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
+import { queryClientInstance } from '@/lib/query-client';
 import PedidosManager from '@/components/pesagem/PedidosManager';
 import TicketsManager from '@/components/pesagem/TicketsManager';
 import PagamentosManager from '@/components/pesagem/PagamentosManager';
@@ -18,6 +20,11 @@ export default function Pesagem() {
     TicketPesagem: { sort: '-data_abertura', limit: 500 },
     Pagamento: { sort: '-data_pagamento', limit: 500 },
   });
+
+  // Força refetch de todas as entidades ao montar — elimina registros fantasmas do cache stale
+  useEffect(() => {
+    queryClientInstance.refetchQueries({ queryKey: ['ent'] });
+  }, []);
   const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets, Pagamento: pagamentos } = data;
   const transportadoras = pessoas.filter((p) => p.is_transportadora);
 
