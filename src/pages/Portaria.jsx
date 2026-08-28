@@ -57,10 +57,7 @@ export default function Portaria() {
               <div className="p-3 rounded-xl bg-primary/15 text-primary">
                 <o.icon className="w-7 h-7" />
               </div>
-              <div>
-                <h2 className="font-semibold">{o.title}</h2>
-                <p className="text-xs text-muted-foreground">{o.desc}</p>
-              </div>
+              <h2 className="font-semibold">{o.title}</h2>
             </button>
           ))}
         </div>
