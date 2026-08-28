@@ -21,9 +21,10 @@ export default function Pesagem() {
     Pagamento: { sort: '-data_pagamento', limit: 500 },
   });
 
-  // Força refetch de todas as entidades ao montar — elimina registros fantasmas do cache stale
+  // Limpa o cache stale de pedidos ao montar — elimina registros fantasmas (já excluídos do banco)
   useEffect(() => {
-    queryClientInstance.refetchQueries({ queryKey: ['ent'] });
+    queryClientInstance.removeQueries({ queryKey: ['ent', 'PedidoPesagem'] });
+    queryClientInstance.refetchQueries({ queryKey: ['ent', 'PedidoPesagem'] });
   }, []);
   const { Pessoa: pessoas, Produto: produtos, PedidoPesagem: pedidos, TicketPesagem: tickets, Pagamento: pagamentos } = data;
   const transportadoras = pessoas.filter((p) => p.is_transportadora);

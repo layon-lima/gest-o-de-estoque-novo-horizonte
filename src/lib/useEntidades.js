@@ -74,7 +74,7 @@ export function useEntidades(config = {}) {
     queries: resolved.map(({ name, opts }) => ({
       queryKey: keyOf(name, opts),
       queryFn: fetcher(name, opts),
-      staleTime: 60_000,
+      staleTime: 0,
       gcTime: 5 * 60_000,
       refetchOnWindowFocus: true,
       refetchOnMount: true,
