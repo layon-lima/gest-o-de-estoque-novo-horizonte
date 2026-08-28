@@ -1,5 +1,6 @@
 import { base44 } from '@/api/base44Client';
-import { consumirFefo, setorControlaValidade } from '@/lib/lotes';
+import { setorControlaValidade } from '@/lib/lotes';
+import { sairSaldo } from '@/lib/saldos';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
 
 // Localiza o setor de combustíveis pelo nome (contém "combust").
@@ -41,9 +42,10 @@ export async function registrarAbastecimentoPendente({
   return abast;
 }
 
-// Confirma a baixa de um abastecimento pendente: decrementa o estoque do
-// combustível, cria a movimentação de saída vinculada à máquina e marca o
-// abastecimento como confirmado.
+// Confirma a baixa de um abastecimento pendente: consome o saldo real
+// (SaldoEstoque — origem da verdade, FEFO quando há lotes), cria a movimentação
+// de saída vinculada à máquina e marca o abastecimento como confirmado.
+// `saldos` é mutado localmente para refletir o novo estado.
 export async function confirmarAbastecimento({
   abast,
   maquina,
@@ -51,6 +53,7 @@ export async function confirmarAbastecimento({
   confirmado_por,
   setores,
   lotes,
+  saldos,
   movimentacoes,
 }) {
   const qtd = Number(abast.quantidade);
@@ -58,6 +61,10 @@ export async function confirmarAbastecimento({
   if (abast.status !== 'pendente') throw new Error('Este abastecimento já foi processado.');
 
   const controla = setorControlaValidade(produto.setor_id, setores);
+  const depositoId = produto.deposito_id || '';
+  const gavetaId = produto.gaveta_id || '';
+  if (!depositoId) throw new Error('O combustível não possui um depósito definido. Defina o depósito no cadastro do produto.');
+
   const now = new Date().toISOString();
   const baseMov = {
     data: now,
@@ -67,50 +74,53 @@ export async function confirmarAbastecimento({
     nome_produto: produto.nome,
     quantidade: qtd,
     setor_id: produto.setor_id,
+    deposito_id: depositoId,
     maquina_id: maquina.id,
-    gaveta_id: produto.gaveta_id || '',
+    gaveta_id: gavetaId,
     tipo: 'saida',
     observacao: abast.observacao || `Abastecimento — ${maquina.nome || maquina.codigo}`,
   };
 
-  let mov;
-  if (controla) {
-    const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
-    const { alocacoes, totalDisponivel, suficiente } = consumirFefo(lotesProduto, qtd);
-    if (!suficiente) {
-      throw new Error(`Saldo insuficiente em lotes válidos. Disponível: ${totalDisponivel} ${produto.unidade || 'un'}.`);
-    }
-    for (const a of alocacoes) {
-      const l = lotesProduto.find((x) => x.id === a.lote_id);
-      const novaQtdLote = (l.quantidade || 0) - a.quantidade;
-      await base44.entities.Lote.update(a.lote_id, {
+  // Consome do saldo real (SaldoEstoque) — FEFO quando há lotes.
+  const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
+  const { consumidos, totalDisponivel, suficiente } = await sairSaldo({
+    produto,
+    depositoId,
+    gavetaId,
+    quantidade: qtd,
+    lotes: lotesProduto,
+    saldos,
+  });
+  if (!suficiente) {
+    throw new Error(`Saldo insuficiente. Disponível: ${totalDisponivel} ${produto.unidade || 'un'}.`);
+  }
+
+  // Atualiza lotes (denormalizado, para compatibilidade das views de validade).
+  for (const c of consumidos) {
+    const l = lotesProduto.find((x) => x.id === c.lote_id);
+    if (l) {
+      const novaQtdLote = (l.quantidade || 0) - c.quantidade;
+      await base44.entities.Lote.update(l.id, {
         quantidade: novaQtdLote,
         ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}),
       });
+      l.quantidade = novaQtdLote;
+      if (novaQtdLote <= 0) l.gaveta_id = '';
     }
-    mov = await base44.entities.Movimentacao.create({
-      ...baseMov,
-      lote_id: alocacoes[0]?.lote_id || '',
-      data_validade: alocacoes[0]?.data_validade || '',
-      lotes_consumidos: JSON.stringify(alocacoes),
-    });
-    const novaQtd = Math.max(0, lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0) - qtd);
-    await base44.entities.Produto.update(produto.id, {
-      quantidade: novaQtd,
-      ...(novaQtd <= 0 ? { gaveta_id: '' } : {}),
-    });
-  } else {
-    const disp = produto.quantidade || 0;
-    if (qtd > disp) {
-      throw new Error(`Saldo insuficiente. Disponível: ${disp} ${produto.unidade || 'un'}.`);
-    }
-    mov = await base44.entities.Movimentacao.create(baseMov);
-    const novaQtd = Math.max(0, disp - qtd);
-    await base44.entities.Produto.update(produto.id, {
-      quantidade: novaQtd,
-      ...(novaQtd <= 0 ? { gaveta_id: '' } : {}),
-    });
   }
+
+  const primeiroLote = lotesProduto.find((l) => l.id === consumidos[0]?.lote_id);
+  const mov = await base44.entities.Movimentacao.create({
+    ...baseMov,
+    lote_id: consumidos[0]?.lote_id || '',
+    data_validade: primeiroLote?.data_validade || '',
+    lotes_consumidos: controla ? JSON.stringify(consumidos) : '',
+  });
+
+  // Sincroniza produto localmente (sairSaldo já recalculou no banco).
+  const saldosProduto = (saldos || []).filter((s) => s.produto_id === produto.id);
+  produto.quantidade = saldosProduto.reduce((s, sl) => s + (sl.quantidade || 0), 0);
+  if (produto.quantidade <= 0) produto.gaveta_id = '';
 
   await base44.entities.Abastecimento.update(abast.id, {
     status: 'confirmado',

@@ -35,12 +35,13 @@ export default function Abastecimento() {
     Produto: {},
     Setor: {},
     Lote: {},
+    SaldoEstoque: {},
     Movimentacao: { sort: '-data', limit: 100 },
     Abastecimento: { sort: '-data', limit: 200 },
   });
   const {
     Maquina: maquinas, Produto: produtos, Setor: setores, Lote: lotes,
-    Movimentacao: movimentacoes, Abastecimento: abastecimentos,
+    SaldoEstoque: saldos, Movimentacao: movimentacoes, Abastecimento: abastecimentos,
   } = data;
 
   const podeConfirmar = user?.role === 'admin' || user?.pode_confirmar_abastecimento === true;
@@ -128,6 +129,7 @@ export default function Abastecimento() {
         confirmado_por: getDisplayName(user),
         setores,
         lotes,
+        saldos,
         movimentacoes,
       });
       toast({ title: 'Baixa confirmada', description: `${produto.nome} baixado em ${formatQtd(abast.quantidade)} ${produto.unidade || 'un'}.` });
