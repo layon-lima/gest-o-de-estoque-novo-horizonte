@@ -462,6 +462,9 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
           ticket={vincularTicket}
           pedidos={pedidos}
           pessoas={pessoas}
+          produtos={produtos}
+          transportadoras={transportadoras}
+          tickets={tickets}
           onClose={() => setVincularTicket(null)}
           onDone={() => { setVincularTicket(null); onReload(); }}
         />
