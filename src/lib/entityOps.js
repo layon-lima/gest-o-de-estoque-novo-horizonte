@@ -7,22 +7,40 @@ export function isNotFoundError(err) {
   return /not found/i.test(String(err?.message || err || ''));
 }
 
-// Remove o registro do cache do React Query imediatamente (update otimista)
-// para a UI não continuar exibindo o registro excluído durante o refetch.
-// Usa removeQueries ( Nuclear option) para garantir que o cache seja limpo.
-function removeFromCache(entityName, id) {
-  // 1. Update otimista: remove o registro das listas em cache (feedback imediato)
-  queryClientInstance.setQueriesData({ queryKey: ['ent', entityName] }, (old) =>
-    Array.isArray(old) ? old.filter((r) => r.id !== id) : old
-  );
-  // 2. Remove completamente as queries desta entidade do cache.
-  //    Isto força o useQueries a refazer a busca do zero no backend,
-  //    eliminando qualquer registro fantasma que o setQueriesData possa ter perdido.
-  queryClientInstance.removeQueries({ queryKey: ['ent', entityName] });
+// Busca dados frescos do backend e sobrescreve o cache do React Query
+// usando a CHAVE EXATA de cada query ativa. Isto garante que a UI
+// reflita exatamente o estado do backend, eliminando registros fantasmas.
+async function syncCacheFromBackend(entityName, deletedId) {
+  const cache = queryClientInstance.getQueryCache();
+  const queries = cache.findAll({ queryKey: ['ent', entityName] });
+
+  for (const query of queries) {
+    const queryKey = query.queryKey;
+    // keyOf = ['ent', name, sort, limit]
+    const sort = queryKey[2];
+    const limit = queryKey[3];
+
+    try {
+      const entity = base44.entities[entityName];
+      let fresh;
+      if (sort && limit != null) fresh = await entity.list(sort, limit);
+      else if (sort) fresh = await entity.list(sort);
+      else fresh = await entity.list();
+
+      // Sobrescreve o cache com os dados frescos usando a chave EXATA
+      queryClientInstance.setQueryData(queryKey, fresh);
+    } catch {
+      // Fallback: update otimista (remove o registro deletado da lista em cache)
+      const oldData = query.state.data;
+      if (Array.isArray(oldData)) {
+        queryClientInstance.setQueryData(queryKey, oldData.filter((r) => r.id !== deletedId));
+      }
+    }
+  }
 }
 
 // Exclui uma entidade com tolerância a registros fantasmas (not found).
-// Remove o registro do cache imediatamente e força refetch do backend.
+// Após excluir, busca dados frescos do backend e sobrescreve o cache.
 // Lança qualquer outro erro (permissão, rede, etc.) para o caller tratar.
 export async function safeDelete(entityName, id) {
   try {
@@ -31,21 +49,18 @@ export async function safeDelete(entityName, id) {
     if (!isNotFoundError(err)) throw err;
     // Registro fantasma: já não existe no backend. Trata como sucesso.
   }
-  removeFromCache(entityName, id);
-  // Força uma nova busca no backend (não usa cache stale)
-  queryClientInstance.refetchQueries({ queryKey: ['ent', entityName] });
+  await syncCacheFromBackend(entityName, id);
 }
 
 // Atualiza uma entidade com tolerância a registros fantasmas (not found).
-// Se o registro não existe, remove do cache e lança 'PHANTOM_RECORD'
-// para o caller decidir como tratar (geralmente: fechar formulário e recarregar).
+// Se o registro não existe, sincroniza o cache e lança 'PHANTOM_RECORD'
+// para o caller decidir como tratar.
 export async function safeUpdate(entityName, id, data) {
   try {
     return await base44.entities[entityName].update(id, data);
   } catch (err) {
     if (isNotFoundError(err)) {
-      removeFromCache(entityName, id);
-      queryClientInstance.refetchQueries({ queryKey: ['ent', entityName] });
+      await syncCacheFromBackend(entityName, id);
       throw new Error('PHANTOM_RECORD');
     }
     throw err;
