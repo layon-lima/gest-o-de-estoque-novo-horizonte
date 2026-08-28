@@ -1,5 +1,8 @@
 // Utilitários do módulo de Pesagem Rodoviária.
+import { base44 } from '@/api/base44Client';
 import { parseQtd } from '@/lib/format';
+import { sairSaldo } from '@/lib/saldos';
+import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
 
 // Normaliza placa: uppercase, sem hífen/espaços (ex.: "ABC-1234" -> "ABC1234").
 export function normalizePlaca(placa) {
@@ -99,4 +102,66 @@ export function formatKg(n) {
 export function formatMoeda(n) {
   const num = Number(n) || 0;
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+// Baixa o saldo real (SaldoEstoque — origem da verdade, FEFO quando há lotes)
+// do produto vendido ao fechar um ticket de VENDA. Cria a movimentação de
+// saída vinculada ao ticket. Autocontida: carrega saldos/lotes/movimentações.
+// Retorna { mov, consumidos, totalDisponivel, suficiente }.
+// Lança 'DEPOSITO_OBRIGATORIO' quando não houver depósito nem saldo.
+export async function baixarEstoqueVendaTicket({ produto, quantidadeKg, ticketNumero }) {
+  const qtd = parseQtd(quantidadeKg);
+  if (!(qtd > 0) || !produto?.id) return null;
+
+  const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: produto.id });
+  const depositoId = produto.deposito_id || saldos.find((s) => (s.quantidade || 0) > 0)?.deposito_id || '';
+  if (!depositoId) throw new Error('DEPOSITO_OBRIGATORIO');
+  const gavetaId = produto.gaveta_id || '';
+
+  const lotes = await base44.entities.Lote.filter({ produto_id: produto.id });
+  const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
+
+  const { consumidos, totalDisponivel, suficiente } = await sairSaldo({
+    produto,
+    depositoId,
+    gavetaId,
+    quantidade: qtd,
+    lotes: lotesProduto,
+    saldos,
+  });
+  if (!suficiente) throw new Error(`SALDO_INSUFICIENTE:${totalDisponivel}`);
+
+  // Atualiza lotes (denormalizado, para compatibilidade das views de validade).
+  for (const c of consumidos) {
+    const l = lotesProduto.find((x) => x.id === c.lote_id);
+    if (l) {
+      const novaQtdLote = (l.quantidade || 0) - c.quantidade;
+      await base44.entities.Lote.update(l.id, {
+        quantidade: novaQtdLote,
+        ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}),
+      });
+    }
+  }
+
+  const movimentacoes = await base44.entities.Movimentacao.list('-created_date', 100);
+  const primeiroLote = lotesProduto.find((l) => l.id === consumidos[0]?.lote_id);
+  const mov = await base44.entities.Movimentacao.create({
+    data: new Date().toISOString(),
+    numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
+    produto_id: produto.id,
+    codigo: produto.codigo,
+    nome_produto: produto.nome,
+    quantidade: qtd,
+    setor_id: produto.setor_id,
+    deposito_id: depositoId,
+    maquina_id: produto.maquina_id || '',
+    gaveta_id: gavetaId,
+    tipo: 'saida',
+    observacao: `Venda — Ticket ${ticketNumero || ''}`,
+    lote_id: consumidos[0]?.lote_id || '',
+    data_validade: primeiroLote?.data_validade || '',
+    lotes_consumidos: JSON.stringify(consumidos),
+  });
+
+  return { mov, consumidos, totalDisponivel, suficiente };
 }

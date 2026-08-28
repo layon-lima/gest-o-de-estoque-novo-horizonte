@@ -25,7 +25,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { calcLiquido, formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
+import { calcLiquido, formatKg, formatMoeda, formatPlaca, baixarEstoqueVendaTicket } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
@@ -148,6 +148,23 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           saldo_kg: novoSaldo,
           status: novoSaldo <= 0 ? 'concluido' : 'aberto',
         });
+        // Baixa o saldo real (SaldoEstoque) do produto vendido — origem da verdade.
+        const prodVenda = produtos.find((p) => p.id === pedidoSel.produto_id);
+        if (prodVenda) {
+          try {
+            await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquido, ticketNumero: ticket.numero });
+          } catch (e) {
+            const msg = String(e?.message || e);
+            if (msg.startsWith('SALDO_INSUFICIENTE')) {
+              const disp = msg.split(':')[1] || '0';
+              toast({ variant: 'destructive', title: 'Saldo físico insuficiente', description: `Disponível: ${formatKg(disp)}. O ticket foi fechado, mas o estoque não foi baixado — verifique o saldo.` });
+            } else if (msg === 'DEPOSITO_OBRIGATORIO') {
+              toast({ variant: 'destructive', title: 'Depósito não definido', description: 'O produto vendido não possui depósito cadastrado. Defina o depósito no cadastro para baixar o estoque.' });
+            } else {
+              toast({ variant: 'destructive', title: 'Falha ao baixar estoque', description: msg });
+            }
+          }
+        }
       }
       const closedTicket = {
         ...ticket,

@@ -41,6 +41,7 @@ import {
   filterProdutosParaInventario,
   qtdSistema,
   buildCriteriosDescricao,
+  aplicarAjusteInventario,
 } from '@/lib/inventario';
 
 const emptyCriterios = { deposito_id: '', gaveta_id: '', maquina_id: '' };
@@ -82,6 +83,8 @@ export default function InventarioConference({
   const [concluindo, setConcluindo] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [confirmConcluir, setConfirmConcluir] = useState(false);
+  const [aplicando, setAplicando] = useState(false);
+  const [aplicado, setAplicado] = useState(null);
   const inputRef = useRef(null);
 
   // Voltar do sistema (mobile) caminha pelos passos na ordem inversa antes de fechar.
@@ -179,6 +182,7 @@ export default function InventarioConference({
     setQtdInput('');
     setAviso(null);
     setResultado(null);
+    setAplicado(null);
   }
 
   function handleClose(o) {
@@ -343,6 +347,26 @@ export default function InventarioConference({
       toast({ variant: 'destructive', title: 'Erro ao concluir', description: e?.message });
     } finally {
       setConcluindo(false);
+    }
+  }
+
+  async function aplicarAjustes() {
+    if (!inventario || !resultado) return;
+    setAplicando(true);
+    try {
+      const { aplicados, total } = await aplicarAjusteInventario({
+        inventario,
+        itens: resultado.itens,
+        produtos,
+        setor,
+      });
+      setAplicado({ aplicados, total });
+      toast({ title: 'Saldo atualizado', description: `${aplicados} de ${total} divergências aplicadas ao estoque.` });
+      onSaved?.();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao aplicar ajuste', description: e?.message });
+    } finally {
+      setAplicando(false);
     }
   }
 
@@ -578,6 +602,20 @@ export default function InventarioConference({
                   </div>
                 ))}
               </div>
+              {resultado.total_divergencias > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm text-amber-800">
+                    {aplicado
+                      ? `✓ ${aplicado.aplicados} de ${aplicado.total} divergências aplicadas ao saldo real.`
+                      : 'Deseja atualizar o saldo real (SaldoEstoque) com as quantidades contadas? Isso criará movimentações de ajuste.'}
+                  </p>
+                  {!aplicado && (
+                    <Button onClick={aplicarAjustes} disabled={aplicando} variant="outline" className="w-full h-11 gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-100">
+                      <Save className="w-4 h-4" /> {aplicando ? 'Aplicando…' : 'Atualizar saldo pelo inventário'}
+                    </Button>
+                  )}
+                </div>
+              )}
               <Button onClick={() => handleClose(false)} className="w-full h-12">Fechar</Button>
             </div>
           )}
