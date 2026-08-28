@@ -190,8 +190,8 @@ function drawTicket(doc, ticket, ctx, logoImg) {
   y += 12;
   const boxW = (LW - 8) / 3;
   const boxes = [
-    { label: 'TARA (kg)', val: ticket.peso_tara, hora: horaTara },
-    { label: 'BRUTO (kg)', val: ticket.peso_bruto, hora: horaBruto },
+    { label: '1ª PESAGEM (kg)', val: ticket.peso_tara, hora: horaTara },
+    { label: '2ª PESAGEM (kg)', val: ticket.peso_bruto, hora: horaBruto },
     { label: 'LÍQUIDO (kg)', val: ticket.peso_liquido, hora: null },
   ];
   boxes.forEach((b, i) => {
