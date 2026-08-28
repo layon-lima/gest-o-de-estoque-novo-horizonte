@@ -11,6 +11,8 @@ import { parseQtd, formatQtd } from '@/lib/format';
 import { formatPlaca, formatKg, round3, statusPorSaldo, normalizePlaca } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import SearchSelect from '@/components/SearchSelect';
+import TicketColumnsManager, { DEFAULT_ORDER, DEFAULT_VISIBLE, COLUMN_LABELS } from './TicketColumnsManager';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import AberturaTicketDialog from './AberturaTicketDialog';
 import FechamentoTicketDialog from './FechamentoTicketDialog';
 import TicketDetalheDialog from './TicketDetalheDialog';
@@ -42,6 +44,68 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedidoDoTicket = (id) => pedidos.find((p) => p.id === id);
   const produtoDoTicket = (t) => t.produto_id ? produtoNome(t.produto_id) : (t.tipo === 'venda' ? 'A definir' : '—');
+
+  const [colOrder, setColOrder] = usePersistentState('tickets_col_order', DEFAULT_ORDER);
+  const [colVisible, setColVisible] = usePersistentState('tickets_col_visible', DEFAULT_VISIBLE);
+
+  const visibleCols = colOrder.filter((k) => colVisible[k]);
+
+  const COL_ALIGN = {
+    tara: 'right', bruto: 'right', liquido: 'right',
+    nf: 'center', status: 'center',
+  };
+
+  const thClass = (key) => {
+    const a = COL_ALIGN[key];
+    if (a === 'right') return 'p-2 font-medium text-right';
+    if (a === 'center') return 'p-2 font-medium text-center';
+    return 'p-2 font-medium text-left';
+  };
+
+  const tdClass = (key) => {
+    const a = COL_ALIGN[key];
+    if (a === 'right') return 'p-2 text-right';
+    if (a === 'center') return 'p-2 text-center';
+    return 'p-2';
+  };
+
+  const renderCell = (key, t, ped) => {
+    switch (key) {
+      case 'produto': return <span className="text-xs">{produtoDoTicket(t)}</span>;
+      case 'tipo': return <Badge variant="outline" className="text-[10px] py-0 px-1.5">{TIPO_LABEL[t.tipo] || t.tipo}</Badge>;
+      case 'abertura': return <span className="text-xs whitespace-nowrap">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '—'}</span>;
+      case 'fechamento': return <span className="text-xs whitespace-nowrap">{t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—'}</span>;
+      case 'motorista': return t.motorista;
+      case 'placa': return <span className="font-mono">{formatPlaca(t.placa)}</span>;
+      case 'tara': return formatQtd(t.peso_tara || 0);
+      case 'bruto': return t.peso_bruto ? formatQtd(t.peso_bruto) : '—';
+      case 'liquido': return <span className="font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</span>;
+      case 'pedido': return <span className="text-xs font-mono">{ped ? ped.numero : '—'}</span>;
+      case 'cliente': return <span className="text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</span>;
+      case 'nf': return <NfeBadge ticket={t} size="xs" />;
+      case 'status': return <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>;
+      default: return null;
+    }
+  };
+
+  const exportColVal = (key, t, ped) => {
+    switch (key) {
+      case 'produto': return produtoDoTicket(t);
+      case 'tipo': return TIPO_LABEL[t.tipo] || t.tipo || '';
+      case 'abertura': return t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '';
+      case 'fechamento': return t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '';
+      case 'motorista': return t.motorista || '';
+      case 'placa': return formatPlaca(t.placa);
+      case 'tara': return formatQtd(t.peso_tara || 0);
+      case 'bruto': return formatQtd(t.peso_bruto || 0);
+      case 'liquido': return formatQtd(t.peso_liquido || 0);
+      case 'pedido': return ped ? ped.numero : '';
+      case 'cliente': return ped ? clienteNome(ped.cliente_id) : '';
+      case 'nf': return t.nfe_importada ? (t.nfe_numero ? `Sim - ${t.nfe_numero}` : 'Sim') : 'Não';
+      case 'status': return t.status;
+      default: return '';
+    }
+  };
 
   const placasUnicas = useMemo(() => {
     const set = new Set();
@@ -157,24 +221,10 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
   function buildRows() {
     return filtrados.map((t) => {
       const ped = pedidoDoTicket(t.pedido_id);
-      return [
-        t.numero,
-        t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '',
-        t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '',
-        t.motorista || '',
-        formatPlaca(t.placa),
-        formatQtd(t.peso_tara || 0),
-        formatQtd(t.peso_bruto || 0),
-        formatQtd(t.peso_liquido || 0),
-        ped ? ped.numero : '',
-        ped ? clienteNome(ped.cliente_id) : '',
-        ped ? produtoNome(ped.produto_id) : '',
-        t.nfe_importada ? (t.nfe_numero ? `Sim - ${t.nfe_numero}` : 'Sim') : 'Não',
-        t.status,
-      ];
+      return [t.numero, ...visibleCols.map((k) => exportColVal(k, t, ped))];
     });
   }
-  const expCols = ['Ticket', 'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Tara (kg)', 'Bruto (kg)', 'Líquido (kg)', 'Pedido', 'Cliente', 'Produto', 'NF', 'Status'];
+  const expCols = ['Ticket', ...visibleCols.map((k) => COLUMN_LABELS[k] || k)];
   function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', expCols, buildRows()); }
   function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', expCols, buildRows()); }
 
@@ -272,7 +322,13 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         )}
 
         {historico && (
-          <div className="hidden sm:flex gap-2">
+          <div className="hidden sm:flex gap-2 items-center">
+            <TicketColumnsManager
+              order={colOrder}
+              visible={colVisible}
+              onReorder={setColOrder}
+              onToggle={(key, val) => setColVisible((prev) => ({ ...prev, [key]: val }))}
+            />
             <Button variant="outline" size="sm" className="flex-1 h-8" onClick={handleExportPDF} disabled={filtrados.length === 0}><FileDown className="w-3.5 h-3.5 mr-1.5" /> PDF</Button>
             <Button size="sm" className="flex-1 h-8" onClick={handleExportCSV} disabled={filtrados.length === 0}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel</Button>
           </div>
@@ -325,19 +381,9 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
               <thead className="bg-muted sticky top-0">
                 <tr>
                   <th className="text-left p-2 font-medium">Ticket</th>
-                  <th className="text-left p-2 font-medium">Tipo</th>
-                  <th className="text-left p-2 font-medium">Abertura</th>
-                  <th className="text-left p-2 font-medium">Fechamento</th>
-                  <th className="text-left p-2 font-medium">Motorista</th>
-                  <th className="text-left p-2 font-medium">Placa</th>
-                  <th className="text-right p-2 font-medium">Tara</th>
-                  <th className="text-right p-2 font-medium">Bruto</th>
-                  <th className="text-right p-2 font-medium">Líquido</th>
-                  <th className="text-left p-2 font-medium">Pedido</th>
-                  <th className="text-left p-2 font-medium">Cliente</th>
-                  <th className="text-left p-2 font-medium">Produto</th>
-                  <th className="text-center p-2 font-medium">NF</th>
-                  <th className="text-center p-2 font-medium">Status</th>
+                  {visibleCols.map((k) => (
+                    <th key={k} className={thClass(k)}>{COLUMN_LABELS[k]}</th>
+                  ))}
                   {naovinculados && isAdmin && <th className="text-center p-2 font-medium">Ação</th>}
                 </tr>
               </thead>
@@ -346,23 +392,11 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
                   const ped = pedidoDoTicket(t.pedido_id);
                   return (
                     <tr key={t.id} className="border-t hover:bg-muted/40 cursor-pointer" onClick={() => setDetalheTicket(t)}>
-                      <td className="p-2 font-mono text-xs">{t.numero}</td>
-                      <td className="p-2"><Badge variant="outline" className="text-[10px] py-0 px-1.5">{TIPO_LABEL[t.tipo] || t.tipo}</Badge></td>
-                      <td className="p-2 text-xs whitespace-nowrap">{t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '—'}</td>
-                      <td className="p-2 text-xs whitespace-nowrap">{t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '—'}</td>
-                      <td className="p-2">{t.motorista}</td>
-                      <td className="p-2 font-mono">{formatPlaca(t.placa)}</td>
-                      <td className="p-2 text-right">{formatQtd(t.peso_tara || 0)}</td>
-                      <td className="p-2 text-right">{t.peso_bruto ? formatQtd(t.peso_bruto) : '—'}</td>
-                      <td className="p-2 text-right font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</td>
-                      <td className="p-2 text-xs font-mono">{ped ? ped.numero : '—'}</td>
-                      <td className="p-2 text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</td>
-                      <td className="p-2 text-xs">{produtoDoTicket(t)}</td>
-                      <td className="p-2 text-center"><NfeBadge ticket={t} size="xs" /></td>
-                      <td className="p-2 text-center">
-                        <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>
-                      </td>
-                      {naovinculados && isAdmin && (
+                       <td className="p-2 font-mono text-xs">{t.numero}</td>
+                       {visibleCols.map((k) => (
+                         <td key={k} className={tdClass(k)}>{renderCell(k, t, ped)}</td>
+                       ))}
+                       {naovinculados && isAdmin && (
                         <td className="p-2 text-center">
                           <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); setVincularTicket(t); }}>
                             <Link2 className="w-3.5 h-3.5 mr-1" /> Vincular
