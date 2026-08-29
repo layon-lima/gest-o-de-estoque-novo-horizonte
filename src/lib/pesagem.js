@@ -226,6 +226,7 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
 // O ticket original é ajustado para fechar o pedido exatamente (liquido = saldo_kg),
 // e o excedente vira um novo ticket vinculado ao novo pedido escolhido pelo usuário.
 export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pedidoSel, novoPedido, transportadoraId, observacao, clienteNome, transpNome, produtos, tickets }) {
+  if (!ticket?.id) throw new Error('Ticket inválido para quebra.');
   const secondWeight = parseQtd(pesoBruto);
   const firstWeight = isInverted ? (Number(ticket.peso_bruto) || 0) : (Number(ticket.peso_tara) || 0);
   const saldoOriginal = Number(pedidoSel.saldo_kg) || 0;
@@ -261,8 +262,15 @@ export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pe
   await base44.entities.TicketPesagem.update(ticket.id, updateOriginal);
   const closedOriginal = { ...ticket, ...updateOriginal };
 
-  // 2. Cria o novo ticket complementar
-  const novoNumero = nextTicketNumber(tickets);
+  // 2. Cria o novo ticket complementar — número gerado de uma listagem FRESCA do banco
+  //    para evitar colisão com tickets criados concorrentemente (lista em cache pode estar desatualizada).
+  let novoNumero;
+  try {
+    const freshTickets = await base44.entities.TicketPesagem.list('-created_date', 200);
+    novoNumero = nextTicketNumber(freshTickets);
+  } catch {
+    novoNumero = nextTicketNumber(tickets || []);
+  }
   const novoTicket = await base44.entities.TicketPesagem.create({
     numero: novoNumero,
     tipo: 'venda',

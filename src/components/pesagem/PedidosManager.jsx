@@ -161,6 +161,7 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
                         <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Carregado</p>
                         <p className="text-xl font-bold text-primary leading-tight">{formatKg(carregadoKg)}</p>
                         <p className="text-xs text-muted-foreground">Sem limite de saldo</p>
+                        <p className="text-xs text-muted-foreground">Saca {formatMoeda(p.valor_saca)}</p>
                       </div>
                     </div>
                   </Card>
@@ -188,7 +189,8 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Restante</p>
                       <p className="text-xl font-bold text-primary leading-tight">{formatQtd(restanteSacas)} <span className="text-xs font-semibold">sacas</span></p>
                       <p className="text-xs text-muted-foreground">Carregado {carregadoPct.toFixed(1)}% · {formatQtd(totalSacas)} sacas</p>
-                    </div>
+                      <p className="text-xs text-muted-foreground">Saca {formatMoeda(p.valor_saca)}</p>
+                      </div>
                   </div>
                   <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
                     <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />

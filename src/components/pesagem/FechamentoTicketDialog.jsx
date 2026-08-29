@@ -31,6 +31,7 @@ import { podeDigitarPeso } from '@/lib/permissions';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
 import SearchSelect from '@/components/SearchSelect';
 import QuebrarTicketDialog from '@/components/pesagem/QuebrarTicketDialog';
+import PedidoInfo from '@/components/pesagem/PedidoInfo';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
 
@@ -52,7 +53,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
   const isInverted = (ticket?.peso_bruto || 0) > 0 && (ticket?.peso_tara || 0) === 0;
-  const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto' || p.id === ticket?.pedido_id) : [];
+  const pedidosAbertos = isVenda ? pedidos.filter((p) => (p.status === 'aberto' && (p.sem_limite || (Number(p.saldo_kg) || 0) > 0)) || p.id === ticket?.pedido_id) : [];
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
@@ -282,14 +283,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           {isVenda && (
           <div className="space-y-1.5">
             {pedidoSel ? (
-              <div className="rounded-lg border p-3 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Pedido vinculado</span>
-                  <span className="font-mono text-xs">{pedidoSel.numero}</span>
-                </div>
-                <p className="font-medium truncate">{clienteNome(pedidoSel.cliente_id)}</p>
-                <p className="text-xs text-muted-foreground truncate">{produtoNome(pedidoSel.produto_id)}</p>
-              </div>
+              <PedidoInfo variant="summary" pedido={pedidoSel} clienteNome={clienteNome} produtoNome={produtoNome} />
             ) : pedidosAbertos.length === 0 ? (
               <p className="text-sm text-destructive">Nenhum pedido aberto disponível. Cadastre um pedido antes de fechar.</p>
             ) : (
@@ -307,7 +301,6 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                     const pSemLimite = !!p.sem_limite;
                     const consumoExcede = selected && !pSemLimite && liquido > (p.saldo_kg || 0);
                     const pesoSaca = p.peso_saca_kg || 0;
-                    const saldoSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
                     const liquidoSacas = pesoSaca > 0 ? liquido / pesoSaca : 0;
                     return (
                       <button
@@ -317,14 +310,8 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
                         className={`w-full text-left rounded-lg border p-3 transition-colors ${selected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent hover:border-primary/50'}`}
                       >
                         <div className="flex justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                            <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)}{pSemLimite ? '' : ` · ${formatQtd(saldoSacas)} sacas disponível`}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {pSemLimite && <Badge className="bg-sky-100 text-sky-700 text-[10px]">Sem limite</Badge>}
-                            {selected && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                          </div>
+                          <PedidoInfo pedido={p} clienteNome={clienteNome} produtoNome={produtoNome} />
+                          {selected && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
                         </div>
                         {selected && (
                           <div className="mt-2 flex items-center gap-2 text-xs">

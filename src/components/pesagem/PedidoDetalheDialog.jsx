@@ -44,7 +44,7 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
             <DialogHeader>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <DialogTitle className="flex items-center gap-2">Detalhes do Pedido</DialogTitle>
+                  <DialogTitle className="flex items-center gap-2">Detalhes do Pedido <span className="font-mono text-sm font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{pedido.numero}</span></DialogTitle>
                   <DialogDescription>Criado para <b>{clienteNome(pedido.cliente_id)}</b></DialogDescription>
                 </div>
                 {isAdmin && (

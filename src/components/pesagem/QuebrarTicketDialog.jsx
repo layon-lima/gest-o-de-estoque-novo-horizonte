@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { formatKg, round3, quebrarTicket } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
+import PedidoInfo from '@/components/pesagem/PedidoInfo';
 
 export default function QuebrarTicketDialog({ open, onClose, onDone, ticket, pesoBruto, isInverted, liquido, pedidoSel, pedidos, pessoas, produtos, transportadoras, transportadoraId, observacao, tickets }) {
   const [busca, setBusca] = useState('');
@@ -203,14 +204,8 @@ export default function QuebrarTicketDialog({ open, onClose, onDone, ticket, pes
                       className={`w-full text-left rounded-lg border p-3 transition-colors ${selected ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'hover:bg-accent hover:border-amber-500/50'}`}
                     >
                       <div className="flex justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                          <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {p.sem_limite && <Badge className="bg-sky-100 text-sky-700 text-[10px]">Sem limite</Badge>}
-                          {selected && <CheckCircle2 className="w-5 h-5 text-amber-600" />}
-                        </div>
+                        <PedidoInfo pedido={p} clienteNome={clienteNome} produtoNome={produtoNome} />
+                        {selected && <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0" />}
                       </div>
                       {!p.sem_limite && (
                         <p className="text-xs text-muted-foreground mt-1">{formatQtd(saldoSacas)} sacas disponível · {formatKg(p.saldo_kg || 0)} saldo</p>

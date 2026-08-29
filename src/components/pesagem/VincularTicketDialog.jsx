@@ -15,6 +15,10 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { formatKg, formatMoeda, formatPlaca, round3, statusPorSaldo } from '@/lib/pesagem';
 import QuebrarTicketDialog from './QuebrarTicketDialog';
+import PedidoInfo from './PedidoInfo';
+
+// helper de nome de produto (usado pelo PedidoInfo)
+const produtoNome = (produtos, id) => (produtos || []).find((p) => p.id === id)?.nome || '—';
 
 // Vincula um ticket "não vinculado" a um pedido aberto, subtraindo o peso líquido do saldo.
 // Se o saldo for insuficiente, ativa a função de quebra de ticket.
@@ -94,7 +98,7 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
 
   return (
     <>
-      <Dialog open={open && !quebrarOpen} onOpenChange={(o) => { if (!o && !busy) { setPedidoId(''); setBusca(''); onClose?.(); } }}>
+      <Dialog open={open && !quebrarOpen} onOpenChange={(o) => { if (!o && !busy && !quebrarOpen) { setPedidoId(''); setBusca(''); onClose?.(); } }}>
         <DialogContent className="max-w-md p-4 sm:p-6">
           {ticket && (
             <>
@@ -125,7 +129,6 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
                       <p className="px-2 py-3 text-sm text-muted-foreground text-center">Nenhum pedido encontrado.</p>
                     ) : visiveis.map((p) => {
                       const selected = p.id === pedidoId;
-                      const pSemLimite = !!p.sem_limite;
                       return (
                         <button
                           key={p.id}
@@ -134,13 +137,9 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
                           className={`w-full text-left rounded-lg border p-3 transition-colors ${selected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-accent'}`}
                         >
                           <div className="flex justify-between gap-2">
-                            <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {pSemLimite && <Badge className="bg-sky-100 text-sky-700 text-[10px]">Sem limite</Badge>}
-                              {selected && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                            </div>
+                            <PedidoInfo pedido={p} clienteNome={clienteNome} produtoNome={(id) => produtoNome(produtos, id)} />
+                            {selected && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
                           </div>
-                          <p className="text-xs text-muted-foreground">{pSemLimite ? `Sem limite · ${formatMoeda(p.valor_total)}` : `Saldo ${formatKg(p.saldo_kg)} de ${formatKg(p.total_kg)} · ${formatMoeda(p.valor_total)}`}</p>
                         </button>
                       );
                     })}
@@ -148,14 +147,14 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
                 )}
 
                 {pedidoSelecionado && (
-                  <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Cliente:</span><span className="font-medium truncate">{clienteNome(pedidoSelecionado.cliente_id)}</span></div>
+                  <div className="space-y-2">
+                    <PedidoInfo variant="summary" pedido={pedidoSelecionado} clienteNome={clienteNome} produtoNome={(id) => produtoNome(produtos, id)} />
                     {semLimite ? (
-                      <div className="flex items-center gap-1.5 text-xs text-sky-700 font-medium pt-1">
+                      <div className="flex items-center gap-1.5 text-xs text-sky-700 font-medium">
                         <AlertTriangle className="w-3.5 h-3.5" /> Pedido sem limite — saldo não debitado.
                       </div>
                     ) : (
-                      <>
+                      <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
                         <div className="flex justify-between"><span className="text-muted-foreground">Saldo atual:</span><span className="font-semibold">{formatKg(pedidoSelecionado.saldo_kg)}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Após vincular:</span><span className="font-semibold">{formatKg(round3((Number(pedidoSelecionado.saldo_kg) || 0) - liq))}</span></div>
                         <div className="flex justify-between"><span className="text-muted-foreground">Valor total:</span><span className="font-semibold">{formatMoeda(pedidoSelecionado.valor_total)}</span></div>
@@ -164,7 +163,7 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
                             <AlertTriangle className="w-3.5 h-3.5" /> Saldo insuficiente — será necessário quebrar o ticket.
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}

@@ -81,7 +81,12 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
       case 'tara': return formatQtd(t.peso_tara || 0);
       case 'bruto': return t.peso_bruto ? formatQtd(t.peso_bruto) : '—';
       case 'liquido': return <span className="font-semibold">{t.peso_liquido ? formatQtd(t.peso_liquido) : '—'}</span>;
-      case 'pedido': return <span className="text-xs font-mono">{ped ? ped.numero : '—'}</span>;
+      case 'pedido': return ped ? (
+        <div className="flex flex-col leading-tight">
+          <span className="text-xs font-mono font-semibold">{ped.numero}</span>
+          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{clienteNome(ped.cliente_id)}</span>
+        </div>
+      ) : <span className="text-xs text-muted-foreground">—</span>;
       case 'cliente': return <span className="text-xs">{ped ? clienteNome(ped.cliente_id) : '—'}</span>;
       case 'nf': return <NfeBadge ticket={t} size="xs" />;
       case 'status': return <Badge variant="secondary" className="gap-1"><CheckCircle2 className="w-3 h-3" /> Fechado</Badge>;
