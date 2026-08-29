@@ -82,7 +82,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         cliente_id: form.cliente_id,
         produto_id: form.produto_id,
         sem_limite: semLimite,
-        peso_saca_kg: semLimite ? 0 : parseQtd(form.peso_saca_kg),
+        peso_saca_kg: parseQtd(form.peso_saca_kg),
         valor_saca: parseQtd(form.valor_saca),
         qtd_sacas: semLimite ? 0 : parseQtd(form.qtd_sacas),
         total_kg: semLimite ? 0 : totalKg,
@@ -159,8 +159,8 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Peso 1 saca (kg) {form.sem_limite ? '' : '*'}</Label>
-              <Input type="text" inputMode="decimal" value={form.peso_saca_kg} onChange={(e) => setForm({ ...form, peso_saca_kg: e.target.value })} disabled={form.sem_limite} />
+              <Label>Peso 1 saca (kg)</Label>
+              <Input type="text" inputMode="decimal" value={form.peso_saca_kg} onChange={(e) => setForm({ ...form, peso_saca_kg: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label>Valor saca (R$)</Label>
