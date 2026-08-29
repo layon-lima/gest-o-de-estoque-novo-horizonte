@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { GripVertical, Settings2 } from 'lucide-react';
 import {
-  Table,
   TableHeader,
   TableBody,
   TableHead,
@@ -89,7 +88,7 @@ export default function DataTable({
       )}
 
       <div className={`block overflow-auto scrollbar-thin ${containerClassName}`}>
-        <Table>
+        <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-0 bg-muted z-10">
             <DragDropContext onDragStart={() => setDragging(true)} onDragEnd={onDragEnd}>
               <Droppable droppableId="dt-header" direction="horizontal" type="column">
@@ -158,7 +157,7 @@ export default function DataTable({
               </TableRow>
             </TableFooter>
           )}
-        </Table>
+        </table>
       </div>
     </div>
   );
