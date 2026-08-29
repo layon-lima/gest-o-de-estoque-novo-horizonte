@@ -12,7 +12,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { parseQtd, formatQtd } from '@/lib/format';
+import { formatQtd } from '@/lib/format';
 import { formatKg, round3, quebrarTicket } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 import PedidoInfo from '@/components/pesagem/PedidoInfo';
@@ -30,19 +30,20 @@ export default function QuebrarTicketDialog({ open, onClose, onDone, ticket, pes
   const saldoOriginal = Number(pedidoSel?.saldo_kg) || 0;
   const liquidoExcesso = round3((Number(liquido) || 0) - saldoOriginal);
 
-  // O ticket ORIGINAL mantém a tara original; o COMPLEMENTAR mantém o bruto original.
-  const firstWeight = Number(ticket?.peso_tara) || 0;
-  const secondWeight = parseQtd(pesoBruto);
-  const heavierInTara = firstWeight >= (Number(ticket?.peso_bruto) || 0);
-  const splitPoint = heavierInTara
-    ? round3(firstWeight - saldoOriginal)
-    : round3(firstWeight + saldoOriginal);
+  // Quebra encadeada: leve = menor pesagem, pesada = maior pesagem do ticket.
+  const taraRaw = Number(ticket?.peso_tara) || 0;
+  const brutoRaw = Number(ticket?.peso_bruto) || 0;
+  const leve = Math.min(taraRaw, brutoRaw);
+  const pesada = Math.max(taraRaw, brutoRaw);
+  // Original mantém a pesagem leve como tara e fecha o pedido (bruto = leve + saldo consumido).
+  // O bruto gerado vira a tara do complementar; a pesagem pesada original vira o bruto dele.
+  const brutoOriginal = round3(leve + saldoOriginal);
 
-  const pesosOriginal = useMemo(() => ({ tara: firstWeight, bruto: splitPoint, liquido: saldoOriginal }),
-    [firstWeight, splitPoint, saldoOriginal]);
+  const pesosOriginal = useMemo(() => ({ tara: leve, bruto: brutoOriginal, liquido: saldoOriginal }),
+    [leve, brutoOriginal, saldoOriginal]);
 
-  const pesosNovo = useMemo(() => ({ tara: splitPoint, bruto: secondWeight, liquido: liquidoExcesso }),
-    [splitPoint, secondWeight, liquidoExcesso]);
+  const pesosNovo = useMemo(() => ({ tara: brutoOriginal, bruto: pesada, liquido: liquidoExcesso }),
+    [brutoOriginal, pesada, liquidoExcesso]);
 
   const pedidosDisponiveis = useMemo(() => {
     if (!pedidos || !pedidoSel) return [];

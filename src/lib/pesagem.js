@@ -227,25 +227,20 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
 // e o excedente vira um novo ticket vinculado ao novo pedido escolhido pelo usuário.
 export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pedidoSel, novoPedido, transportadoraId, observacao, clienteNome, transpNome, produtos, tickets }) {
   if (!ticket?.id) throw new Error('Ticket inválido para quebra.');
-  const secondWeight = parseQtd(pesoBruto);
-  const firstWeight = Number(ticket.peso_tara) || 0;
+  const taraRaw = Number(ticket.peso_tara) || 0;
+  const brutoRaw = Number(ticket.peso_bruto) || 0;
+  const leve = Math.min(taraRaw, brutoRaw);
+  const pesada = Math.max(taraRaw, brutoRaw);
   const saldoOriginal = Number(pedidoSel.saldo_kg) || 0;
   const liquidoExcesso = round3(liquido - saldoOriginal);
 
-  // O ticket ORIGINAL mantém sempre a tara original; o COMPLEMENTAR mantém o bruto original.
-  // O ponto de divisão entre os dois depende de qual campo é o maior (carga vs. vazio):
-  //   - tara > bruto (carga registrada no campo tara): divisão = tara - saldo
-  //   - bruto > tara (caso normal, carga no bruto):     divisão = tara + saldo
-  const heavierInTara = firstWeight >= (Number(ticket.peso_bruto) || 0);
-  const splitPoint = heavierInTara
-    ? round3(firstWeight - saldoOriginal)
-    : round3(firstWeight + saldoOriginal);
+  // Quebra encadeada: o ticket original mantém a pesagem leve como tara e fecha o
+  // pedido exatamente (bruto = leve + saldo consumido, líquido = saldo). O bruto gerado
+  // vira a tara do complementar, e a pesagem pesada original vira o bruto dele (líquido = excedente).
+  const brutoOriginal = round3(leve + saldoOriginal);
 
-  // Ticket original: fecha o pedido exatamente (líquido = saldo), mantém a tara original.
-  const pesosOriginal = { peso_tara: firstWeight, peso_bruto: splitPoint, peso_liquido: saldoOriginal };
-
-  // Ticket complementar: o restante do peso, mantém o bruto original.
-  const pesosNovo = { peso_tara: splitPoint, peso_bruto: secondWeight, peso_liquido: liquidoExcesso };
+  const pesosOriginal = { peso_tara: leve, peso_bruto: brutoOriginal, peso_liquido: saldoOriginal };
+  const pesosNovo = { peso_tara: brutoOriginal, peso_bruto: pesada, peso_liquido: liquidoExcesso };
 
   const now = new Date().toISOString();
   const transpId = transportadoraId || (pedidoSel.transportadora_ids || '').split(',')[0]?.trim() || '';
