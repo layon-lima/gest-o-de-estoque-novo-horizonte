@@ -14,6 +14,8 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import ProductsTable from '@/components/ProductsTable';
+import DataTable from '@/components/tables/DataTable';
+import { useColumnConfig } from '@/hooks/useColumnConfig';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
 import { formatQtd } from '@/lib/format';
@@ -131,6 +133,59 @@ export default function Relatorios() {
   }, [movimentacoes, filtroMov]);
 
   const movCols = ['Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+
+  const movColumns = [
+    { key: 'data', label: 'Data/Hora', render: (m) => m.data ? new Date(m.data).toLocaleString('pt-BR') : '—', cellClassName: 'text-sm' },
+    {
+      key: 'tipo',
+      label: 'Tipo',
+      render: (m) => (
+        <div className="flex flex-col gap-1">
+          {m.tipo === 'entrada' ? (
+            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit"><ArrowDownCircle className="w-3 h-3" /> Entrada</Badge>
+          ) : m.tipo === 'saida' ? (
+            <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit"><ArrowUpCircle className="w-3 h-3" /> Saída</Badge>
+          ) : (
+            <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit"><Undo2 className="w-3 h-3" /> Estorno</Badge>
+          )}
+          {m.estornada === true && <span className="text-[10px] text-amber-600 font-medium">estornada</span>}
+        </div>
+      ),
+    },
+    { key: 'produto', label: 'Produto', render: (m) => <span className="font-medium text-sm">{m.nome_produto || '—'}</span> },
+    {
+      key: 'qtd',
+      label: 'Quantidade',
+      align: 'right',
+      render: (m, c) => (
+        <span className={`font-semibold tabular-nums ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+          {formatQtd(m.quantidade || 0)}{' '}
+          <span className="text-xs text-muted-foreground font-normal">{c.produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
+        </span>
+      ),
+    },
+    { key: 'codigo', label: 'Código', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</span> },
+    { key: 'numero_nf', label: 'Número NF', render: (m) => <span className="font-mono text-xs">{m.numero_nf || '—'}</span> },
+    { key: 'fornecedor', label: 'Fornecedor', render: (m) => <span className="text-xs">{m.fornecedor || '—'}</span> },
+    { key: 'chave', label: 'Chave de Acesso', render: (m) => <span className="font-mono text-xs">{m.chave_acesso || '—'}</span> },
+    { key: 'setor', label: 'Setor', render: (m, c) => <span className="text-sm">{getNome(m.setor_id, c.setores)}</span> },
+    { key: 'maquina', label: 'Máquina', render: (m, c) => <span className="text-sm">{getNome(m.maquina_id, c.maquinas)}</span> },
+    { key: 'gaveta', label: 'Gaveta', render: (m, c) => <span className="text-sm font-mono">{getNome(m.gaveta_id, c.gavetas, 'codigo')}</span> },
+    { key: 'obs', label: 'Observação', render: (m) => <span className="text-xs text-muted-foreground">{m.observacao || '—'}</span> },
+  ];
+  const movConfig = useColumnConfig('relMovCols', movColumns.map((c) => c.key));
+
+  const valColumns = [
+    { key: 'produto', label: 'Produto', render: (l, c) => <span className="font-medium text-sm">{c.produtos.find((p) => p.id === l.produto_id)?.nome || '—'}</span> },
+    { key: 'qtd', label: 'Quantidade', align: 'right', render: (l) => <span className="font-semibold tabular-nums">{formatQtd(l.quantidade || 0)} {l.unidade}</span> },
+    { key: 'lote', label: 'Lote', render: (l) => <span className="font-mono text-xs">{l.codigo_lote}</span> },
+    { key: 'validade', label: 'Validade', render: (l) => l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—' },
+    { key: 'status', label: 'Status', render: (l) => <ValidadeBadge dataValidade={l.data_validade} /> },
+    { key: 'setor', label: 'Setor', render: (l, c) => <span className="text-sm">{getNome(l.setor_id, c.setores)}</span> },
+    { key: 'maquina', label: 'Máquina', render: (l, c) => <span className="text-sm">{getNome(l.maquina_id, c.maquinas)}</span> },
+    { key: 'gaveta', label: 'Gaveta', render: (l, c) => <span className="text-sm font-mono">{getNome(l.gaveta_id, c.gavetas, 'codigo')}</span> },
+  ];
+  const valConfig = useColumnConfig('relValCols', valColumns.map((c) => c.key));
 
   function buildMovRows() {
     return movimentacoesFiltradas.map((m) => {
@@ -304,68 +359,15 @@ export default function Relatorios() {
             ) : movimentacoesFiltradas.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma movimentação encontrada.</p>
             ) : (
-              <div className="rounded-lg border overflow-auto scrollbar-thin max-h-[600px]">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-muted">
-                    <TableRow>
-                       <TableHead>Data/Hora</TableHead>
-                       <TableHead>Tipo</TableHead>
-                       <TableHead>Produto</TableHead>
-                       <TableHead className="text-right">Quantidade</TableHead>
-                       <TableHead>Código</TableHead>
-                       <TableHead>Número NF</TableHead>
-                       <TableHead>Fornecedor</TableHead>
-                       <TableHead>Chave de Acesso</TableHead>
-                       <TableHead>Setor</TableHead>
-                       <TableHead>Máquina</TableHead>
-                       <TableHead>Gaveta</TableHead>
-                       <TableHead>Observação</TableHead>
-                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movimentacoesFiltradas.map((m) => (
-                      <TableRow key={m.id}>
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {m.tipo === 'entrada' ? (
-                              <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit">
-                                <ArrowDownCircle className="w-3 h-3" /> Entrada
-                              </Badge>
-                            ) : m.tipo === 'saida' ? (
-                              <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit">
-                                <ArrowUpCircle className="w-3 h-3" /> Saída
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit">
-                                <Undo2 className="w-3 h-3" /> Estorno
-                              </Badge>
-                            )}
-                            {m.estornada === true && (
-                              <span className="text-[10px] text-amber-600 font-medium">estornada</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium text-sm">{m.nome_produto || '—'}</TableCell>
-                        <TableCell className={`text-right font-semibold tabular-nums ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatQtd(m.quantidade || 0)}{' '}
-                          <span className="text-xs text-muted-foreground font-normal">{produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</TableCell>
-                        <TableCell className="font-mono text-xs">{m.numero_nf || '—'}</TableCell>
-                        <TableCell className="text-xs max-w-[160px] truncate">{m.fornecedor || '—'}</TableCell>
-                        <TableCell className="font-mono text-xs max-w-[120px] truncate">{m.chave_acesso || '—'}</TableCell>
-                        <TableCell className="text-sm">{getNome(m.setor_id, setores)}</TableCell>
-                        <TableCell className="text-sm">{getNome(m.maquina_id, maquinas)}</TableCell>
-                        <TableCell className="text-sm">{getNome(m.gaveta_id, gavetas, 'codigo')}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{m.observacao || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <DataTable
+                config={movConfig}
+                columns={movColumns}
+                data={movimentacoesFiltradas}
+                getRowId={(m) => m.id}
+                ctx={{ setores, maquinas, gavetas, produtos }}
+                containerClassName="max-h-[600px]"
+                toggleLabel="Colunas"
+              />
             )}
           </Card>
         </TabsContent>
@@ -409,39 +411,15 @@ export default function Relatorios() {
             ) : lotesValidade.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">Nenhum lote encontrado.</p>
             ) : (
-              <div className="rounded-lg border overflow-auto scrollbar-thin max-h-[600px]">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-muted">
-                    <TableRow>
-                      <TableHead>Produto</TableHead>
-                      <TableHead className="text-right">Quantidade</TableHead>
-                      <TableHead>Lote</TableHead>
-                      <TableHead>Validade</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Setor</TableHead>
-                      <TableHead>Máquina</TableHead>
-                      <TableHead>Gaveta</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lotesValidade.map((l) => {
-                      const produto = produtos.find((p) => p.id === l.produto_id);
-                      return (
-                        <TableRow key={l.id}>
-                          <TableCell className="font-medium text-sm">{produto?.nome || '—'}</TableCell>
-                          <TableCell className="text-right font-semibold tabular-nums">{formatQtd(l.quantidade || 0)} {l.unidade}</TableCell>
-                          <TableCell className="font-mono text-xs">{l.codigo_lote}</TableCell>
-                          <TableCell className="text-sm whitespace-nowrap">{l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—'}</TableCell>
-                          <TableCell><ValidadeBadge dataValidade={l.data_validade} /></TableCell>
-                          <TableCell className="text-sm">{getNome(l.setor_id, setores)}</TableCell>
-                          <TableCell className="text-sm">{getNome(l.maquina_id, maquinas)}</TableCell>
-                          <TableCell className="text-sm">{getNome(l.gaveta_id, gavetas, 'codigo')}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <DataTable
+                config={valConfig}
+                columns={valColumns}
+                data={lotesValidade}
+                getRowId={(l) => l.id}
+                ctx={{ setores, maquinas, gavetas, produtos }}
+                containerClassName="max-h-[600px]"
+                toggleLabel="Colunas"
+              />
             )}
           </Card>
         </TabsContent>

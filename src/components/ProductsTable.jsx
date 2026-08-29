@@ -1,19 +1,10 @@
 import { Pencil, Trash2 } from 'lucide-react';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableFooter,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getNome } from '@/lib/estoqueFilters';
 import { formatQtd, formatMoeda } from '@/lib/format';
-import { usePersistentState } from '@/hooks/usePersistentState';
-import ProductColumnsToggle, { buildDefaultVisibility } from '@/components/ProductColumnsToggle';
+import { useColumnConfig } from '@/hooks/useColumnConfig';
+import DataTable from '@/components/tables/DataTable';
 
 export default function ProductsTable({
   produtos,
@@ -25,17 +16,15 @@ export default function ProductsTable({
   onEdit,
   onDelete,
 }) {
-  const [cols, setCols] = usePersistentState(
-    'productsTableCols',
-    buildDefaultVisibility(showStatus)
-  );
-  const toggleCol = (key, val) => setCols((prev) => ({ ...prev, [key]: val }));
+  const hasActions = onEdit || onDelete;
 
   const nonZero = produtos.filter((p) => (p.quantidade || 0) > 0);
   const avg = nonZero.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZero.length || 1);
-
   const totalBruto = produtos.reduce((s, p) => s + (p.quantidade || 0), 0);
-  const totalValor = produtos.reduce((s, p) => s + (Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0), 0);
+  const totalValor = produtos.reduce(
+    (s, p) => s + (Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0),
+    0
+  );
 
   function getStatus(qtd) {
     if (qtd === 0) return { label: 'Zerado', cls: 'bg-red-100 text-red-700 border-red-200' };
@@ -49,108 +38,103 @@ export default function ProductsTable({
     return nome !== '—' ? `${num} — ${nome}` : num;
   }
 
-  const hasActions = onEdit || onDelete;
+  const columns = [
+    { key: 'nome', label: 'Produto', render: (p) => <span className="font-medium">{p.nome}</span> },
+    {
+      key: 'quantidade',
+      label: 'Quantidade',
+      align: 'right',
+      render: (p) => (
+        <span className="text-right font-semibold tabular-nums">
+          {formatQtd(p.quantidade || 0)}
+          <span className="text-xs text-muted-foreground ml-1">{p.unidade}</span>
+        </span>
+      ),
+      footer: () => formatQtd(totalBruto),
+      cellClassName: 'text-right font-semibold tabular-nums',
+    },
+    {
+      key: 'valor_unit',
+      label: 'Valor Unit.',
+      align: 'right',
+      render: (p) => (Number(p.custo_unitario) || 0) > 0 ? formatMoeda(p.custo_unitario) : '—',
+      cellClassName: 'text-right tabular-nums text-sm',
+    },
+    {
+      key: 'valor_total',
+      label: 'Valor Total',
+      align: 'right',
+      render: (p) =>
+        (Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0) > 0
+          ? formatMoeda(Number(p.quantidade) * (Number(p.custo_unitario) || 0))
+          : '—',
+      footer: () => formatMoeda(totalValor),
+      cellClassName: 'text-right tabular-nums font-medium',
+    },
+    { key: 'codigo', label: 'Código', render: (p) => <span className="font-mono text-xs text-muted-foreground">{p.codigo}</span> },
+    { key: 'referencia', label: 'Ref.', render: (p) => <span className="font-mono text-xs text-muted-foreground">{p.codigo_referencia || '—'}</span> },
+    { key: 'setor', label: 'Setor', render: (p, c) => <span className="text-sm">{getNome(p.setor_id, c.setores)}</span>, cellClassName: 'text-sm' },
+    { key: 'deposito', label: 'Depósito', render: (p, c) => <span className="text-sm">{c.depLabel(p)}</span>, cellClassName: 'text-sm' },
+    { key: 'maquina', label: 'Máquina', render: (p, c) => <span className="text-sm">{getNome(p.maquina_id, c.maquinas)}</span>, cellClassName: 'text-sm' },
+    { key: 'gaveta', label: 'Gaveta', render: (p, c) => <span className="text-sm font-mono">{getNome(p.gaveta_id, c.gavetas, 'codigo')}</span>, cellClassName: 'text-sm font-mono' },
+    ...(showStatus
+      ? [
+          {
+            key: 'status',
+            label: 'Status',
+            render: (p, c) => {
+              const st = c.getStatus(p.quantidade || 0);
+              return <Badge variant="outline" className={st.cls}>{st.label}</Badge>;
+            },
+          },
+        ]
+      : []),
+    ...(hasActions
+      ? [
+          {
+            key: 'actions',
+            label: 'Ações',
+            align: 'right',
+            render: (p, c) => (
+              <span className="inline-flex gap-1">
+                {c.onEdit && (
+                  <Button size="icon" variant="ghost" onClick={() => c.onEdit(p)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                )}
+                {c.onDelete && (
+                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => c.onDelete(p)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </span>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  const config = useColumnConfig('productsTableCols', columns.map((c) => c.key));
+  const visible = config.order;
+  const ctx = { setores, maquinas, gavetas, depositos, getStatus, depLabel, onEdit, onDelete };
 
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/40">
-        <span className="text-xs text-muted-foreground">Toque nas colunas para mostrar/ocultar</span>
-        <ProductColumnsToggle visibility={cols} onToggle={toggleCol} showStatus={showStatus} />
-      </div>
-      {/* Desktop: tabela com rolagem interna controlada */}
-      <div className="hidden sm:block max-h-[420px] overflow-auto scrollbar-thin">
-        <Table>
-          <TableHeader className="sticky top-0 bg-muted z-10">
-            <TableRow>
-              <TableHead>Produto</TableHead>
-              {cols.quantidade && <TableHead className="text-right">Quantidade</TableHead>}
-              {cols.valor_unit && <TableHead className="text-right">Valor Unit.</TableHead>}
-              {cols.valor_total && <TableHead className="text-right">Valor Total</TableHead>}
-              {cols.codigo && <TableHead>Código</TableHead>}
-              {cols.referencia && <TableHead>Ref.</TableHead>}
-              {cols.setor && <TableHead>Setor</TableHead>}
-              {cols.deposito && <TableHead>Depósito</TableHead>}
-              {cols.maquina && <TableHead>Máquina</TableHead>}
-              {cols.gaveta && <TableHead>Gaveta</TableHead>}
-              {showStatus && cols.status && <TableHead>Status</TableHead>}
-              {hasActions && <TableHead className="text-right">Ações</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {produtos.map((p) => {
-              const st = getStatus(p.quantidade || 0);
-              return (
-                <TableRow key={p._rowKey || p.id}>
-                  <TableCell className="font-medium">{p.nome}</TableCell>
-                  {cols.quantidade && (
-                    <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
-                      {formatQtd(p.quantidade || 0)}
-                      <span className="text-xs text-muted-foreground ml-1">{p.unidade}</span>
-                    </TableCell>
-                  )}
-                  {cols.valor_unit && (
-                    <TableCell className="text-right whitespace-nowrap tabular-nums text-sm">
-                      {(Number(p.custo_unitario) || 0) > 0 ? formatMoeda(p.custo_unitario) : '—'}
-                    </TableCell>
-                  )}
-                  {cols.valor_total && (
-                    <TableCell className="text-right whitespace-nowrap tabular-nums font-medium">
-                      {(Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0) > 0
-                        ? formatMoeda(Number(p.quantidade) * (Number(p.custo_unitario) || 0))
-                        : '—'}
-                    </TableCell>
-                  )}
-                  {cols.codigo && <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>}
-                  {cols.referencia && <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo_referencia || '—'}</TableCell>}
-                  {cols.setor && <TableCell className="text-sm">{getNome(p.setor_id, setores)}</TableCell>}
-                  {cols.deposito && <TableCell className="text-sm">{depLabel(p)}</TableCell>}
-                  {cols.maquina && <TableCell className="text-sm">{getNome(p.maquina_id, maquinas)}</TableCell>}
-                  {cols.gaveta && <TableCell className="text-sm font-mono">{getNome(p.gaveta_id, gavetas, 'codigo')}</TableCell>}
-                  {showStatus && cols.status && (
-                    <TableCell>
-                      <Badge variant="outline" className={st.cls}>{st.label}</Badge>
-                    </TableCell>
-                  )}
-                  {hasActions && (
-                    <TableCell className="text-right whitespace-nowrap">
-                      {onEdit && (
-                        <Button size="icon" variant="ghost" onClick={() => onEdit(p)}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {onDelete && (
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => onDelete(p)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-          {produtos.length > 0 && (
-            <TableFooter className="sticky bottom-0 bg-muted/70 backdrop-blur-sm z-10">
-              <TableRow className="font-semibold hover:bg-transparent border-t-2 border-border">
-                <TableCell>Total</TableCell>
-                {cols.quantidade && <TableCell className="text-right tabular-nums">{formatQtd(totalBruto)}</TableCell>}
-                {cols.valor_unit && <TableCell />}
-                {cols.valor_total && <TableCell className="text-right tabular-nums">{formatMoeda(totalValor)}</TableCell>}
-                {cols.codigo && <TableCell />}
-                {cols.referencia && <TableCell />}
-                {cols.setor && <TableCell />}
-                {cols.deposito && <TableCell />}
-                {cols.maquina && <TableCell />}
-                {cols.gaveta && <TableCell />}
-                {showStatus && cols.status && <TableCell />}
-                {hasActions && <TableCell />}
-              </TableRow>
-            </TableFooter>
-          )}
-        </Table>
+    <div>
+      {/* Desktop: tabela com colunas arrastáveis, sem quebra de texto */}
+      <div className="hidden sm:block">
+        <DataTable
+          config={config}
+          columns={columns}
+          data={produtos}
+          getRowId={(p) => p._rowKey || p.id}
+          ctx={ctx}
+          footerLabel="Total"
+          containerClassName="max-h-[420px]"
+          toggleLabel="Colunas"
+        />
       </div>
 
-      {/* Mobile: cartões empilhados, sem rolagem horizontal */}
+      {/* Mobile: cartões empilhados (sem rolagem horizontal) */}
       <div className="sm:hidden divide-y">
         {produtos.map((p) => {
           const st = getStatus(p.quantidade || 0);
@@ -158,25 +142,25 @@ export default function ProductsTable({
             <div key={p._rowKey || p.id} className="p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <span className="font-medium text-sm leading-tight">{p.nome}</span>
-                {showStatus && (
+                {showStatus && visible.includes('status') && (
                   <Badge variant="outline" className={`${st.cls} shrink-0`}>{st.label}</Badge>
                 )}
               </div>
-              {cols.quantidade && (
+              {visible.includes('quantidade') && (
                 <div className="flex items-baseline gap-1">
                   <span className="text-lg font-bold tabular-nums">{formatQtd(p.quantidade || 0)}</span>
                   <span className="text-xs text-muted-foreground">{p.unidade}</span>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {cols.codigo && <div><span className="font-medium text-foreground/70">Código:</span> <span className="font-mono">{p.codigo}</span></div>}
-                {cols.referencia && <div><span className="font-medium text-foreground/70">Ref.:</span> <span className="font-mono">{p.codigo_referencia || '—'}</span></div>}
-                {cols.setor && <div className="truncate"><span className="font-medium text-foreground/70">Setor:</span> {getNome(p.setor_id, setores) || '—'}</div>}
-                {cols.deposito && <div className="truncate"><span className="font-medium text-foreground/70">Dep.:</span> {depLabel(p)}</div>}
-                {cols.maquina && <div className="truncate"><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>}
-                {cols.gaveta && <div className="truncate"><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>}
-                {cols.valor_unit && <div><span className="font-medium text-foreground/70">Valor unit.:</span> {(Number(p.custo_unitario) || 0) > 0 ? formatMoeda(p.custo_unitario) : '—'}</div>}
-                {cols.valor_total && <div><span className="font-medium text-foreground/70">Valor total:</span> {(Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0) > 0 ? formatMoeda(Number(p.quantidade) * (Number(p.custo_unitario) || 0)) : '—'}</div>}
+                {visible.includes('codigo') && <div><span className="font-medium text-foreground/70">Código:</span> <span className="font-mono">{p.codigo}</span></div>}
+                {visible.includes('referencia') && <div><span className="font-medium text-foreground/70">Ref.:</span> <span className="font-mono">{p.codigo_referencia || '—'}</span></div>}
+                {visible.includes('setor') && <div><span className="font-medium text-foreground/70">Setor:</span> {getNome(p.setor_id, setores) || '—'}</div>}
+                {visible.includes('deposito') && <div><span className="font-medium text-foreground/70">Dep.:</span> {depLabel(p)}</div>}
+                {visible.includes('maquina') && <div><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>}
+                {visible.includes('gaveta') && <div><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>}
+                {visible.includes('valor_unit') && <div><span className="font-medium text-foreground/70">Valor unit.:</span> {(Number(p.custo_unitario) || 0) > 0 ? formatMoeda(p.custo_unitario) : '—'}</div>}
+                {visible.includes('valor_total') && <div><span className="font-medium text-foreground/70">Valor total:</span> {(Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0) > 0 ? formatMoeda(Number(p.quantidade) * (Number(p.custo_unitario) || 0)) : '—'}</div>}
               </div>
               {hasActions && (
                 <div className="flex justify-end gap-1 pt-1">
@@ -195,19 +179,20 @@ export default function ProductsTable({
             </div>
           );
         })}
+        {produtos.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground py-8">Nenhum produto encontrado.</p>
+        )}
       </div>
 
       {produtos.length > 0 && (
         <div className="sm:hidden flex items-center justify-end gap-2 px-4 py-2.5 border-t bg-muted/40 text-sm font-semibold">
-          <span>Total:</span>
-          <span className="tabular-nums">{formatQtd(totalBruto)}</span>
+          {visible.includes('quantidade') && (
+            <>
+              <span>Total:</span>
+              <span className="tabular-nums">{formatQtd(totalBruto)}</span>
+            </>
+          )}
         </div>
-      )}
-
-      {produtos.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground py-8">
-          Nenhum produto encontrado.
-        </p>
       )}
     </div>
   );
