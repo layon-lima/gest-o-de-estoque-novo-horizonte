@@ -228,19 +228,24 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
 export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pedidoSel, novoPedido, transportadoraId, observacao, clienteNome, transpNome, produtos, tickets }) {
   if (!ticket?.id) throw new Error('Ticket inválido para quebra.');
   const secondWeight = parseQtd(pesoBruto);
-  const firstWeight = isInverted ? (Number(ticket.peso_bruto) || 0) : (Number(ticket.peso_tara) || 0);
+  const firstWeight = Number(ticket.peso_tara) || 0;
   const saldoOriginal = Number(pedidoSel.saldo_kg) || 0;
   const liquidoExcesso = round3(liquido - saldoOriginal);
 
-  // Ticket original: ajustado para fechar o pedido exatamente
-  const pesosOriginal = isInverted
-    ? { peso_bruto: firstWeight, peso_tara: round3(firstWeight - saldoOriginal), peso_liquido: saldoOriginal }
-    : { peso_tara: firstWeight, peso_bruto: round3(firstWeight + saldoOriginal), peso_liquido: saldoOriginal };
+  // O ticket ORIGINAL mantém sempre a tara original; o COMPLEMENTAR mantém o bruto original.
+  // O ponto de divisão entre os dois depende de qual campo é o maior (carga vs. vazio):
+  //   - tara > bruto (carga registrada no campo tara): divisão = tara - saldo
+  //   - bruto > tara (caso normal, carga no bruto):     divisão = tara + saldo
+  const heavierInTara = firstWeight >= (Number(ticket.peso_bruto) || 0);
+  const splitPoint = heavierInTara
+    ? round3(firstWeight - saldoOriginal)
+    : round3(firstWeight + saldoOriginal);
 
-  // Ticket complementar: o restante do peso
-  const pesosNovo = isInverted
-    ? { peso_bruto: round3(firstWeight - saldoOriginal), peso_tara: secondWeight, peso_liquido: liquidoExcesso }
-    : { peso_tara: round3(firstWeight + saldoOriginal), peso_bruto: secondWeight, peso_liquido: liquidoExcesso };
+  // Ticket original: fecha o pedido exatamente (líquido = saldo), mantém a tara original.
+  const pesosOriginal = { peso_tara: firstWeight, peso_bruto: splitPoint, peso_liquido: saldoOriginal };
+
+  // Ticket complementar: o restante do peso, mantém o bruto original.
+  const pesosNovo = { peso_tara: splitPoint, peso_bruto: secondWeight, peso_liquido: liquidoExcesso };
 
   const now = new Date().toISOString();
   const transpId = transportadoraId || (pedidoSel.transportadora_ids || '').split(',')[0]?.trim() || '';

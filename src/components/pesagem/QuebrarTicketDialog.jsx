@@ -30,17 +30,19 @@ export default function QuebrarTicketDialog({ open, onClose, onDone, ticket, pes
   const saldoOriginal = Number(pedidoSel?.saldo_kg) || 0;
   const liquidoExcesso = round3((Number(liquido) || 0) - saldoOriginal);
 
-  const firstWeight = isInverted ? (Number(ticket?.peso_bruto) || 0) : (Number(ticket?.peso_tara) || 0);
+  // O ticket ORIGINAL mantém a tara original; o COMPLEMENTAR mantém o bruto original.
+  const firstWeight = Number(ticket?.peso_tara) || 0;
+  const secondWeight = parseQtd(pesoBruto);
+  const heavierInTara = firstWeight >= (Number(ticket?.peso_bruto) || 0);
+  const splitPoint = heavierInTara
+    ? round3(firstWeight - saldoOriginal)
+    : round3(firstWeight + saldoOriginal);
 
-  const pesosOriginal = useMemo(() => isInverted
-    ? { tara: round3(firstWeight - saldoOriginal), bruto: firstWeight, liquido: saldoOriginal }
-    : { tara: firstWeight, bruto: round3(firstWeight + saldoOriginal), liquido: saldoOriginal },
-  [isInverted, firstWeight, saldoOriginal]);
+  const pesosOriginal = useMemo(() => ({ tara: firstWeight, bruto: splitPoint, liquido: saldoOriginal }),
+    [firstWeight, splitPoint, saldoOriginal]);
 
-  const pesosNovo = useMemo(() => isInverted
-    ? { tara: parseQtd(pesoBruto), bruto: round3(firstWeight - saldoOriginal), liquido: liquidoExcesso }
-    : { tara: round3(firstWeight + saldoOriginal), bruto: parseQtd(pesoBruto), liquido: liquidoExcesso },
-  [isInverted, firstWeight, saldoOriginal, pesoBruto, liquidoExcesso]);
+  const pesosNovo = useMemo(() => ({ tara: splitPoint, bruto: secondWeight, liquido: liquidoExcesso }),
+    [splitPoint, secondWeight, liquidoExcesso]);
 
   const pedidosDisponiveis = useMemo(() => {
     if (!pedidos || !pedidoSel) return [];
