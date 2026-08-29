@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 // Colunas fixas (Produto, Ações) nunca aparecem aqui — sempre visíveis.
 const DEFAULT_COLUMNS = [
   { key: 'quantidade', label: 'Quantidade' },
+  { key: 'valor_unit', label: 'Valor Unit.' },
+  { key: 'valor_total', label: 'Valor Total' },
   { key: 'codigo', label: 'Código' },
   { key: 'referencia', label: 'Ref.' },
   { key: 'setor', label: 'Setor' },

@@ -12,8 +12,24 @@ export async function recalcProdutoQuantidade(produtoId, saldos) {
   return total;
 }
 
+// valor_total de uma parcela = quantidade × custo_unitario.
+function valorParcela(saldo) {
+  return (Number(saldo?.quantidade) || 0) * (Number(saldo?.custo_unitario) || 0);
+}
+
+// Persiste quantidade + valor_total de uma parcela.
+async function persistSaldo(saldo) {
+  const novaQtd = Number(saldo.quantidade) || 0;
+  const custo = Number(saldo.custo_unitario) || 0;
+  await base44.entities.SaldoEstoque.update(saldo.id, {
+    quantidade: novaQtd,
+    custo_unitario: custo,
+    valor_total: Math.round(novaQtd * custo * 100) / 100,
+  });
+}
+
 // Encontra saldo existente ou cria um novo para a combinação produto+depósito+gaveta+lote.
-export async function getOrCreateSaldo({ produtoId, depositoId, gavetaId = '', loteId = '', unidade = 'un', saldos }) {
+export async function getOrCreateSaldo({ produtoId, depositoId, gavetaId = '', loteId = '', unidade = 'un', custoUnitario = 0, saldos }) {
   const existing = (saldos || []).find(
     (s) =>
       s.produto_id === produtoId &&
@@ -28,19 +44,23 @@ export async function getOrCreateSaldo({ produtoId, depositoId, gavetaId = '', l
     gaveta_id: gavetaId || '',
     lote_id: loteId || '',
     quantidade: 0,
+    custo_unitario: Number(custoUnitario) || 0,
+    valor_total: 0,
     unidade,
   });
   saldos?.push(created);
   return created;
 }
 
-// Entrada: adiciona quantidade a um saldo (cria se não existir).
-export async function entrarSaldo({ produto, depositoId, gavetaId = '', loteId = '', quantidade, unidade = 'un', saldos }) {
+// Entrada: adiciona quantidade a um saldo (cria se não existir). Suporta custo unitário.
+export async function entrarSaldo({ produto, depositoId, gavetaId = '', loteId = '', quantidade, custoUnitario, unidade = 'un', saldos }) {
   if (!depositoId) throw new Error('DEPOSITO_OBRIGATORIO');
-  const saldo = await getOrCreateSaldo({ produtoId: produto.id, depositoId, gavetaId, loteId, unidade, saldos });
-  const novaQtd = (saldo.quantidade || 0) + quantidade;
-  await base44.entities.SaldoEstoque.update(saldo.id, { quantidade: novaQtd });
-  saldo.quantidade = novaQtd;
+  const custo = Number(custoUnitario) || 0;
+  const saldo = await getOrCreateSaldo({ produtoId: produto.id, depositoId, gavetaId, loteId, unidade, custoUnitario: custo, saldos });
+  // Se a parcela é nova (sem custo) e veio um custo, assume-o; senão mantém o existente.
+  if (!saldo.custo_unitario && custo) saldo.custo_unitario = custo;
+  saldo.quantidade = (Number(saldo.quantidade) || 0) + Number(quantidade);
+  await persistSaldo(saldo);
   await recalcProdutoQuantidade(produto.id, saldos);
   return saldo;
 }
@@ -80,10 +100,9 @@ export async function sairSaldo({ produto, depositoId, gavetaId = '', quantidade
     if (restante <= 0) break;
     const disp = saldo.quantidade || 0;
     const consumo = Math.min(disp, restante);
-    const novaQtd = disp - consumo;
-    await base44.entities.SaldoEstoque.update(saldo.id, { quantidade: novaQtd });
-    saldo.quantidade = novaQtd;
-    consumidos.push({ saldo_id: saldo.id, lote_id: saldo.lote_id || '', quantidade: consumo });
+    saldo.quantidade = disp - consumo;
+    await persistSaldo(saldo);
+    consumidos.push({ saldo_id: saldo.id, lote_id: saldo.lote_id || '', quantidade: consumo, custo_unitario: saldo.custo_unitario || 0 });
     restante -= consumo;
   }
 
@@ -91,14 +110,15 @@ export async function sairSaldo({ produto, depositoId, gavetaId = '', quantidade
   return { consumidos, totalDisponivel, suficiente: restante <= 0 };
 }
 
-// Reverte o efeito de uma movimentação no saldo.
+// Reverte o efeito de uma movimentação no saldo (incluindo o valor financeiro).
 export async function reverterSaldoMov(mov, { saldos }) {
   const produtoId = mov.produto_id;
   const depositoId = mov.deposito_id;
   const gavetaId = mov.gaveta_id || '';
+  const custo = Number(mov.custo_unitario) || 0;
 
   if (mov.tipo === 'entrada') {
-    // Reverte entrada: remove do saldo
+    // Reverte entrada: remove do saldo (mesmo custo da entrada)
     const saldo = (saldos || []).find(
       (s) =>
         s.produto_id === produtoId &&
@@ -107,12 +127,11 @@ export async function reverterSaldoMov(mov, { saldos }) {
         (s.lote_id || '') === (mov.lote_id || '')
     );
     if (saldo) {
-      const novaQtd = Math.max(0, (saldo.quantidade || 0) - (mov.quantidade || 0));
-      await base44.entities.SaldoEstoque.update(saldo.id, { quantidade: novaQtd });
-      saldo.quantidade = novaQtd;
+      saldo.quantidade = Math.max(0, (saldo.quantidade || 0) - (mov.quantidade || 0));
+      await persistSaldo(saldo);
     }
   } else {
-    // Reverte saída: devolve ao saldo
+    // Reverte saída: devolve ao saldo (preservando custo da parcela consumida)
     const consumidos = mov.lotes_consumidos
       ? JSON.parse(mov.lotes_consumidos)
       : [{ lote_id: mov.lote_id || '', quantidade: mov.quantidade }];
@@ -123,11 +142,11 @@ export async function reverterSaldoMov(mov, { saldos }) {
         gavetaId,
         loteId: c.lote_id || '',
         unidade: 'un',
+        custoUnitario: Number(c.custo_unitario) || custo,
         saldos,
       });
-      const novaQtd = (saldo.quantidade || 0) + (c.quantidade || 0);
-      await base44.entities.SaldoEstoque.update(saldo.id, { quantidade: novaQtd });
-      saldo.quantidade = novaQtd;
+      saldo.quantidade = (saldo.quantidade || 0) + (c.quantidade || 0);
+      await persistSaldo(saldo);
     }
   }
 
@@ -254,4 +273,34 @@ export function gavetasComSaldoDoProduto(produtoId, depositoId, saldos = [], gav
       .filter(Boolean)
   );
   return (gavetas || []).filter((g) => gavIds.has(g.id));
+}
+
+// Valor total de um produto = Σ (parcela.quantidade × parcela.custo_unitario).
+export function valorTotalProduto(produtoId, saldos = []) {
+  return (saldos || [])
+    .filter((s) => s.produto_id === produtoId && (s.quantidade || 0) > 0)
+    .reduce((sum, s) => sum + valorParcela(s), 0);
+}
+
+// Valor consolidado por produto, depósito, setor e total da empresa.
+// `produtos` resolve produto_id → setor_id para o agrupamento por setor.
+export function valorEstoqueConsolidado(saldos = [], produtos = [], depositos = []) {
+  const ativos = (saldos || []).filter((s) => (s.quantidade || 0) > 0);
+  let totalGeral = 0;
+  const porProduto = {};
+  const porDeposito = {};
+  const porSetor = {};
+
+  for (const s of ativos) {
+    const valor = valorParcela(s);
+    totalGeral += valor;
+    porProduto[s.produto_id] = (porProduto[s.produto_id] || 0) + valor;
+    const depKey = s.deposito_id || '_sem_deposito';
+    porDeposito[depKey] = (porDeposito[depKey] || 0) + valor;
+    const produto = produtos.find((p) => p.id === s.produto_id);
+    const setorKey = produto?.setor_id || '_sem_setor';
+    porSetor[setorKey] = (porSetor[setorKey] || 0) + valor;
+  }
+
+  return { totalGeral, porProduto, porDeposito, porSetor };
 }

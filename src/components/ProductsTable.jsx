@@ -11,7 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getNome } from '@/lib/estoqueFilters';
-import { formatQtd } from '@/lib/format';
+import { formatQtd, formatMoeda } from '@/lib/format';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import ProductColumnsToggle, { buildDefaultVisibility } from '@/components/ProductColumnsToggle';
 
@@ -35,6 +35,7 @@ export default function ProductsTable({
   const avg = nonZero.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZero.length || 1);
 
   const totalBruto = produtos.reduce((s, p) => s + (p.quantidade || 0), 0);
+  const totalValor = produtos.reduce((s, p) => s + (Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0), 0);
 
   function getStatus(qtd) {
     if (qtd === 0) return { label: 'Zerado', cls: 'bg-red-100 text-red-700 border-red-200' };
@@ -63,6 +64,8 @@ export default function ProductsTable({
             <TableRow>
               <TableHead>Produto</TableHead>
               {cols.quantidade && <TableHead className="text-right">Quantidade</TableHead>}
+              {cols.valor_unit && <TableHead className="text-right">Valor Unit.</TableHead>}
+              {cols.valor_total && <TableHead className="text-right">Valor Total</TableHead>}
               {cols.codigo && <TableHead>Código</TableHead>}
               {cols.referencia && <TableHead>Ref.</TableHead>}
               {cols.setor && <TableHead>Setor</TableHead>}
@@ -83,6 +86,18 @@ export default function ProductsTable({
                     <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">
                       {formatQtd(p.quantidade || 0)}
                       <span className="text-xs text-muted-foreground ml-1">{p.unidade}</span>
+                    </TableCell>
+                  )}
+                  {cols.valor_unit && (
+                    <TableCell className="text-right whitespace-nowrap tabular-nums text-sm">
+                      {(Number(p.custo_unitario) || 0) > 0 ? formatMoeda(p.custo_unitario) : '—'}
+                    </TableCell>
+                  )}
+                  {cols.valor_total && (
+                    <TableCell className="text-right whitespace-nowrap tabular-nums font-medium">
+                      {(Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0) > 0
+                        ? formatMoeda(Number(p.quantidade) * (Number(p.custo_unitario) || 0))
+                        : '—'}
                     </TableCell>
                   )}
                   {cols.codigo && <TableCell className="font-mono text-xs text-muted-foreground">{p.codigo}</TableCell>}
@@ -119,6 +134,8 @@ export default function ProductsTable({
               <TableRow className="font-semibold hover:bg-transparent border-t-2 border-border">
                 <TableCell>Total</TableCell>
                 {cols.quantidade && <TableCell className="text-right tabular-nums">{formatQtd(totalBruto)}</TableCell>}
+                {cols.valor_unit && <TableCell />}
+                {cols.valor_total && <TableCell className="text-right tabular-nums">{formatMoeda(totalValor)}</TableCell>}
                 {cols.codigo && <TableCell />}
                 {cols.referencia && <TableCell />}
                 {cols.setor && <TableCell />}
@@ -158,6 +175,8 @@ export default function ProductsTable({
                 {cols.deposito && <div className="truncate"><span className="font-medium text-foreground/70">Dep.:</span> {depLabel(p)}</div>}
                 {cols.maquina && <div className="truncate"><span className="font-medium text-foreground/70">Máq.:</span> {getNome(p.maquina_id, maquinas) || '—'}</div>}
                 {cols.gaveta && <div className="truncate"><span className="font-medium text-foreground/70">Gaveta:</span> <span className="font-mono">{getNome(p.gaveta_id, gavetas, 'codigo') || '—'}</span></div>}
+                {cols.valor_unit && <div><span className="font-medium text-foreground/70">Valor unit.:</span> {(Number(p.custo_unitario) || 0) > 0 ? formatMoeda(p.custo_unitario) : '—'}</div>}
+                {cols.valor_total && <div><span className="font-medium text-foreground/70">Valor total:</span> {(Number(p.quantidade) || 0) * (Number(p.custo_unitario) || 0) > 0 ? formatMoeda(Number(p.quantidade) * (Number(p.custo_unitario) || 0)) : '—'}</div>}
               </div>
               {hasActions && (
                 <div className="flex justify-end gap-1 pt-1">

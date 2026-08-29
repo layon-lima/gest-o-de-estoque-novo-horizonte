@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { parseNfeXml } from '@/lib/nfeParser';
+import { parseNfeXml, validarItemNfe } from '@/lib/nfeParser';
 import { setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import { proximoCodigoInterno } from '@/lib/produtoCodigo';
@@ -75,6 +75,7 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
       let unmatched = 0;
       let criados = 0;
       let convertidos = 0;
+      const divergencias = [];
 
       for (const item of editedItems) {
         let produto;
@@ -83,6 +84,12 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
         if (!item.create_new && item.produto_id) {
           produto = produtosWork.find((p) => p.id === item.produto_id);
           if (!produto) { unmatched++; continue; }
+          // Atualiza o custo unitário do produto com o vUnCom da NF-e.
+          const vUnCom = Number(item.vUnCom) || 0;
+          if (vUnCom > 0) {
+            await base44.entities.Produto.update(produto.id, { custo_unitario: vUnCom });
+            produto.custo_unitario = vUnCom;
+          }
         } else if (item.create_new) {
           if (!item.novo_nome || !item.novo_setor_id) { unmatched++; continue; }
           const duplicado = findProdutoDuplicado({
@@ -104,6 +111,7 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
               fator_conversao: Number(item.novo_fator_conversao) || 0,
               quantidade: 0,
               estoque_minimo: 0,
+              custo_unitario: Number(item.vUnCom) || 0,
             });
             produtosWork.push(produto);
             criouNovo = true;
@@ -123,6 +131,10 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           prodParaConv.unidade_alt = item.uCom;
           prodParaConv.fator_conversao = Number(item.fator_custom);
         }
+        // Validação: vProd ≈ qCom × vUnCom (tolerância R$ 0,01)
+        const valItem = validarItemNfe(item);
+        if (!valItem.ok) divergencias.push(`${item.xProd || item.cProd}: esperado R$ ${valItem.esperado}, lido R$ ${item.vProd}`);
+
         const convResult = convertQtyForProduto(item.qCom, item.uCom, prodParaConv);
         let qtd = convResult.qtd;
         if (convResult.convertido) convertidos++;
@@ -170,6 +182,8 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           dataValidade = item.data_validade;
         }
 
+        const vUnComMov = Number(item.vUnCom) || 0;
+        const vProdMov = Number(item.vProd) || 0;
         await base44.entities.Movimentacao.create({
           data: now,
           numero: formatarNumeroMov(proxNum++),
@@ -177,6 +191,8 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           codigo: produto.codigo,
           nome_produto: produto.nome,
           quantidade: qtd,
+          custo_unitario: vUnComMov,
+          valor_movimentado: vProdMov,
           setor_id: produto.setor_id,
           maquina_id: item.maquina_id || produto.maquina_id,
           gaveta_id: item.gaveta_id || produto.gaveta_id,
@@ -224,6 +240,13 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
         title: 'Importação concluída',
         description: `${matched} entrada(s) registrada(s)${criados > 0 ? `, ${criados} produto(s) criado(s)` : ''}${convertidos > 0 ? `, ${convertidos} com conversão de unidade` : ''}${unmatched > 0 ? `, ${unmatched} ignorado(s)` : ''}.`,
       });
+      if (divergencias.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: `Divergência de valor em ${divergencias.length} item(ns)`,
+          description: divergencias.slice(0, 3).join(' | ') + (divergencias.length > 3 ? ' ...' : ''),
+        });
+      }
 
       setPreview(null);
       onImported?.();

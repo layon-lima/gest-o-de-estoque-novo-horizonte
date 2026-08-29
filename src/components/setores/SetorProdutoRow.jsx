@@ -7,7 +7,7 @@ import {
   MapPin,
   Boxes,
 } from 'lucide-react';
-import { formatQtd } from '@/lib/format';
+import { formatQtd, formatMoeda } from '@/lib/format';
 
 function formatDate(d) {
   if (!d) return '';
@@ -101,6 +101,14 @@ export default function SetorProdutoRow({
             <Detail
               label="Estoque mínimo"
               value={`${formatQtd(produto.estoque_minimo || 0)} ${produto.unidade || ''}`}
+            />
+            <Detail
+              label="Valor unitário"
+              value={(Number(produto.custo_unitario) || 0) > 0 ? formatMoeda(produto.custo_unitario) : '—'}
+            />
+            <Detail
+              label="Valor total"
+              value={totalReal * (Number(produto.custo_unitario) || 0) > 0 ? formatMoeda(totalReal * (Number(produto.custo_unitario) || 0)) : '—'}
             />
             <Detail label="Código ref." value={produto.codigo_referencia || '—'} />
             {maq && <Detail label="Máquina" value={maq.nome} />}

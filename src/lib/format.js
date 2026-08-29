@@ -8,6 +8,13 @@ export function formatQtd(n) {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Formata valor monetário no padrão BRL (R$ 1.234,56).
+export function formatMoeda(n) {
+  const num = Number(n);
+  if (!isFinite(num)) return 'R$ 0,00';
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 // Formata a dose/ha com até 4 casas decimais, aceitando vírgula decimal (pt-BR).
 // Necessário porque a dose é digitada como texto e pode conter vírgula (ex.: "0,5").
 export function formatDose(v) {

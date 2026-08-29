@@ -27,9 +27,11 @@ export function parseNfeXml(xmlText) {
     const xProd = getText(prod, 'xProd');
     const qCom = parseFloat(getText(prod, 'qCom') || '0') || 0;
     const uCom = getText(prod, 'uCom');
+    const vUnCom = parseFloat(getText(prod, 'vUnCom') || '0') || 0;
+    const vProd = parseFloat(getText(prod, 'vProd') || '0') || 0;
 
     if (cProd || xProd) {
-      items.push({ cProd, xProd, qCom, uCom });
+      items.push({ cProd, xProd, qCom, uCom, vUnCom, vProd });
     }
   }
 
@@ -44,6 +46,17 @@ export function parseNfeXml(xmlText) {
   const chave = idAttr.startsWith('NFe') ? idAttr.slice(3) : idAttr;
 
   return { nNF, dhEmi, emitente, chave, items };
+}
+
+// Valida o valor do item: vProd deve ser ≈ qCom × vUnCom (tolerância R$ 0,01).
+// Retorna { ok, esperado, diferenca }.
+export function validarItemNfe(item) {
+  const qCom = Number(item?.qCom) || 0;
+  const vUnCom = Number(item?.vUnCom) || 0;
+  const vProd = Number(item?.vProd) || 0;
+  const esperado = Math.round(qCom * vUnCom * 100) / 100;
+  const diferenca = Math.round((vProd - esperado) * 100) / 100;
+  return { ok: Math.abs(diferenca) <= 0.01, esperado, diferenca };
 }
 
 export function matchNfeItem(item, produtos) {

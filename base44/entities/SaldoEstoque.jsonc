@@ -27,6 +27,18 @@
       "title": "Quantidade",
       "default": 0
     },
+    "custo_unitario": {
+      "type": "number",
+      "title": "Custo Unit\u00e1rio (R$)",
+      "description": "Custo unit\u00e1rio de aquisi\u00e7\u00e3o desta parcela (ex.: vUnCom da NF-e de entrada).",
+      "default": 0
+    },
+    "valor_total": {
+      "type": "number",
+      "title": "Valor Total (R$)",
+      "description": "Valor financeiro da parcela = quantidade \u00d7 custo_unitario. Mantido automaticamente pelas opera\u00e7\u00f5es de saldo.",
+      "default": 0
+    },
     "unidade": {
       "type": "string",
       "title": "Unidade",

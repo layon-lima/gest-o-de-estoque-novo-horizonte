@@ -29,6 +29,18 @@
       "type": "number",
       "title": "Quantidade"
     },
+    "custo_unitario": {
+      "type": "number",
+      "title": "Custo Unit\u00e1rio (R$)",
+      "description": "Custo unit\u00e1rio do produto na origem da movimenta\u00e7\u00e3o (ex.: vUnCom da NF-e em entradas).",
+      "default": 0
+    },
+    "valor_movimentado": {
+      "type": "number",
+      "title": "Valor Movimentado (R$)",
+      "description": "Valor financeiro total da movimenta\u00e7\u00e3o (ex.: vProd da NF-e em entradas = quantidade \u00d7 custo unit\u00e1rio).",
+      "default": 0
+    },
     "setor_id": {
       "type": "string",
       "title": "Setor"
