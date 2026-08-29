@@ -7,6 +7,7 @@ import { findProdutoDuplicado } from '@/lib/produtoDedup';
 import { proximoCodigoInterno } from '@/lib/produtoCodigo';
 import { convertQtyForProduto } from '@/lib/units';
 import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
+import { entrarSaldo } from '@/lib/saldos';
 
 export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported }) {
   const [importing, setImporting] = useState(false);
@@ -69,6 +70,7 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
 
       const lotesAtuais = await base44.entities.Lote.list();
       const movsExistentes = await base44.entities.Movimentacao.list('-created_date', 1000);
+      const saldosWork = await base44.entities.SaldoEstoque.list('-created_date', 5000);
       let proxNum = maxNumeroMovimento(movsExistentes) + 1;
       const produtosWork = produtos.map((p) => ({ ...p }));
       let matched = 0;
@@ -103,6 +105,7 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
               nome: item.novo_nome,
               codigo: proximoCodigoInterno(produtosWork),
               setor_id: item.novo_setor_id,
+              deposito_id: item.deposito_id || '',
               maquina_id: item.maquina_id || '',
               gaveta_id: item.gaveta_id || '',
               codigo_referencia: item.codigo_referencia || item.cProd || '',
@@ -149,41 +152,59 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           produto.fator_conversao = Number(item.fator_custom);
         }
 
+        const depositoId = item.deposito_id || produto.deposito_id || '';
+        if (!depositoId) { unmatched++; continue; }
+
         const controla = setorControlaValidade(produto.setor_id, setores);
         let loteId = '';
         let dataValidade = '';
+        const gavetaId = item.gaveta_id || produto.gaveta_id || '';
 
         if (controla && item.data_validade) {
-          // Lote interno: soma a um lote existente do mesmo produto com a mesma
-          // validade; se não houver, cria novo lote com código interno automático
-          // (sequencial por produto, ex.: P0001-L01).
+          // Lote interno por produto + validade + depósito.
           let lote = lotesAtuais.find(
-            (l) => l.produto_id === produto.id && l.data_validade === item.data_validade
+            (l) => l.produto_id === produto.id && l.data_validade === item.data_validade && (l.deposito_id || '') === depositoId
           );
           if (lote) {
             loteId = lote.id;
             lote.quantidade = (lote.quantidade || 0) + qtd;
-            await base44.entities.Lote.update(lote.id, { quantidade: lote.quantidade });
+            await base44.entities.Lote.update(lote.id, { quantidade: lote.quantidade, deposito_id: depositoId, gaveta_id: gavetaId || lote.gaveta_id });
+            lote.deposito_id = depositoId;
           } else {
             const created = await base44.entities.Lote.create({
               produto_id: produto.id,
               codigo_referencia: produto.codigo_referencia || '',
               setor_id: produto.setor_id,
+              deposito_id: depositoId,
               maquina_id: item.maquina_id || produto.maquina_id || '',
-              gaveta_id: item.gaveta_id || produto.gaveta_id || '',
+              gaveta_id: gavetaId || produto.gaveta_id || '',
               codigo_lote: proximoCodigoLote(produto, lotesAtuais),
               data_validade: item.data_validade,
               quantidade: qtd,
               unidade: produto.unidade || 'un',
             });
             loteId = created.id;
-            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: qtd, data_validade: item.data_validade, codigo_lote: created.codigo_lote });
+            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: qtd, data_validade: item.data_validade, deposito_id: depositoId, codigo_lote: created.codigo_lote });
           }
           dataValidade = item.data_validade;
         }
 
         const vUnComMov = Number(item.vUnCom) || 0;
         const vProdMov = Number(item.vProd) || 0;
+
+        // ENTRADA no saldo multi-depósito — atualiza SaldoEstoque e recalcula
+        // Produto.quantidade (fonte da verdade = soma das parcelas de saldo).
+        await entrarSaldo({
+          produto,
+          depositoId,
+          gavetaId,
+          loteId,
+          quantidade: qtd,
+          custoUnitario: vUnComMov,
+          unidade: produto.unidade || 'un',
+          saldos: saldosWork,
+        });
+
         await base44.entities.Movimentacao.create({
           data: now,
           numero: formatarNumeroMov(proxNum++),
@@ -194,8 +215,9 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           custo_unitario: vUnComMov,
           valor_movimentado: vProdMov,
           setor_id: produto.setor_id,
+          deposito_id: depositoId,
           maquina_id: item.maquina_id || produto.maquina_id,
-          gaveta_id: item.gaveta_id || produto.gaveta_id,
+          gaveta_id: gavetaId,
           tipo: 'entrada',
           observacao: obs,
           numero_nf: numeroNf || '',
@@ -205,34 +227,15 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
           data_validade: dataValidade,
         });
 
-        if (criouNovo && !controla) {
-          await base44.entities.Produto.update(produto.id, {
-            quantidade: qtd,
-            maquina_id: item.maquina_id || produto.maquina_id,
-            gaveta_id: item.gaveta_id || produto.gaveta_id,
-            codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
-          });
-          produto.quantidade = qtd;
-        } else if (controla && loteId) {
-          const lotesProduto = lotesAtuais.filter((l) => l.produto_id === produto.id);
-          const novaQtd = lotesProduto.reduce((s, l) => s + (l.quantidade || 0), 0);
-          await base44.entities.Produto.update(produto.id, {
-            quantidade: novaQtd,
-            maquina_id: item.maquina_id || produto.maquina_id,
-            gaveta_id: item.gaveta_id || produto.gaveta_id,
-            codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
-          });
-          produto.quantidade = novaQtd;
-        } else {
-          const novaQtd = (produto.quantidade || 0) + qtd;
-          await base44.entities.Produto.update(produto.id, {
-            quantidade: novaQtd,
-            maquina_id: item.maquina_id || produto.maquina_id,
-            gaveta_id: item.gaveta_id || produto.gaveta_id,
-            codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
-          });
-          produto.quantidade = novaQtd;
-        }
+        // Atualiza o endereço padrão do produto (novo produto ganha depósito).
+        await base44.entities.Produto.update(produto.id, {
+          ...(criouNovo ? { deposito_id: depositoId } : {}),
+          maquina_id: item.maquina_id || produto.maquina_id,
+          gaveta_id: gavetaId || produto.gaveta_id,
+          codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
+        });
+        if (criouNovo) produto.deposito_id = depositoId;
+        produto.gaveta_id = gavetaId || produto.gaveta_id;
         matched++;
       }
 

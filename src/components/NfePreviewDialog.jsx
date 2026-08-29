@@ -29,7 +29,7 @@ import { sortGavetas } from '@/lib/gavetas';
 import { parseQtd, formatQtd, formatQtdConvertida } from '@/lib/format';
 import { normalizarUnidade, precisaConversaoCustom, temConversaoCustom, convertQtyForProduto } from '@/lib/units';
 
-export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, onClose, onConfirm }) {
+export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setores, maquinas, gavetas, depositos = [], onClose, onConfirm }) {
   const [edited, setEdited] = useState([]);
   const [nfData, setNfData] = useState({ numero_nf: '', fornecedor: '', chave_acesso: '' });
 
@@ -57,6 +57,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
             novo_codigo: '',
             novo_setor_id: '',
             novo_unidade: item.uCom || 'un',
+            deposito_id: produto?.deposito_id || '',
             maquina_id: produto?.maquina_id || '',
             gaveta_id: produto?.gaveta_id || '',
             codigo_referencia: produto?.codigo_referencia || item.cProd || '',
@@ -91,11 +92,27 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
           ...copy[idx],
           produto_id: value,
           create_new: false,
+          deposito_id: produto?.deposito_id || '',
           maquina_id: produto?.maquina_id || '',
           gaveta_id: produto?.gaveta_id || '',
           codigo_referencia: produto?.codigo_referencia || copy[idx].codigo_referencia || '',
         };
       }
+      return copy;
+    });
+  }
+
+  function handleDepositoChange(idx, value) {
+    const v = value === 'all' ? '' : value;
+    setEdited((prev) => {
+      const copy = [...prev];
+      copy[idx] = {
+        ...copy[idx],
+        deposito_id: v,
+        // Máquina e gaveta são filtradas pelo depósito — limpam ao trocar.
+        maquina_id: '',
+        gaveta_id: '',
+      };
       return copy;
     });
   }
@@ -110,6 +127,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
   function isItemValid(item) {
     const hasProduto = item.produto_id || (item.create_new && item.novo_nome && item.novo_setor_id);
     if (!hasProduto) return false;
+    if (!item.deposito_id) return false;
     if (itemControlaValidade(item)) return !!item.data_validade;
     const prodUnidade = item.create_new
       ? item.novo_unidade
@@ -178,6 +196,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                 <TableHead>Produto (NF-e)</TableHead>
                 <TableHead className="w-[80px]">Qtd.</TableHead>
                 <TableHead className="min-w-[200px]">Produto do Estoque</TableHead>
+                <TableHead className="min-w-[180px]">Depósito *</TableHead>
                 <TableHead className="min-w-[160px]">Máquina</TableHead>
                 <TableHead className="min-w-[140px]">Gaveta</TableHead>
                 <TableHead className="min-w-[140px]">Referência</TableHead>
@@ -245,13 +264,24 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                     </TableCell>
                     <TableCell>
                       <SearchSelect
+                        value={item.deposito_id}
+                        onChange={(v) => handleDepositoChange(idx, v)}
+                        allLabel="— Selecione —"
+                        placeholder="Buscar depósito..."
+                        disabled={!editable(item)}
+                        className="h-8"
+                        options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <SearchSelect
                         value={item.maquina_id}
                         onChange={(v) => updateRow(idx, 'maquina_id', v === 'all' ? '' : v)}
                         allLabel="— Nenhuma —"
                         placeholder="Buscar máquina..."
-                        disabled={!editable(item)}
+                        disabled={!editable(item) || !item.deposito_id}
                         className="h-8"
-                        options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
+                        options={maquinas.filter((m) => !item.deposito_id || m.deposito_id === item.deposito_id).map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
                       />
                     </TableCell>
                     <TableCell>
@@ -260,9 +290,9 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                         onChange={(v) => updateRow(idx, 'gaveta_id', v === 'all' ? '' : v)}
                         allLabel="— Nenhuma —"
                         placeholder="Buscar gaveta..."
-                        disabled={!editable(item)}
+                        disabled={!editable(item) || !item.deposito_id}
                         className="h-8"
-                        options={sortGavetas(gavetas).map((g) => ({ value: g.id, label: g.codigo }))}
+                        options={sortGavetas(gavetas.filter((g) => !item.deposito_id || g.deposito_id === item.deposito_id)).map((g) => ({ value: g.id, label: g.codigo }))}
                       />
                     </TableCell>
                     <TableCell>
@@ -277,7 +307,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                   </TableRow>
                   {item.create_new && (
                     <TableRow key={`${idx}-new`} className="bg-accent/40">
-                      <TableCell colSpan={7} className="py-3">
+                      <TableCell colSpan={8} className="py-3">
                         <div className="flex items-end gap-3 flex-wrap">
                           <div className="space-y-1">
                             <Label className="text-xs">Nome *</Label>
@@ -345,7 +375,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
                   )}
                   {!item.create_new && item.produto_id && itemControlaValidade(item) && (
                     <TableRow key={`${idx}-lote`} className="bg-amber-50/50">
-                      <TableCell colSpan={7} className="py-2">
+                      <TableCell colSpan={8} className="py-2">
                         <div className="flex items-end gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Lote interno</Label>

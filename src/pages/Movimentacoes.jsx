@@ -356,6 +356,7 @@ export default function Movimentacoes() {
                   setores={setores}
                   maquinas={maquinas}
                   gavetas={gavetas}
+                  depositos={depositos}
                   onClose={nfe.close}
                   onConfirm={nfe.confirm}
                 />
