@@ -21,14 +21,16 @@ export default function PedidoInfo({ pedido, clienteNome, produtoNome, variant =
 
   if (variant === 'summary') {
     return (
-      <div className="rounded-lg border p-3 space-y-1">
-        <div className="flex items-center justify-between gap-2">
+      <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-2 shadow-sm">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">{Numero}{SemLimiteBadge}</div>
           {!semLimite && <span className="text-xs text-muted-foreground">Limite {formatQtd(totalSacas)} sacas · {formatKg(pedido.total_kg)}</span>}
         </div>
-        <p className="font-medium truncate">{clienteNome(pedido.cliente_id)}</p>
-        <p className="text-xs text-muted-foreground truncate">{produtoNome(pedido.produto_id)}</p>
-        <div className="flex justify-between pt-1 text-xs">
+        <div>
+          <p className="font-semibold text-base truncate leading-tight">{clienteNome(pedido.cliente_id)}</p>
+          <p className="text-sm text-muted-foreground truncate">{produtoNome(pedido.produto_id)}</p>
+        </div>
+        <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs">
           <span className="text-muted-foreground">Limite: <b className="text-foreground">{semLimite ? 'Sem limite' : `${formatQtd(pedido.qtd_sacas || 0)} sacas`}</b></span>
           <span className="text-muted-foreground">Valor/saca: <b className="text-foreground">{formatMoeda(pedido.valor_saca)}</b></span>
         </div>
