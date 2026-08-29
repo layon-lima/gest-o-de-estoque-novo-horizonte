@@ -112,7 +112,7 @@ export default function PedidoDetalheDialog({ pedido, pessoas, produtos, tickets
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Peso/saca</p>
-                  <p className="font-semibold">{semLimite ? '—' : formatKg(pedido.peso_saca_kg || 0)}</p>
+                  <p className="font-semibold">{formatKg(pedido.peso_saca_kg || 0)}</p>
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Valor/saca</p>
