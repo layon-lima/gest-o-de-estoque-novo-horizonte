@@ -241,6 +241,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                           <span>Saldo: <b className="text-foreground">{formatKg(pedidoSel.saldo_kg)}</b></span>
                           <span>Transportadora(s): <b className="text-foreground">{transpsDoPedido.length ? transpsDoPedido.map((t) => t.nome).join(', ') : '—'}</b></span>
                         </div>
+                        {pedidoSel.observacao && <p className="text-xs text-muted-foreground italic truncate pt-1">Obs: {pedidoSel.observacao}</p>}
                       </div>
                     </div>
                   ) : (
@@ -263,9 +264,14 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                               className={`w-full text-left rounded-lg border p-3 transition-colors hover:bg-accent hover:border-primary/50`}
                             >
                               <div className="flex justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
-                                  <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {formatQtd(saldoSacas)} sacas disponível</p>
+                                <div className="min-w-0 w-full space-y-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {p.numero && <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{p.numero}</span>}
+                                    {p.sem_limite && <Badge className="bg-sky-100 text-sky-700 text-[10px]">Sem limite</Badge>}
+                                    <p className="font-medium truncate">{clienteNome(p.cliente_id)}</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">{produtoNome(p.produto_id)} · {p.sem_limite ? 'Sem limite' : `${formatQtd(saldoSacas)} sacas disponível`}</p>
+                                  {p.observacao && <p className="text-xs text-muted-foreground italic truncate">Obs: {p.observacao}</p>}
                                 </div>
                               </div>
                             </button>

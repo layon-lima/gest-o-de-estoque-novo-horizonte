@@ -29,6 +29,9 @@ export default function PedidoInfo({ pedido, clienteNome, produtoNome, variant =
         <div>
           <p className="font-semibold text-base truncate leading-tight">{clienteNome(pedido.cliente_id)}</p>
           <p className="text-sm text-muted-foreground truncate">{produtoNome(pedido.produto_id)}</p>
+          {pedido.observacao ? (
+            <p className="text-sm text-muted-foreground italic truncate pt-0.5">Obs: {pedido.observacao}</p>
+          ) : null}
         </div>
         <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs">
           <span className="text-muted-foreground">Limite: <b className="text-foreground">{semLimite ? 'Sem limite' : `${formatQtd(pedido.qtd_sacas || 0)} sacas`}</b></span>
@@ -43,6 +46,9 @@ export default function PedidoInfo({ pedido, clienteNome, produtoNome, variant =
       <div className="flex items-center gap-1.5 flex-wrap mb-0.5">{Numero}{SemLimiteBadge}</div>
       <p className="font-medium truncate">{clienteNome(pedido.cliente_id)}</p>
       <p className="text-xs text-muted-foreground truncate">{produtoNome(pedido.produto_id)}</p>
+      {pedido.observacao ? (
+        <p className="text-xs text-muted-foreground italic truncate">Obs: {pedido.observacao}</p>
+      ) : null}
       <p className="text-xs text-muted-foreground">Valor/saca: <b className="text-foreground">{formatMoeda(pedido.valor_saca)}</b></p>
     </div>
   );
