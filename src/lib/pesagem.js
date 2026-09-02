@@ -196,7 +196,6 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
     if (!semLimite) {
       await base44.entities.PedidoPesagem.update(pedidoId, {
         saldo_kg: novoSaldo,
-        status: novoSaldo <= 0 ? 'concluido' : 'aberto',
       });
     }
     const prodVenda = produtos.find((p) => p.id === pedidoSel.produto_id);

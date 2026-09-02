@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { formatKg, formatMoeda, formatPlaca, round3, statusPorSaldo } from '@/lib/pesagem';
+import { formatKg, formatMoeda, formatPlaca, round3 } from '@/lib/pesagem';
 import QuebrarTicketDialog from './QuebrarTicketDialog';
 import PedidoInfo from './PedidoInfo';
 
@@ -33,7 +33,7 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
 
   const pedidosAbertos = useMemo(
-    () => (pedidos || []).filter((p) => p.status === 'aberto' && (p.sem_limite || (Number(p.saldo_kg) || 0) > 0)),
+    () => (pedidos || []).filter((p) => p.status === 'aberto'),
     [pedidos]
   );
 
@@ -82,7 +82,6 @@ export default function VincularTicketDialog({ ticket, pedidos, pessoas, produto
       const novoSaldo = round3((Number(pedidoSelecionado.saldo_kg) || 0) - liq);
       await base44.entities.PedidoPesagem.update(pedidoSelecionado.id, {
         saldo_kg: novoSaldo,
-        status: statusPorSaldo(novoSaldo, pedidoSelecionado.total_kg, pedidoSelecionado.status),
       });
       await base44.entities.TicketPesagem.update(ticket.id, { pedido_id: pedidoSelecionado.id });
       toast({ title: 'Ticket vinculado', description: `Saldo do pedido atualizado.` });

@@ -119,6 +119,19 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
     }
   }
 
+  async function handleConcluirPedido(pedido) {
+    if (!pedido?.id) return;
+    try {
+      await base44.entities.PedidoPesagem.update(pedido.id, { status: 'concluido' });
+      queryClientInstance.removeQueries({ queryKey: ['ent', 'PedidoPesagem'] });
+      await queryClientInstance.refetchQueries({ queryKey: ['ent', 'PedidoPesagem'] });
+      toast({ title: 'Pedido concluído', description: pedido.numero || '' });
+      onReload();
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao concluir', description: err?.message || '' });
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -173,8 +186,10 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
             const restanteSacas = pesoSaca > 0 ? (p.saldo_kg || 0) / pesoSaca : 0;
             const totalSacas = pesoSaca > 0 ? (p.total_kg || 0) / pesoSaca : 0;
             const carregadoPct = p.total_kg > 0 ? Math.max(0, 100 - pct) : 0;
+            const sugerirConcluir = (p.saldo_kg || 0) <= 0 && p.status === 'aberto';
             return (
-              <button key={p.id} type="button" onClick={() => setSelecionado(p)} className="w-full text-left">
+              <div key={p.id} className={sugerirConcluir ? 'space-y-2' : ''}>
+              <button type="button" onClick={() => setSelecionado(p)} className="w-full text-left">
                 <Card className="p-4 hover:shadow-md hover:border-primary/50 transition-all">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="min-w-0">
@@ -197,6 +212,13 @@ export default function PedidosManager({ pedidos, pessoas, produtos, tickets, tr
                   </div>
                 </Card>
               </button>
+              {sugerirConcluir && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+                  <span className="text-xs text-amber-700 font-medium">Saldo zerado — sugerimos concluir este pedido.</span>
+                  <Button size="sm" variant="outline" className="shrink-0 border-amber-400 text-amber-700 hover:bg-amber-100" onClick={() => handleConcluirPedido(p)}>Concluir</Button>
+                </div>
+              )}
+              </div>
             );
           })}
         </div>

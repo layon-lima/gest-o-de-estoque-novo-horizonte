@@ -15,11 +15,11 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
-import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, statusPorSaldo, round3, nextPedidoNumber } from '@/lib/pesagem';
+import { calcTotalKg, calcValorTotal, formatKg, formatMoeda, somaLiquidoTickets, round3, nextPedidoNumber } from '@/lib/pesagem';
 import { Switch } from '@/components/ui/switch';
 import { Infinity as InfinityIcon } from 'lucide-react';
 
-const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', transportadora_ids: [], observacao: '', sem_limite: false };
+const empty = { cliente_id: '', produto_id: '', peso_saca_kg: '60', valor_saca: '0', qtd_sacas: '0', transportadora_ids: [], observacao: '', sem_limite: false, status: 'aberto' };
 
 export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, produtos, transportadoras, pedido, tickets, pedidos }) {
   const isEdit = !!pedido;
@@ -39,6 +39,7 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         transportadora_ids: (pedido.transportadora_ids || '').split(',').map((s) => s.trim()).filter(Boolean),
         observacao: pedido.observacao || '',
         sem_limite: !!pedido.sem_limite,
+        status: pedido.status || 'aberto',
       });
     } else {
       setForm(empty);
@@ -91,20 +92,13 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
         transportadora_nomes: transpNomes,
         observacao: form.observacao || '',
       };
+      payload.status = form.status || 'aberto';
       if (isEdit) {
-        if (semLimite) {
-          payload.saldo_kg = 0;
-          payload.status = 'aberto';
-        } else {
-          const saldoKg = round3(totalKg - carregadoKg);
-          payload.saldo_kg = saldoKg;
-          payload.status = statusPorSaldo(saldoKg, totalKg, pedido.status);
-        }
+        payload.saldo_kg = semLimite ? 0 : round3(totalKg - carregadoKg);
         await base44.entities.PedidoPesagem.update(pedido.id, payload);
         toast({ title: 'Pedido atualizado' });
       } else {
         payload.saldo_kg = semLimite ? 0 : totalKg;
-        payload.status = 'aberto';
         payload.numero = nextPedidoNumber(pedidos);
         await base44.entities.PedidoPesagem.create(payload);
         toast({ title: 'Pedido cadastrado' });
@@ -157,6 +151,23 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
             </div>
             <Switch checked={form.sem_limite} onCheckedChange={(v) => setForm({ ...form, sem_limite: v })} />
           </div>
+          {isEdit && (
+            <div className="space-y-1.5">
+              <Label>Status do pedido</Label>
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className="flex h-9 w-full rounded-md glass-input px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="aberto">Aberto (disponível na pesagem)</option>
+                <option value="concluido">Concluído (não aparece na pesagem)</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+              {!form.sem_limite && Number(pedido?.saldo_kg) <= 0 && form.status === 'aberto' && (
+                <p className="text-xs text-amber-600">O saldo está zerado. Considere marcar como Concluído.</p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Peso 1 saca (kg)</Label>

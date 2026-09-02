@@ -53,7 +53,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   const isVenda = (ticket?.tipo || 'avulsa') === 'venda';
   const isInverted = (ticket?.peso_bruto || 0) > 0 && (ticket?.peso_tara || 0) === 0;
-  const pedidosAbertos = isVenda ? pedidos.filter((p) => (p.status === 'aberto' && (p.sem_limite || (Number(p.saldo_kg) || 0) > 0)) || p.id === ticket?.pedido_id) : [];
+  const pedidosAbertos = isVenda ? pedidos.filter((p) => p.status === 'aberto' || p.id === ticket?.pedido_id) : [];
 
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
