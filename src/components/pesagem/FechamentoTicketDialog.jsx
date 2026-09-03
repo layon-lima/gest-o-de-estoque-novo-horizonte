@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, formatMoeda, formatPlaca, fecharTicket } from '@/lib/pesagem';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
+import { imprimirTicketTermico } from '@/lib/ticketThermal';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
@@ -135,6 +136,18 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
     }
   }
 
+  async function imprimirTermico() {
+    if (!fechado) return;
+    setGerando(true);
+    try {
+      await imprimirTicketTermico(fechado, { pedido: pedidoSel, produtoNome, clienteNome });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao imprimir térmica', description: String(err?.message || err) });
+    } finally {
+      setGerando(false);
+    }
+  }
+
   async function confirmarFechamento() {
     setSaving(true);
     try {
@@ -220,7 +233,10 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             </div>
             <div className="flex flex-col gap-2 pt-1">
               <Button className="w-full" onClick={() => imprimir(true)} disabled={gerando}>
-                <Printer className="w-4 h-4 mr-2" /> {gerando ? 'Preparando...' : 'Imprimir'}
+                <Printer className="w-4 h-4 mr-2" /> {gerando ? 'Preparando...' : 'Imprimir A4'}
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => imprimirTermico()} disabled={gerando}>
+                <Printer className="w-4 h-4 mr-2" /> Imprimir Térmica
               </Button>
               <Button variant="outline" className="w-full" onClick={() => imprimir(false)} disabled={gerando}>
                 <FileDown className="w-4 h-4 mr-2" /> Baixar PDF

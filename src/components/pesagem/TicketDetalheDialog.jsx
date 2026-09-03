@@ -13,6 +13,7 @@ import {
 import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
 import { formatQtd } from '@/lib/format';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
+import { imprimirTicketTermico } from '@/lib/ticketThermal';
 import MarcaNfDialog from './MarcaNfDialog';
 import EditarTicketDialog from './EditarTicketDialog';
 
@@ -32,6 +33,18 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
     setGerandoPdf(opts.print ? 'print' : 'download');
     try {
       await gerarTicketPDF(ticket, { pedido, produtoNome, clienteNome }, opts);
+    } finally {
+      setGerandoPdf(null);
+    }
+  }
+
+  async function handleTermico() {
+    if (!ticket) return;
+    setGerandoPdf('termico');
+    try {
+      await imprimirTicketTermico(ticket, { pedido, produtoNome, clienteNome });
+    } catch (err) {
+      console.error(err);
     } finally {
       setGerandoPdf(null);
     }
@@ -142,10 +155,13 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => handlePdf({ print: true })} disabled={!!gerandoPdf}>
-                {gerandoPdf === 'print' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Imprimir
+                {gerandoPdf === 'print' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Imprimir A4
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={handleTermico} disabled={!!gerandoPdf}>
+                {gerandoPdf === 'termico' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Térmica
               </Button>
               <Button className="flex-1" onClick={() => handlePdf({})} disabled={!!gerandoPdf}>
-                {gerandoPdf === 'download' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} Baixar PDF
+                {gerandoPdf === 'download' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} PDF
               </Button>
             </div>
 
