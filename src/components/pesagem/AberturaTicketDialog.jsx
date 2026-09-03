@@ -310,15 +310,6 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                     <Button type="button" size="sm" className="shrink-0" onClick={() => setForm({ ...form, peso: formatQtd(taraSugerida) })}>Usar</Button>
                   </div>
                 )}
-                <div className="sm:col-span-2">
-                  <PesoDisplay
-                    label="Peso da 1ª Pesagem (kg) *"
-                    value={form.peso}
-                    onChange={(v) => setForm({ ...form, peso: v })}
-                    onPesoLido={(p) => setForm({ ...form, peso: p })}
-                    podeDigitar={podeDigitar}
-                  />
-                </div>
                 {!isVenda && (
                   <>
                     <div className="space-y-1 sm:col-span-2">
@@ -361,6 +352,15 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                 <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs">Observação</Label>
                   <Textarea rows={2} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <PesoDisplay
+                    label="Peso da 1ª Pesagem (kg) *"
+                    value={form.peso}
+                    onChange={(v) => setForm({ ...form, peso: v })}
+                    onPesoLido={(p) => setForm({ ...form, peso: p })}
+                    podeDigitar={podeDigitar}
+                  />
                 </div>
               </div>
               <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-4 bg-background/95 backdrop-blur border-t">

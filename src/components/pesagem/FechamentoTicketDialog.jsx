@@ -263,22 +263,6 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
             </div>
           </div>
 
-          <PesoDisplay
-            label="Peso da 2ª Pesagem (kg) *"
-            value={pesoBruto}
-            onChange={setPesoBruto}
-            onPesoLido={setPesoBruto}
-            podeDigitar={podeDigitar}
-            autoFocus
-          />
-
-          <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 flex justify-between items-center">
-            <div>
-              <span className="text-sm font-medium text-muted-foreground">Peso Líquido</span>
-              <p className="text-xs text-muted-foreground/70">calculado automaticamente</p>
-            </div>
-            <span className="text-3xl font-bold text-primary">{formatKg(liquido)}</span>
-          </div>
 
           {isVenda && (
           <div className="space-y-1.5">
@@ -396,6 +380,23 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
           <div className="space-y-1.5">
             <Label>Observação</Label>
             <Textarea rows={2} value={observacao} onChange={(e) => setObservacao(e.target.value)} />
+          </div>
+
+          <PesoDisplay
+            label="Peso da 2ª Pesagem (kg) *"
+            value={pesoBruto}
+            onChange={setPesoBruto}
+            onPesoLido={setPesoBruto}
+            podeDigitar={podeDigitar}
+            autoFocus
+          />
+
+          <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 flex justify-between items-center">
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Peso Líquido</span>
+              <p className="text-xs text-muted-foreground/70">calculado automaticamente</p>
+            </div>
+            <span className="text-3xl font-bold text-primary">{formatKg(liquido)}</span>
           </div>
 
           <div className="sticky bottom-0 z-10 flex gap-2 py-3 mt-4 bg-background/95 backdrop-blur border-t">
