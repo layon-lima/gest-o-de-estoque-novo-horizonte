@@ -174,7 +174,7 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) tentarSair(); }}>
       <DialogContent
-        className="!left-0 !top-0 !translate-x-0 !translate-y-0 max-w-none h-full max-h-none rounded-none overflow-y-auto p-4 sm:p-6 content-start"
+        className="max-w-2xl w-[95vw] max-h-[90dvh] p-4 sm:p-6"
         onEscapeKeyDown={(e) => { e.preventDefault(); tentarSair(); }}
         onInteractOutside={(e) => { e.preventDefault(); tentarSair(); }}
       >

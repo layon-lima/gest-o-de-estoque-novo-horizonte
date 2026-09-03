@@ -202,7 +202,7 @@ export default function FechamentoTicketDialog({ ticket, pedidos, pessoas, produ
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) tentarSair(); }}>
-      <DialogContent className="inset-0 max-w-none h-full max-h-none translate-x-0 translate-y-0 rounded-none overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-2xl w-[95vw] max-h-[90dvh] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">Fechar Ticket {ticket.numero}</DialogTitle>
           <DialogDescription>Registre o peso da 2ª pesagem para concluir a pesagem.</DialogDescription>
