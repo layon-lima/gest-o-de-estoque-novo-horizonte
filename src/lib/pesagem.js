@@ -2,7 +2,7 @@
 import { base44 } from '@/api/base44Client';
 import { parseQtd } from '@/lib/format';
 import { sairSaldo } from '@/lib/saldos';
-import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
+import { maxNumeroMovimento, formatarNumeroMov, reverterEstoqueMov } from '@/lib/movimentacoes';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
 // Normaliza placa: uppercase, sem hífen/espaços (ex.: "ABC-1234" -> "ABC1234").
@@ -219,6 +219,55 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
   }
 
   return { ticket: closedTicket, baixaError };
+}
+
+// Ajusta estoque e saldo do pedido ao editar os pesos de um ticket de venda FECHADO:
+// estorna a movimentação de saída original (devolvendo estoque/lotes), reajusta o
+// saldo do pedido e re-aplica a baixa com o novo peso líquido. Retorna { baixaError }.
+export async function ajustarEstoqueVendaTicket({ ticket, novoLiquido, produtos }) {
+  const novoLiq = round3(Number(novoLiquido) || 0);
+  const liquidoAntigo = round3(Number(ticket?.peso_liquido) || 0);
+
+  let pedido = null;
+  if (ticket?.pedido_id) {
+    try { pedido = await base44.entities.PedidoPesagem.get(ticket.pedido_id); } catch { pedido = null; }
+  }
+
+  // 1. Estornar a movimentação de saída deste ticket (restaura saldo/lotes)
+  const movs = await base44.entities.Movimentacao.filter({ produto_id: ticket.produto_id, tipo: 'saida' });
+  const alvo = (movs || []).find((m) => m.estornada !== true && String(m.observacao || '').includes(`Venda — Ticket ${ticket.numero}`));
+  if (alvo) {
+    const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: ticket.produto_id });
+    const lotes = await base44.entities.Lote.filter({ produto_id: ticket.produto_id });
+    const produtoFull = (produtos || []).find((p) => p.id === ticket.produto_id) || await base44.entities.Produto.get(ticket.produto_id);
+    await reverterEstoqueMov(alvo, { produtos: [produtoFull], lotes, saldos });
+    await base44.entities.Movimentacao.update(alvo.id, { estornada: true });
+  }
+
+  // 2. Reajustar o saldo do pedido (restaura o líquido antigo, desconta o novo)
+  if (pedido && !pedido.sem_limite) {
+    const novoSaldo = round3((Number(pedido.saldo_kg) || 0) + liquidoAntigo - novoLiq);
+    await base44.entities.PedidoPesagem.update(pedido.id, { saldo_kg: novoSaldo });
+  }
+
+  // 3. Re-aplicar a baixa de estoque com o novo líquido
+  let baixaError = null;
+  const produto = (produtos || []).find((p) => p.id === ticket.produto_id);
+  if (produto && novoLiq > 0) {
+    try {
+      await baixarEstoqueVendaTicket({ produto, quantidadeKg: novoLiq, ticketNumero: ticket.numero });
+    } catch (e) {
+      baixaError = String(e?.message || e);
+    }
+  }
+
+  invalidateEntidade('TicketPesagem');
+  invalidateEntidade('PedidoPesagem');
+  invalidateEntidade('SaldoEstoque');
+  invalidateEntidade('Movimentacao');
+  invalidateEntidade('Lote');
+  invalidateEntidade('Produto');
+  return { baixaError };
 }
 
 // Quebra um ticket em dois quando o peso excede o saldo do pedido original.

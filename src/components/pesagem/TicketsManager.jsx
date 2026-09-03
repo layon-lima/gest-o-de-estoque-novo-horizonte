@@ -443,6 +443,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         onClose={() => setDetalheTicket(null)}
         onExcluir={(t) => { setDetalheTicket(null); setExcluirTicket(t); }}
         onReload={onReload}
+        onTicketUpdated={(t) => setDetalheTicket(t)}
       />
 
       <AlertDialog open={!!excluirTicket} onOpenChange={(o) => !o && setExcluirTicket(null)}>
