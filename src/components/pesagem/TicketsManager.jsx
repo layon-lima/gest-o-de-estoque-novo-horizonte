@@ -440,6 +440,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
         pedidos={pedidos}
         pessoas={pessoas}
         produtos={produtos}
+        transportadoras={transportadoras}
         onClose={() => setDetalheTicket(null)}
         onExcluir={(t) => { setDetalheTicket(null); setExcluirTicket(t); }}
         onReload={onReload}

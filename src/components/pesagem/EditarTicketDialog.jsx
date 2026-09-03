@@ -36,7 +36,7 @@ function inputToIso(v) {
   try { return new Date(v).toISOString(); } catch { return ''; }
 }
 
-export default function EditarTicketDialog({ ticket, pedidos, pessoas, produtos, transportadoras, onClose, onSaved }) {
+export default function EditarTicketDialog({ ticket, pedidos = [], pessoas = [], produtos = [], transportadoras = [], onClose, onSaved }) {
   const open = !!ticket;
   const { toast } = useToast();
   const { user } = useAuth();
