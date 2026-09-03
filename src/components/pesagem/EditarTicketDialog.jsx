@@ -186,8 +186,8 @@ export default function EditarTicketDialog({ ticket, pedidos = [], pessoas = [],
                   <SearchSelect value={form.produto_id} onChange={(v) => setField('produto_id', v)} placeholder="Buscar produto..." options={produtos.map((p) => ({ value: p.id, label: p.nome }))} />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs">Cliente</Label>
-                  <SearchSelect value={form.cliente_id} onChange={(v) => setField('cliente_id', v)} placeholder="Buscar cliente..." options={clientes.map((c) => ({ value: c.id, label: c.nome }))} />
+                  <Label className="text-xs">{ticket.tipo === 'compra' ? 'Fornecedor' : 'Cliente'}</Label>
+                  <SearchSelect value={form.cliente_id} onChange={(v) => setField('cliente_id', v)} placeholder={ticket.tipo === 'compra' ? 'Buscar fornecedor...' : 'Buscar cliente...'} options={clientes.map((c) => ({ value: c.id, label: c.nome }))} />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs">Transportadora</Label>

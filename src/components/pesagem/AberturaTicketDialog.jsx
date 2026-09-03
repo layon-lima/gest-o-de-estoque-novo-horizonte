@@ -322,11 +322,11 @@ export default function AberturaTicketDialog({ open, onClose, onReload, tickets,
                 {!isVenda && (
                   <>
                     <div className="space-y-1 sm:col-span-2">
-                      <Label className="text-xs">Cliente</Label>
+                      <Label className="text-xs">{form.tipo === 'compra' ? 'Fornecedor' : 'Cliente'}</Label>
                       <SearchSelect
                         value={form.cliente_id}
                         onChange={(v) => setForm({ ...form, cliente_id: v })}
-                        placeholder="Buscar cliente..."
+                        placeholder={form.tipo === 'compra' ? 'Buscar fornecedor...' : 'Buscar cliente...'}
                         options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
                       />
                     </div>
