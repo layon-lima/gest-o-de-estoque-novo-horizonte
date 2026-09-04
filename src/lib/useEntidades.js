@@ -125,3 +125,16 @@ export function prefetchEntidades() {
 export function invalidateEntidade(name) {
   queryClientInstance.invalidateQueries({ queryKey: ['ent', name] });
 }
+
+// Entidades que compõem o "estoque" — afetadas por qualquer movimentação.
+const STOCK_ENTITIES = ['SaldoEstoque', 'Movimentacao', 'Produto', 'Lote', 'Abastecimento'];
+
+/** Invalida globalmente o cache de todas as entidades de estoque.
+ *  Chamar após qualquer mutação que altere saldo, para que TODAS as telas
+ *  (Dashboard, Relatórios, Movimentações, Abastecimento…) refetchem imediatamente,
+ *  independentemente do websocket em tempo real. */
+export function invalidateEstoque() {
+  for (const name of STOCK_ENTITIES) {
+    queryClientInstance.invalidateQueries({ queryKey: ['ent', name] });
+  }
+}

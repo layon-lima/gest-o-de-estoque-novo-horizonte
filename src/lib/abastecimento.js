@@ -78,6 +78,7 @@ export async function confirmarAbastecimento({
     maquina_id: maquina.id,
     gaveta_id: gavetaId,
     tipo: 'saida',
+    modulo: 'abastecimento',
     observacao: abast.observacao || `Abastecimento — ${maquina.nome || maquina.codigo}`,
   };
 

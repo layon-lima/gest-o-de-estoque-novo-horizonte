@@ -116,6 +116,7 @@ export async function registrarMovimentacao({ form, produto, lotes, saldos, movi
     numero_nf: form.tipo === 'entrada' ? (form.numero_nf || '') : '',
     fornecedor: form.tipo === 'entrada' ? (form.fornecedor || '') : '',
     chave_acesso: form.tipo === 'entrada' ? (form.chave_acesso || '') : '',
+    modulo: form.modulo || 'movimentacoes',
   };
 
   if (controlaValidade) {
@@ -229,6 +230,7 @@ export async function registrarTransferencia({ form, produto, lotes, saldos, mov
     maquina_id: produto.maquina_id || '',
     gaveta_id: form.gaveta_origem_id || '',
     tipo: 'saida',
+    modulo: 'movimentacoes',
     observacao: `Transferência → ${labelDestino}${obs}`,
     ...(controlaValidade && lotesJson ? { lotes_consumidos: lotesJson, lote_id: primeiroLoteId, data_validade: primeiroLote?.data_validade || '' } : {}),
   });
@@ -246,6 +248,7 @@ export async function registrarTransferencia({ form, produto, lotes, saldos, mov
     maquina_id: produto.maquina_id || '',
     gaveta_id: form.gaveta_destino_id || '',
     tipo: 'entrada',
+    modulo: 'movimentacoes',
     observacao: `Transferência ← ${labelOrigem}${obs}`,
     ...(controlaValidade && primeiroLoteId ? { lote_id: primeiroLoteId, data_validade: primeiroLote?.data_validade || '', lotes_consumidos: lotesJson } : {}),
   });
@@ -349,6 +352,7 @@ export async function relocarSaldoCadastro({ produto, newDepositoId, newGavetaId
       maquina_id: produto.maquina_id || '',
       gaveta_id: '',
       tipo: 'saida',
+      modulo: 'cadastros',
       observacao: `Transferência → ${labelDestino} (realocação via cadastro)`,
     });
   }
@@ -364,6 +368,7 @@ export async function relocarSaldoCadastro({ produto, newDepositoId, newGavetaId
     maquina_id: produto.maquina_id || '',
     gaveta_id: newGav,
     tipo: 'entrada',
+    modulo: 'cadastros',
     observacao: `Transferência ← ${labelsOrigem.join(', ')} (realocação via cadastro)`,
   });
 
@@ -404,6 +409,7 @@ export async function estornarMovimentacao(mov, { produtos, lotes, saldos, movim
     maquina_id: mov.maquina_id || '',
     gaveta_id: mov.gaveta_id || '',
     tipo: 'estorno',
+    modulo: 'estorno',
     estorno_de: mov.id,
     estornada: false,
     observacao: `Estorno de ${mov.numero || ''}${mov.observacao ? ' — ' + mov.observacao : ''}`,

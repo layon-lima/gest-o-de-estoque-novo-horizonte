@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/AuthContext';
-import { useEntidades } from '@/lib/useEntidades';
+import { useEntidades, invalidateEstoque } from '@/lib/useEntidades';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { useToast } from '@/components/ui/use-toast';
@@ -134,6 +134,7 @@ export default function Abastecimento() {
       });
       toast({ title: 'Baixa confirmada', description: `${produto.nome} baixado em ${formatQtd(abast.quantidade)} ${produto.unidade || 'un'}.` });
       load();
+      invalidateEstoque();
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao confirmar', description: err.message });
     } finally {

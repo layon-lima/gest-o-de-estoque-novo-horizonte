@@ -68,6 +68,12 @@
       "title": "Tipo",
       "default": "entrada"
     },
+    "modulo": {
+      "type": "string",
+      "title": "M\u00f3dulo de Origem",
+      "description": "M\u00f3dulo/origem que gerou a movimenta\u00e7\u00e3o (ex.: movimentacoes, abastecimento, pesagem, aplicacao, inventario, nfe, cadastros, estorno). Usado para auditoria e rastreabilidade.",
+      "default": ""
+    },
     "observacao": {
       "type": "string",
       "title": "Observa\u00e7\u00e3o"

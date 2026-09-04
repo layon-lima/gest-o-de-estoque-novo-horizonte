@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import SearchSelect from '@/components/SearchSelect';
-import { useEntidades } from '@/lib/useEntidades';
+import { useEntidades, invalidateEstoque } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
@@ -128,6 +128,7 @@ export default function Movimentacoes() {
         toast({ title: 'Movimento estornado com sucesso' });
         setForm(emptyForm);
         load();
+        invalidateEstoque();
       } catch (err) {
         const msg = err?.message || '';
         const map = {
@@ -158,6 +159,7 @@ export default function Movimentacoes() {
       toast({ title: 'Movimentação registrada com sucesso' });
       setForm(emptyForm);
       load();
+      invalidateEstoque();
     } catch (err) {
       const msg = err?.message || '';
       if (msg.startsWith('NF_DUPLICADA')) {
