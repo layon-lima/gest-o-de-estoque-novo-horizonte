@@ -35,7 +35,7 @@ import {
 
 const allNavItems = [
   { key: 'dashboard', to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
-  { key: 'movimentacoes', to: '/movimentacoes', label: 'Entradas e Saídas', icon: ArrowLeftRight, end: false },
+  { key: 'movimentacoes', to: '/movimentacoes', label: 'Movimentos', icon: ArrowLeftRight, end: false },
   { key: 'abastecimento', to: '/abastecimento', label: 'Abastecimento', icon: Fuel, end: false },
   { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
   { key: 'aplicacao', to: '/aplicacao', label: 'Aplicação', icon: Sprout, end: false },

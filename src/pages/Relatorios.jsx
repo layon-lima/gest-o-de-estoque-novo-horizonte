@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/table';
 import ProductsTable from '@/components/ProductsTable';
 import DataTable from '@/components/tables/DataTable';
-import EstornoDialog from '@/components/movimentacoes/EstornoDialog';
 import { useColumnConfig } from '@/hooks/useColumnConfig';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
@@ -30,20 +29,18 @@ export default function Relatorios() {
   const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
   const [filtroValidade, setFiltroValidade] = useState({ setor_id: 'all', faixa: 'all' });
   const [filtroMov, setFiltroMov] = useState({ tipo: 'all', busca: '' });
-  const [estornoAlvo, setEstornoAlvo] = useState(null);
 
-  const { data, loading, reload } = useEntidades({
+  const { data, loading } = useEntidades({
     Produto: {},
     Setor: {},
     Maquina: {},
     Gaveta: {},
     Movimentacao: { sort: '-data', limit: 200 },
     Lote: {},
-    SaldoEstoque: { sort: '-created_date', limit: 5000 },
   });
   const {
     Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas,
-    Movimentacao: movimentacoes, Lote: lotes, SaldoEstoque: saldos,
+    Movimentacao: movimentacoes, Lote: lotes,
   } = data;
 
   const filtered = useMemo(() => {
@@ -176,20 +173,6 @@ export default function Relatorios() {
     { key: 'maquina', label: 'Máquina', render: (m, c) => <span className="text-sm">{getNome(m.maquina_id, c.maquinas)}</span> },
     { key: 'gaveta', label: 'Gaveta', render: (m, c) => <span className="text-sm font-mono">{getNome(m.gaveta_id, c.gavetas, 'codigo')}</span> },
     { key: 'obs', label: 'Observação', render: (m) => <span className="text-xs text-muted-foreground">{m.observacao || '—'}</span> },
-    {
-      key: 'acoes',
-      label: 'Ações',
-      render: (m, c) => {
-        if (m.tipo === 'estorno' || m.estornada === true) {
-          return <span className="text-xs text-muted-foreground">—</span>;
-        }
-        return (
-          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); c.onEstornar(m); }}>
-            <Undo2 className="w-3.5 h-3.5 mr-1" /> Estornar
-          </Button>
-        );
-      },
-    },
   ];
   const movConfig = useColumnConfig('relMovCols2', movColumns.map((c) => c.key));
 
@@ -277,7 +260,7 @@ export default function Relatorios() {
       <Tabs defaultValue="estoque">
         <TabsList>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
-          <TabsTrigger value="entradas">Movimentos</TabsTrigger>
+          <TabsTrigger value="entradas">Entradas e Saídas</TabsTrigger>
           <TabsTrigger value="validade">Validade</TabsTrigger>
         </TabsList>
 
@@ -383,7 +366,7 @@ export default function Relatorios() {
                 columns={movColumns}
                 data={movimentacoesFiltradas}
                 getRowId={(m) => m.id}
-                ctx={{ setores, maquinas, gavetas, produtos, lotes, saldos, movimentacoes, onEstornar: setEstornoAlvo }}
+                ctx={{ setores, maquinas, gavetas, produtos }}
                 containerClassName="max-h-[600px]"
                 toggleLabel="Colunas"
               />
@@ -443,16 +426,6 @@ export default function Relatorios() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <EstornoDialog
-        alvo={estornoAlvo}
-        produtos={produtos}
-        lotes={lotes}
-        saldos={saldos}
-        movimentacoes={movimentacoes}
-        onClose={() => setEstornoAlvo(null)}
-        onDone={() => { setEstornoAlvo(null); reload(); }}
-      />
     </div>
   );
 }

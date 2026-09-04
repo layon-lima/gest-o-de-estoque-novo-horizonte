@@ -1,10 +1,20 @@
 import { useState, useMemo } from 'react';
-import { Plus, CalendarClock, ArrowRightLeft } from 'lucide-react';
+import { Plus, CalendarClock, ArrowRightLeft, Undo2, ArrowDownCircle, ArrowUpCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import EstornoDialog from '@/components/movimentacoes/EstornoDialog';
 import SearchSelect from '@/components/SearchSelect';
 import { useEntidades } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
@@ -25,6 +35,8 @@ const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id:
 export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [estornoAlvo, setEstornoAlvo] = useState(null);
+  const [busca, setBusca] = useState('');
   const { toast } = useToast();
 
   const { data, reload: load } = useEntidades({
@@ -35,7 +47,7 @@ export default function Movimentacoes() {
     Deposito: {},
     Lote: {},
     SaldoEstoque: {},
-    Movimentacao: { sort: '-data', limit: 50 },
+    Movimentacao: { sort: '-data', limit: 500 },
     Pessoa: { sort: '-created_date', limit: 500 },
   });
   const {
@@ -50,6 +62,16 @@ export default function Movimentacoes() {
     movimentacoes.forEach((m) => { if (m.fornecedor) nomes.add(m.fornecedor); });
     return Array.from(nomes).sort((a, b) => a.localeCompare(b));
   }, [pessoas, movimentacoes]);
+
+  const movFiltradas = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return movimentacoes;
+    return movimentacoes.filter((m) => {
+      const alvo = [m.numero, m.nome_produto, m.codigo, m.numero_nf, m.fornecedor, m.chave_acesso, m.observacao]
+        .filter(Boolean).join(' ').toLowerCase();
+      return alvo.includes(termo);
+    });
+  }, [movimentacoes, busca]);
 
   const produtoSelecionado = produtos.find((p) => p.id === form.produto_id);
   const controlaValidade = produtoSelecionado
@@ -140,8 +162,8 @@ export default function Movimentacoes() {
     <NfeDropZone onDropFile={nfe.processFile} disabled={nfe.importing}>
     <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
       <header>
-        <h1 className="text-2xl font-bold">Movimentações</h1>
-        <p className="text-sm text-muted-foreground mt-1">Registre entradas e saídas de estoque</p>
+        <h1 className="text-2xl font-bold">Movimentos</h1>
+        <p className="text-sm text-muted-foreground mt-1">Registre entradas, saídas e estornos de estoque</p>
       </header>
 
       <div className="space-y-6">
@@ -346,6 +368,84 @@ export default function Movimentacoes() {
           )}
         </Card>
       </div>
+
+      <Card className="p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h3 className="font-semibold">Histórico de Movimentos ({movFiltradas.length})</h3>
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por Nº, produto, NF, fornecedor…" className="pl-9" />
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[520px] scrollbar-thin">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[120px]">Nº</TableHead>
+                <TableHead>Data/Hora</TableHead>
+                <TableHead className="w-[110px]">Tipo</TableHead>
+                <TableHead>Produto</TableHead>
+                <TableHead className="text-right">Quantidade</TableHead>
+                <TableHead>NF / Fornecedor</TableHead>
+                <TableHead className="w-[90px] text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {movFiltradas.map((m) => {
+                const prod = produtos.find((p) => p.id === m.produto_id);
+                const podeEstornar = m.tipo !== 'estorno' && m.estornada !== true;
+                return (
+                  <TableRow key={m.id} className={m.estornada === true ? 'opacity-50' : ''}>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{m.numero || '—'}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}</TableCell>
+                    <TableCell>
+                      {m.tipo === 'entrada' ? (
+                        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit"><ArrowDownCircle className="w-3 h-3" /> Entrada</Badge>
+                      ) : m.tipo === 'saida' ? (
+                        <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit"><ArrowUpCircle className="w-3 h-3" /> Saída</Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit"><Undo2 className="w-3 h-3" /> Estorno</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">{m.nome_produto || prod?.nome || '—'}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-sm">
+                      {formatQtd(m.quantidade || 0)} <span className="text-xs text-muted-foreground font-normal">{prod?.unidade || ''}</span>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {m.numero_nf ? <span className="font-mono">{m.numero_nf}</span> : '—'}
+                      {m.fornecedor ? <span className="block text-muted-foreground truncate max-w-[180px]">{m.fornecedor}</span> : null}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {podeEstornar ? (
+                        <Button variant="outline" size="sm" onClick={() => setEstornoAlvo(m)}>
+                          <Undo2 className="w-3.5 h-3.5 mr-1" /> Estornar
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{m.estornada === true ? 'estornada' : '—'}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {movFiltradas.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Nenhum movimento encontrado.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <EstornoDialog
+        alvo={estornoAlvo}
+        produtos={produtos}
+        lotes={lotes}
+        saldos={saldos}
+        movimentacoes={movimentacoes}
+        onClose={() => setEstornoAlvo(null)}
+        onDone={() => { setEstornoAlvo(null); load(); }}
+      />
 
         {nfe.preview && (
                 <NfePreviewDialog
