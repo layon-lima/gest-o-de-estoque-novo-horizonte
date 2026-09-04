@@ -277,7 +277,7 @@ export default function Relatorios() {
       <Tabs defaultValue="estoque">
         <TabsList>
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
-          <TabsTrigger value="entradas">Entradas e Saídas</TabsTrigger>
+          <TabsTrigger value="entradas">Movimentos</TabsTrigger>
           <TabsTrigger value="validade">Validade</TabsTrigger>
         </TabsList>
 
