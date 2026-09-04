@@ -1,0 +1,44 @@
+{
+  "description": "Compara SaldoEstoque vs soma de Movimentacao a cada hora e alerta admins sobre diverg\u00eancias (apenas produtos com movimenta\u00e7\u00e3o)",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "verificacao_consistencia_estoque",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "verificar": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "verificarConsistenciaEstoque"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Verificar consist\u00eancia de estoque",
+            "description": "SaldoEstoque vs Movimenta\u00e7\u00e3o"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Verifica\u00e7\u00e3o de Consist\u00eancia de Estoque"
+}
