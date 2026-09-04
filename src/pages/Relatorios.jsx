@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import ProductsTable from '@/components/ProductsTable';
 import DataTable from '@/components/tables/DataTable';
+import EstornoDialog from '@/components/movimentacoes/EstornoDialog';
 import { useColumnConfig } from '@/hooks/useColumnConfig';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import { getNome } from '@/lib/estoqueFilters';
@@ -29,18 +30,20 @@ export default function Relatorios() {
   const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
   const [filtroValidade, setFiltroValidade] = useState({ setor_id: 'all', faixa: 'all' });
   const [filtroMov, setFiltroMov] = useState({ tipo: 'all', busca: '' });
+  const [estornoAlvo, setEstornoAlvo] = useState(null);
 
-  const { data, loading } = useEntidades({
+  const { data, loading, reload } = useEntidades({
     Produto: {},
     Setor: {},
     Maquina: {},
     Gaveta: {},
     Movimentacao: { sort: '-data', limit: 200 },
     Lote: {},
+    SaldoEstoque: { sort: '-created_date', limit: 5000 },
   });
   const {
     Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas,
-    Movimentacao: movimentacoes, Lote: lotes,
+    Movimentacao: movimentacoes, Lote: lotes, SaldoEstoque: saldos,
   } = data;
 
   const filtered = useMemo(() => {
@@ -132,9 +135,10 @@ export default function Relatorios() {
     });
   }, [movimentacoes, filtroMov]);
 
-  const movCols = ['Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+  const movCols = ['Nº', 'Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
 
   const movColumns = [
+    { key: 'numero', label: 'Nº', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.numero || '—'}</span> },
     { key: 'data', label: 'Data/Hora', render: (m) => m.data ? new Date(m.data).toLocaleString('pt-BR') : '—', cellClassName: 'text-sm' },
     {
       key: 'tipo',
@@ -172,8 +176,22 @@ export default function Relatorios() {
     { key: 'maquina', label: 'Máquina', render: (m, c) => <span className="text-sm">{getNome(m.maquina_id, c.maquinas)}</span> },
     { key: 'gaveta', label: 'Gaveta', render: (m, c) => <span className="text-sm font-mono">{getNome(m.gaveta_id, c.gavetas, 'codigo')}</span> },
     { key: 'obs', label: 'Observação', render: (m) => <span className="text-xs text-muted-foreground">{m.observacao || '—'}</span> },
+    {
+      key: 'acoes',
+      label: 'Ações',
+      render: (m, c) => {
+        if (m.tipo === 'estorno' || m.estornada === true) {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        return (
+          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); c.onEstornar(m); }}>
+            <Undo2 className="w-3.5 h-3.5 mr-1" /> Estornar
+          </Button>
+        );
+      },
+    },
   ];
-  const movConfig = useColumnConfig('relMovCols', movColumns.map((c) => c.key));
+  const movConfig = useColumnConfig('relMovCols2', movColumns.map((c) => c.key));
 
   const valColumns = [
     { key: 'produto', label: 'Produto', render: (l, c) => <span className="font-medium text-sm">{c.produtos.find((p) => p.id === l.produto_id)?.nome || '—'}</span> },
@@ -191,6 +209,7 @@ export default function Relatorios() {
     return movimentacoesFiltradas.map((m) => {
       const prod = produtos.find((p) => p.id === m.produto_id);
       return [
+        m.numero || '',
         m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
         m.tipo === 'entrada' ? 'Entrada' : m.tipo === 'saida' ? 'Saída' : 'Estorno',
         m.nome_produto || '',
@@ -364,7 +383,7 @@ export default function Relatorios() {
                 columns={movColumns}
                 data={movimentacoesFiltradas}
                 getRowId={(m) => m.id}
-                ctx={{ setores, maquinas, gavetas, produtos }}
+                ctx={{ setores, maquinas, gavetas, produtos, lotes, saldos, movimentacoes, onEstornar: setEstornoAlvo }}
                 containerClassName="max-h-[600px]"
                 toggleLabel="Colunas"
               />
@@ -424,6 +443,16 @@ export default function Relatorios() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <EstornoDialog
+        alvo={estornoAlvo}
+        produtos={produtos}
+        lotes={lotes}
+        saldos={saldos}
+        movimentacoes={movimentacoes}
+        onClose={() => setEstornoAlvo(null)}
+        onDone={() => { setEstornoAlvo(null); reload(); }}
+      />
     </div>
   );
 }
