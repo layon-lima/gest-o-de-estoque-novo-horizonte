@@ -154,7 +154,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl w-[95vw] max-h-[90dvh] flex flex-col gap-3 p-3 sm:p-4">
+      <DialogContent fullscreen className="flex flex-col gap-3 p-3 sm:p-4 overflow-hidden">
         <DialogHeader>
           <DialogTitle>Confirmar Importação da NF-e</DialogTitle>
           <DialogDescription>
@@ -188,7 +188,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
           </span>
         </div>
 
-        <div className="rounded-lg border flex-1 overflow-visible">
+        <div className="rounded-lg border flex-1 overflow-auto scrollbar-thin">
           <Table>
             <TableHeader className="bg-muted">
               <TableRow>

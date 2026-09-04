@@ -369,3 +369,46 @@ export async function relocarSaldoCadastro({ produto, newDepositoId, newGavetaId
 
   return { movido: true, quantidade: totalMover };
 }
+
+// Estorna uma movimentação de estoque: reverte o efeito no saldo/lotes,
+// marca a movimentação original como estornada e cria uma movimentação de
+// estorno vinculada (tipo 'estorno', estorno_de = id da original).
+// Regras: a original precisa existir, possuir id, não estar estornada e não
+// ser ela própria uma movimentação de estorno.
+export async function estornarMovimentacao(mov, { produtos, lotes, saldos, movimentacoes }) {
+  if (!mov || !mov.id) throw new Error('ESTORNO_NAO_EXISTE');
+  if (mov.tipo === 'estorno') throw new Error('ESTORNO_TIPO_ESTORNO');
+  if (mov.estornada === true) throw new Error('ESTORNO_JA_ESTORNADA');
+
+  // 1. Reverter o efeito no estoque (saldo + lotes).
+  await reverterEstoqueMov(mov, { produtos, lotes, saldos });
+
+  // 2. Marcar a original como estornada.
+  await base44.entities.Movimentacao.update(mov.id, { estornada: true });
+  mov.estornada = true;
+
+  // 3. Criar a movimentação de estorno vinculada (auditoria).
+  const now = new Date().toISOString();
+  const baseNum = maxNumeroMovimento(movimentacoes) + 1;
+  await base44.entities.Movimentacao.create({
+    data: now,
+    numero: formatarNumeroMov(baseNum),
+    produto_id: mov.produto_id,
+    codigo: mov.codigo,
+    nome_produto: mov.nome_produto,
+    quantidade: mov.quantidade,
+    custo_unitario: 0,
+    valor_movimentado: 0,
+    setor_id: mov.setor_id,
+    deposito_id: mov.deposito_id,
+    maquina_id: mov.maquina_id || '',
+    gaveta_id: mov.gaveta_id || '',
+    tipo: 'estorno',
+    estorno_de: mov.id,
+    estornada: false,
+    observacao: `Estorno de ${mov.numero || ''}${mov.observacao ? ' — ' + mov.observacao : ''}`,
+    ...(mov.lote_id ? { lote_id: mov.lote_id } : {}),
+    ...(mov.data_validade ? { data_validade: mov.data_validade } : {}),
+    ...(mov.lotes_consumidos ? { lotes_consumidos: mov.lotes_consumidos } : {}),
+  });
+}

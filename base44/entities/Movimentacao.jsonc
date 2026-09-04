@@ -5,7 +5,7 @@
     "numero": {
       "type": "string",
       "title": "N\u00famero da Movimenta\u00e7\u00e3o",
-      "description": "Identificador \u00fanico sequencial de cada movimenta\u00e7\u00e3o de estoque (ex.: MOV-000001)."
+      "description": "Identificador \u00fanico sequencial de cada movimenta\u00e7\u00e3o de estoque (ex.: MOV-000001). Gerado automaticamente em toda movimenta\u00e7\u00e3o."
     },
     "data": {
       "type": "string",
@@ -104,6 +104,11 @@
       "title": "Estornada",
       "description": "Indica se esta movimenta\u00e7\u00e3o foi estornada (cascata de auditoria)",
       "default": false
+    },
+    "estorno_de": {
+      "type": "string",
+      "title": "Estorno de (ID)",
+      "description": "ID da movimenta\u00e7\u00e3o original que este estorno reverte. Apenas movimenta\u00e7\u00f5es de estorno (tipo 'estorno') preenchem este campo."
     }
   },
   "required": [
