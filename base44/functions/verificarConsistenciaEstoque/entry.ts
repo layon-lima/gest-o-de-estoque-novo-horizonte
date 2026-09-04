@@ -20,11 +20,31 @@ export default async function (req) {
     }
 
     const svc = base44.asServiceRole;
-    const [movs, saldos, users] = await Promise.all([
+    const [movs, saldos, users, produtos] = await Promise.all([
       svc.entities.Movimentacao.list('-created_date', 5000),
       svc.entities.SaldoEstoque.list('-created_date', 5000),
       svc.entities.User.list('-created_date', 500),
+      svc.entities.Produto.list('-created_date', 5000),
     ]);
+
+    // Autocorreção: ressync produto.quantidade = soma de SaldoEstoque.
+    // Garante que TODA tela que exibe produto.quantidade mostre o saldo real,
+    // mesmo se algum fluxo bypassar o recalc do saldos.js (máx. 1h de defasagem).
+    const saldoMap = {};
+    for (const s of (saldos || [])) saldoMap[s.produto_id] = (saldoMap[s.produto_id] || 0) + (Number(s.quantidade) || 0);
+    const resyncUpdates = [];
+    let resyncAlterados = 0;
+    for (const p of (produtos || [])) {
+      const real = Math.round((saldoMap[p.id] || 0) * 1000) / 1000;
+      const atual = Number(p.quantidade) || 0;
+      if (real !== atual) {
+        resyncUpdates.push({ id: p.id, quantidade: real });
+        resyncAlterados++;
+      }
+    }
+    if (resyncUpdates.length) {
+      try { await svc.entities.Produto.bulkUpdate(resyncUpdates); } catch {}
+    }
 
     // Saldo esperado por produto a partir das movimentações.
     const esperado = {};
@@ -65,6 +85,7 @@ export default async function (req) {
       total_parcelas_saldo: (saldos || []).length,
       produtos_com_movimentacao: Object.keys(esperado).length,
       produtos_com_divergencia: divergencias.length,
+      resync_produto_quantidade: { alterados: resyncAlterados, total_produtos: (produtos || []).length },
     };
 
     // Alerta por e-mail aos admins se houver divergência.
