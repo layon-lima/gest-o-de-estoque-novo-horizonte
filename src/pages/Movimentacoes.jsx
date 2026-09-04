@@ -1,27 +1,17 @@
 import { useState, useMemo } from 'react';
-import { Plus, CalendarClock, ArrowRightLeft, Undo2, ArrowDownCircle, ArrowUpCircle, Search } from 'lucide-react';
+import { Plus, CalendarClock, ArrowRightLeft, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@/components/ui/table';
-import EstornoDialog from '@/components/movimentacoes/EstornoDialog';
 import SearchSelect from '@/components/SearchSelect';
 import { useEntidades } from '@/lib/useEntidades';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { consumirFefo, setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
 import { sortGavetas } from '@/lib/gavetas';
-import { registrarMovimentacao, registrarTransferencia } from '@/lib/movimentacoes';
+import { registrarMovimentacao, registrarTransferencia, estornarMovimentacao } from '@/lib/movimentacoes';
 import { saldoTotalProduto, depositosComSaldoDoProduto, gavetasComSaldoDoProduto } from '@/lib/saldos';
 import ProductSearchSelect from '@/components/ProductSearchSelect';
 import FornecedorCombobox from '@/components/FornecedorCombobox';
@@ -30,13 +20,11 @@ import NfeDropZone from '@/components/NfeDropZone';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
 import { useNfeImport } from '@/hooks/useNfeImport';
 
-const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '' };
+const emptyForm = { produto_id: '', tipo: 'entrada', quantidade: 1, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', observacao: '', codigo_lote: '', data_validade: '', numero_nf: '', fornecedor: '', chave_acesso: '', estorno_de: '' };
 
 export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [estornoAlvo, setEstornoAlvo] = useState(null);
-  const [busca, setBusca] = useState('');
   const { toast } = useToast();
 
   const { data, reload: load } = useEntidades({
@@ -63,15 +51,12 @@ export default function Movimentacoes() {
     return Array.from(nomes).sort((a, b) => a.localeCompare(b));
   }, [pessoas, movimentacoes]);
 
-  const movFiltradas = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    if (!termo) return movimentacoes;
-    return movimentacoes.filter((m) => {
-      const alvo = [m.numero, m.nome_produto, m.codigo, m.numero_nf, m.fornecedor, m.chave_acesso, m.observacao]
-        .filter(Boolean).join(' ').toLowerCase();
-      return alvo.includes(termo);
-    });
-  }, [movimentacoes, busca]);
+  const estornaveis = useMemo(
+    () => (form.tipo === 'estorno' ? movimentacoes.filter((m) => m.tipo !== 'estorno' && m.estornada !== true) : []),
+    [movimentacoes, form.tipo]
+  );
+  const movEstorno = form.tipo === 'estorno' ? movimentacoes.find((m) => m.id === form.estorno_de) : null;
+  const depositoEstorno = movEstorno ? depositos.find((d) => d.id === movEstorno.deposito_id) : null;
 
   const produtoSelecionado = produtos.find((p) => p.id === form.produto_id);
   const controlaValidade = produtoSelecionado
@@ -104,6 +89,7 @@ export default function Movimentacoes() {
     { value: 'entrada', label: 'Entrada Nota Fiscal' },
     { value: 'saida', label: 'Baixa Estoque' },
     { value: 'transferencia', label: 'Transferência de Depósito' },
+    { value: 'estorno', label: 'Estorno de Movimento' },
   ];
 
   const saldoOrigem = useMemo(() => {
@@ -118,8 +104,45 @@ export default function Movimentacoes() {
       .reduce((sum, s) => sum + (s.quantidade || 0), 0);
   }, [produtoSelecionado, form.deposito_origem_id, form.gaveta_origem_id, saldos]);
 
+  const podeEnviar =
+    form.tipo === 'estorno'
+      ? !!form.estorno_de
+      : form.tipo === 'transferencia'
+        ? !!form.produto_id && !!form.quantidade && !!form.deposito_origem_id && !!form.deposito_destino_id
+        : !!form.produto_id && !!form.quantidade && !!form.deposito_id;
+
   async function handleSubmit(e) {
     e.preventDefault();
+
+    // Estorno: reverte o efeito do movimento selecionado no estoque e cria
+    // uma movimentação de estorno vinculada (tipo 'estorno', estorno_de = id).
+    if (form.tipo === 'estorno') {
+      const alvo = movimentacoes.find((m) => m.id === form.estorno_de);
+      if (!alvo) {
+        toast({ variant: 'destructive', title: 'Movimento obrigatório', description: 'Selecione o movimento que deseja estornar.' });
+        return;
+      }
+      setSaving(true);
+      try {
+        await estornarMovimentacao(alvo, { produtos, lotes, saldos, movimentacoes });
+        toast({ title: 'Movimento estornado com sucesso' });
+        setForm(emptyForm);
+        load();
+      } catch (err) {
+        const msg = err?.message || '';
+        const map = {
+          ESTORNO_NAO_EXISTE: ['Movimento inválido', 'A movimentação selecionada não existe.'],
+          ESTORNO_TIPO_ESTORNO: ['Não permitido', 'Não é possível estornar uma movimentação de estorno.'],
+          ESTORNO_JA_ESTORNADA: ['Já estornada', 'Esta movimentação já foi estornada.'],
+        };
+        const [title, desc] = map[msg] || ['Erro ao estornar', msg];
+        toast({ variant: 'destructive', title, description: desc });
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const produto = produtos.find((p) => p.id === form.produto_id);
     if (!produto) { toast({ variant: 'destructive', title: 'Produto obrigatório', description: 'Selecione o produto da movimentação.' }); return; }
     if (!form.tipo) { toast({ variant: 'destructive', title: 'Tipo obrigatório', description: 'Selecione o tipo de movimentação.' }); return; }
@@ -170,30 +193,58 @@ export default function Movimentacoes() {
         <Card className="p-5">
           <h3 className="font-semibold mb-4">Nova Movimentação</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Produto *</Label>
-              <ProductSearchSelect
-                produtos={produtos}
-                maquinas={maquinas}
-                gavetas={gavetas}
-                value={form.produto_id}
-                onChange={(v) => setForm({ ...form, produto_id: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', codigo_lote: '', data_validade: '' })}
-                placeholder="Buscar produto por nome, código, referência…"
-              />
-              {produtoSelecionado && (
-                <div className="flex items-center gap-2 mt-1 text-xs">
-                  <span className="text-muted-foreground">Estoque atual:</span>
-                  <span className="font-semibold tabular-nums px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                    {formatQtd(saldoTotal)} {produtoSelecionado.unidade || ''}
-                  </span>
-                  {(produtoSelecionado.estoque_minimo || 0) > 0 && (
-                    <span className="text-muted-foreground">
-                      (mín.: {formatQtd(produtoSelecionado.estoque_minimo)} {produtoSelecionado.unidade || ''})
+            {form.tipo === 'estorno' ? (
+              <div className="space-y-1.5">
+                <Label>Movimento a estornar *</Label>
+                <SearchSelect
+                  value={form.estorno_de}
+                  onChange={(v) => setForm({ ...form, estorno_de: v === 'all' ? '' : v })}
+                  placeholder="Buscar por Nº, produto, NF…"
+                  options={estornaveis.map((m) => ({
+                    value: m.id,
+                    label: `${m.numero || 's/n'} · ${m.tipo === 'entrada' ? 'Entrada' : 'Saída'} · ${m.nome_produto || '—'} · ${formatQtd(m.quantidade || 0)} · ${m.data ? new Date(m.data).toLocaleDateString('pt-BR') : ''}`,
+                  }))}
+                />
+                {movEstorno ? (
+                  <div className="rounded-lg border bg-amber-50/40 p-3 text-xs space-y-1">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Nº (ID):</span><span className="font-mono font-semibold">{movEstorno.numero || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Tipo:</span><span className="font-medium">{movEstorno.tipo === 'entrada' ? 'Entrada' : 'Saída'}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Produto:</span><span className="font-medium truncate ml-2">{movEstorno.nome_produto || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Quantidade:</span><span className="font-semibold tabular-nums">{formatQtd(movEstorno.quantidade || 0)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Depósito:</span><span>{depositoEstorno ? `${depositoEstorno.numero}${depositoEstorno.nome ? ' · ' + depositoEstorno.nome : ''}` : '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Data:</span><span>{movEstorno.data ? new Date(movEstorno.data).toLocaleString('pt-BR') : '—'}</span></div>
+                    {movEstorno.numero_nf && <div className="flex justify-between"><span className="text-muted-foreground">NF:</span><span className="font-mono">{movEstorno.numero_nf}</span></div>}
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">Selecione o movimento que deseja estornar. O estoque (saldo e lotes) será revertido automaticamente.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Produto *</Label>
+                <ProductSearchSelect
+                  produtos={produtos}
+                  maquinas={maquinas}
+                  gavetas={gavetas}
+                  value={form.produto_id}
+                  onChange={(v) => setForm({ ...form, produto_id: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', codigo_lote: '', data_validade: '' })}
+                  placeholder="Buscar produto por nome, código, referência…"
+                />
+                {produtoSelecionado && (
+                  <div className="flex items-center gap-2 mt-1 text-xs">
+                    <span className="text-muted-foreground">Estoque atual:</span>
+                    <span className="font-semibold tabular-nums px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                      {formatQtd(saldoTotal)} {produtoSelecionado.unidade || ''}
                     </span>
-                  )}
-                </div>
-              )}
-            </div>
+                    {(produtoSelecionado.estoque_minimo || 0) > 0 && (
+                      <span className="text-muted-foreground">
+                        (mín.: {formatQtd(produtoSelecionado.estoque_minimo)} {produtoSelecionado.unidade || ''})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -201,15 +252,17 @@ export default function Movimentacoes() {
                 <Label>Tipo *</Label>
                 <SearchSelect
                   value={form.tipo}
-                  onChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '' })}
+                  onChange={(v) => setForm({ ...form, tipo: v, deposito_id: '', gaveta_id: '', deposito_origem_id: '', gaveta_origem_id: '', deposito_destino_id: '', gaveta_destino_id: '', estorno_de: '' })}
                   placeholder="Tipo..."
                   options={tipoOptions}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mv-qtd">Quantidade *</Label>
-                <Input id="mv-qtd" type="text" inputMode="decimal" placeholder="0,00" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
-              </div>
+              {form.tipo !== 'estorno' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="mv-qtd">Quantidade *</Label>
+                  <Input id="mv-qtd" type="text" inputMode="decimal" placeholder="0,00" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} required />
+                </div>
+              )}
             </div>
 
             {form.tipo === 'transferencia' ? (
@@ -274,7 +327,7 @@ export default function Movimentacoes() {
                   )}
                 </div>
               </>
-            ) : (
+            ) : form.tipo === 'estorno' ? null : (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Depósito *</Label>
@@ -354,9 +407,9 @@ export default function Movimentacoes() {
                 </div>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={saving || !form.produto_id || !form.tipo || !form.quantidade || (form.tipo !== 'transferencia' ? !form.deposito_id : (!form.deposito_origem_id || !form.deposito_destino_id))}>
-              {form.tipo === 'transferencia' ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              {saving ? 'Registrando…' : form.tipo === 'transferencia' ? 'Transferir' : 'Registrar Movimentação'}
+            <Button type="submit" className="w-full" disabled={saving || !podeEnviar}>
+              {form.tipo === 'estorno' ? <Undo2 className="w-4 h-4 mr-2" /> : form.tipo === 'transferencia' ? <ArrowRightLeft className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              {saving ? 'Processando…' : form.tipo === 'estorno' ? 'Estornar Movimento' : form.tipo === 'transferencia' ? 'Transferir' : 'Registrar Movimentação'}
             </Button>
           </form>
 
@@ -368,84 +421,6 @@ export default function Movimentacoes() {
           )}
         </Card>
       </div>
-
-      <Card className="p-5">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <h3 className="font-semibold">Histórico de Movimentos ({movFiltradas.length})</h3>
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por Nº, produto, NF, fornecedor…" className="pl-9" />
-          </div>
-        </div>
-        <div className="overflow-x-auto max-h-[520px] scrollbar-thin">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">Nº</TableHead>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead className="w-[110px]">Tipo</TableHead>
-                <TableHead>Produto</TableHead>
-                <TableHead className="text-right">Quantidade</TableHead>
-                <TableHead>NF / Fornecedor</TableHead>
-                <TableHead className="w-[90px] text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {movFiltradas.map((m) => {
-                const prod = produtos.find((p) => p.id === m.produto_id);
-                const podeEstornar = m.tipo !== 'estorno' && m.estornada !== true;
-                return (
-                  <TableRow key={m.id} className={m.estornada === true ? 'opacity-50' : ''}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{m.numero || '—'}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{m.data ? new Date(m.data).toLocaleString('pt-BR') : '—'}</TableCell>
-                    <TableCell>
-                      {m.tipo === 'entrada' ? (
-                        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit"><ArrowDownCircle className="w-3 h-3" /> Entrada</Badge>
-                      ) : m.tipo === 'saida' ? (
-                        <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit"><ArrowUpCircle className="w-3 h-3" /> Saída</Badge>
-                      ) : (
-                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit"><Undo2 className="w-3 h-3" /> Estorno</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">{m.nome_produto || prod?.nome || '—'}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-sm">
-                      {formatQtd(m.quantidade || 0)} <span className="text-xs text-muted-foreground font-normal">{prod?.unidade || ''}</span>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {m.numero_nf ? <span className="font-mono">{m.numero_nf}</span> : '—'}
-                      {m.fornecedor ? <span className="block text-muted-foreground truncate max-w-[180px]">{m.fornecedor}</span> : null}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {podeEstornar ? (
-                        <Button variant="outline" size="sm" onClick={() => setEstornoAlvo(m)}>
-                          <Undo2 className="w-3.5 h-3.5 mr-1" /> Estornar
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{m.estornada === true ? 'estornada' : '—'}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {movFiltradas.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">Nenhum movimento encontrado.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
-
-      <EstornoDialog
-        alvo={estornoAlvo}
-        produtos={produtos}
-        lotes={lotes}
-        saldos={saldos}
-        movimentacoes={movimentacoes}
-        onClose={() => setEstornoAlvo(null)}
-        onDone={() => { setEstornoAlvo(null); load(); }}
-      />
 
         {nfe.preview && (
                 <NfePreviewDialog
