@@ -40,13 +40,16 @@ function ensureSubscribe(name) {
   if (subscribed.has(name)) return;
   const entity = base44.entities[name];
   if (!entity || typeof entity.subscribe !== 'function') return;
-  subscribed.add(name);
   try {
     entity.subscribe(() => {
       queryClientInstance.invalidateQueries({ queryKey: ['ent', name] });
     });
+    // só marca como assinada se o subscribe realmente funcionou —
+    // em caso de falha, uma próxima chamada tentará de novo (websocket pode ter caído).
+    subscribed.add(name);
   } catch {
-    // falhas de subscribe não derrubam o app — o cache + refetch cobrem
+    // falhas de subscribe não derrubam o app — o cache + refetch cobrem.
+    // Não adiciona ao Set, permitindo nova tentativa depois.
   }
 }
 
