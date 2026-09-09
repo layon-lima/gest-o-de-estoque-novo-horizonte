@@ -24,6 +24,7 @@ import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes
 import ValidadeBadge from '@/components/ValidadeBadge';
 import SearchSelect from '@/components/SearchSelect';
 import { sortGavetas } from '@/lib/gavetas';
+import { codigoMovimento, quantidadeSinalizada } from '@/lib/movTipoCodigo';
 
 export default function Relatorios() {
   const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
@@ -132,10 +133,11 @@ export default function Relatorios() {
     });
   }, [movimentacoes, filtroMov]);
 
-  const movCols = ['Nº', 'Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+  const movCols = ['Nº', 'Tp', 'Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
 
   const movColumns = [
     { key: 'numero', label: 'Nº', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.numero || '—'}</span> },
+    { key: 'tp', label: 'Tp', render: (m) => <span className="font-mono text-xs text-muted-foreground">{codigoMovimento(m)}</span> },
     { key: 'data', label: 'Data/Hora', render: (m) => m.data ? new Date(m.data).toLocaleString('pt-BR') : '—', cellClassName: 'text-sm' },
     {
       key: 'tipo',
@@ -158,12 +160,15 @@ export default function Relatorios() {
       key: 'qtd',
       label: 'Quantidade',
       align: 'right',
-      render: (m, c) => (
-        <span className={`font-semibold tabular-nums ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-          {formatQtd(m.quantidade || 0)}{' '}
-          <span className="text-xs text-muted-foreground font-normal">{c.produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
-        </span>
-      ),
+      render: (m, c) => {
+        const signed = quantidadeSinalizada(m, movimentacoes);
+        return (
+          <span className={`font-semibold tabular-nums ${signed < 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {formatQtd(signed)}{' '}
+            <span className="text-xs text-muted-foreground font-normal">{c.produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
+          </span>
+        );
+      },
     },
     { key: 'codigo', label: 'Código', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</span> },
     { key: 'numero_nf', label: 'Número NF', render: (m) => <span className="font-mono text-xs">{m.numero_nf || '—'}</span> },
@@ -193,10 +198,11 @@ export default function Relatorios() {
       const prod = produtos.find((p) => p.id === m.produto_id);
       return [
         m.numero || '',
+        codigoMovimento(m),
         m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
         m.tipo === 'entrada' ? 'Entrada' : m.tipo === 'saida' ? 'Saída' : 'Estorno',
         m.nome_produto || '',
-        formatQtd(m.quantidade || 0),
+        formatQtd(quantidadeSinalizada(m, movimentacoes)),
         prod?.unidade || '',
         m.codigo || '',
         m.numero_nf || '',
