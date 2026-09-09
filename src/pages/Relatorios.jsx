@@ -24,7 +24,7 @@ import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes
 import ValidadeBadge from '@/components/ValidadeBadge';
 import SearchSelect from '@/components/SearchSelect';
 import { sortGavetas } from '@/lib/gavetas';
-import { codigoMovimento, quantidadeSinalizada } from '@/lib/movTipoCodigo';
+import { codigoMovimento, descricaoMovimento, quantidadeSinalizada } from '@/lib/movTipoCodigo';
 
 export default function Relatorios() {
   const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
@@ -133,11 +133,12 @@ export default function Relatorios() {
     });
   }, [movimentacoes, filtroMov]);
 
-  const movCols = ['Nº', 'Tp', 'Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
+  const movCols = ['Nº', 'Tp', 'Descrição', 'Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
 
   const movColumns = [
     { key: 'numero', label: 'Nº', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.numero || '—'}</span> },
     { key: 'tp', label: 'Tp', render: (m) => <span className="font-mono text-xs text-muted-foreground">{codigoMovimento(m)}</span> },
+    { key: 'descricao', label: 'Descrição', render: (m) => <span className="text-xs text-muted-foreground">{descricaoMovimento(m)}</span> },
     { key: 'data', label: 'Data/Hora', render: (m) => m.data ? new Date(m.data).toLocaleString('pt-BR') : '—', cellClassName: 'text-sm' },
     {
       key: 'tipo',
@@ -199,6 +200,7 @@ export default function Relatorios() {
       return [
         m.numero || '',
         codigoMovimento(m),
+        descricaoMovimento(m),
         m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
         m.tipo === 'entrada' ? 'Entrada' : m.tipo === 'saida' ? 'Saída' : 'Estorno',
         m.nome_produto || '',

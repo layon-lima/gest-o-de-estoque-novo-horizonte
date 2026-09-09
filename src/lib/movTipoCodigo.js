@@ -20,6 +20,23 @@ export function codigoMovimento(mov) {
   return tipo === 'entrada' ? '102' : '201';
 }
 
+// Descrição legível do tipo de movimento (acompanha o código SAP).
+export function descricaoMovimento(mov) {
+  if (!mov) return '';
+  const tipo = mov.tipo;
+  const modulo = mov.modulo || '';
+  const obs = mov.observacao || '';
+
+  if (tipo === 'estorno') return 'Estorno';
+  if (/^Transferência\s*[←→]/i.test(obs)) return 'Transferência';
+  if (modulo === 'inventario') return 'Baixa/Ajuste inventário';
+  if (modulo === 'abastecimento') return 'Abastecimento';
+  if (modulo === 'aplicacao') return 'Aplicação (OS)';
+  if (modulo === 'pesagem') return tipo === 'entrada' ? 'Entrada por compra' : 'Saída por venda';
+  if (modulo === 'nfe') return 'Entrada NF-e';
+  return tipo === 'entrada' ? 'Entrada manual' : 'Saída manual';
+}
+
 // Quantidade com sinal para exibição em listas/relatórios.
 // entrada -> +qtd; saida -> -qtd; estorno -> inverte o sinal do movimento original
 // (estorno de entrada fica negativo; estorno de saída fica positivo — padrão SAP).
