@@ -226,15 +226,61 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
     }
   }
 
+  // Relatório de tickets: conjunto FIXO e completo, independente das colunas
+  // selecionadas na lista e do tipo de pesagem (venda/lavoura/compra/entrada_saida).
+  const transportadoraNomeDoTicket = (t) => {
+    if (t.transportadora_nome) return t.transportadora_nome;
+    if (t.transportadora_id) {
+      const tr = transportadoras.find((p) => p.id === t.transportadora_id);
+      if (tr) return tr.nome;
+    }
+    return '—';
+  };
+  const clienteNomeDoTicket = (t, ped) => {
+    if (t.tipo === 'venda' && ped) return clienteNome(ped.cliente_id);
+    if (t.cliente_nome) return t.cliente_nome;
+    if (t.cliente_id) return clienteNome(t.cliente_id);
+    return '—';
+  };
+  const produtoNomeDoTicket = (t, ped) => {
+    if (t.produto_id) return produtoNome(t.produto_id);
+    if (ped && ped.produto_id) return produtoNome(ped.produto_id);
+    return t.tipo === 'venda' ? 'A definir' : '—';
+  };
+
+  const REPORT_COLS = [
+    'Ticket', 'Tipo', 'Produto', 'Cliente', 'Transportadora',
+    'Abertura', 'Fechamento', 'Motorista', 'Placa', 'Origem', 'Destino',
+    'Tara', 'Bruto', 'Líquido', 'Pedido', 'NF', 'Observação', 'Status',
+  ];
+
   function buildRows() {
     return filtrados.map((t) => {
       const ped = pedidoDoTicket(t.pedido_id);
-      return [t.numero, ...visibleCols.map((k) => exportColVal(k, t, ped))];
+      return [
+        t.numero || '',
+        TIPO_LABEL[t.tipo] || t.tipo || '',
+        produtoNomeDoTicket(t, ped),
+        clienteNomeDoTicket(t, ped),
+        transportadoraNomeDoTicket(t),
+        t.data_abertura ? new Date(t.data_abertura).toLocaleString('pt-BR') : '',
+        t.data_fechamento ? new Date(t.data_fechamento).toLocaleString('pt-BR') : '',
+        t.motorista || '',
+        formatPlaca(t.placa),
+        t.origem || '',
+        t.destino || '',
+        formatQtd(t.peso_tara || 0),
+        formatQtd(t.peso_bruto || 0),
+        formatQtd(t.peso_liquido || 0),
+        ped ? ped.numero : '',
+        t.nfe_importada ? (t.nfe_numero ? `Sim - ${t.nfe_numero}` : 'Sim') : 'Não',
+        t.observacao || '',
+        t.status || '',
+      ];
     });
   }
-  const expCols = ['Ticket', ...visibleCols.map((k) => COLUMN_LABELS[k] || k)];
-  function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', expCols, buildRows()); }
-  function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', expCols, buildRows()); }
+  function handleExportPDF() { exportPDF('Relatório de Tickets de Pesagem', REPORT_COLS, buildRows()); }
+  function handleExportCSV() { exportCSV('Relatório de Tickets de Pesagem', REPORT_COLS, buildRows()); }
 
   const semBusca = !busca.trim();
 
