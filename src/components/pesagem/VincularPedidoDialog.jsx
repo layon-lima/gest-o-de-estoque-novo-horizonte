@@ -41,9 +41,12 @@ export default function VincularPedidoDialog({ ticket, pedidos, pessoas, produto
 
   const visiveis = useMemo(() => {
     const q = busca.toLowerCase().trim();
-    if (!q) return pedidosCompativeis;
-    return pedidosCompativeis.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q));
-  }, [pedidosCompativeis, busca]);
+    let list = pedidosCompativeis;
+    // Oculta o pedido já selecionado da lista — ele aparece no resumo abaixo.
+    if (pedidoId) list = list.filter((p) => p.id !== pedidoId);
+    if (!q) return list;
+    return list.filter((p) => clienteNome(p.cliente_id).toLowerCase().includes(q));
+  }, [pedidosCompativeis, busca, pedidoId]);
 
   const pedidoSel = pedidosCompativeis.find((p) => p.id === pedidoId) || null;
   const liq = round3(Number(ticket?.peso_liquido) || 0);
