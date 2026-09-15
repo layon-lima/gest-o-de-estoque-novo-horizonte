@@ -7,16 +7,19 @@ import ProductForm from '@/components/ProductForm';
 import ProductsTable from '@/components/ProductsTable';
 import SearchBar from '@/components/SearchBar';
 import FilterBar from '@/components/FilterBar';
-import { filterProdutos, matchTerm } from '@/lib/estoqueFilters';
+import { matchTerm } from '@/lib/estoqueFilters';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
 export default function ProdutosManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [filtros, setFiltros] = useState({ setor_id: [], estoque: '', deposito_id: [], maquina_id: [], gaveta_id: [] });
   const [busca, setBusca] = useState('');
+  const [excluirProduto, setExcluirProduto] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
   const { toast } = useToast();
 
   const { data, loading, reload: load } = useEntidades({
@@ -24,23 +27,40 @@ export default function ProdutosManager() {
   });
   const { Produto: produtos, Setor: setores, Deposito: depositos, Maquina: maquinas, Gaveta: gavetas, SaldoEstoque: saldos } = data;
 
+  // Aba de cadastro: lista TODOS os produtos da base, tenham estoque ou não,
+  // filtrando apenas pelos atributos cadastrais (não por saldo/parcela SAP).
   const filtered = useMemo(() => {
-    const porFiltros = filterProdutos(produtos, filtros, saldos);
-    if (!busca.trim()) return porFiltros;
+    const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+    const setorFilter = asArr(filtros.setor_id);
+    const depFilter = asArr(filtros.deposito_id);
+    const maqFilter = asArr(filtros.maquina_id);
+    const gavFilter = asArr(filtros.gaveta_id);
+    let result = produtos.map((p) => ({ ...p, _rowKey: p.id }));
+    if (setorFilter.length) result = result.filter((p) => setorFilter.includes(p.setor_id));
+    if (depFilter.length) result = result.filter((p) => depFilter.includes(p.deposito_id));
+    if (maqFilter.length) result = result.filter((p) => maqFilter.includes(p.maquina_id));
+    if (gavFilter.length) result = result.filter((p) => gavFilter.includes(p.gaveta_id));
+    if (!busca.trim()) return result;
     const termos = busca.split(',').map((t) => t.toLowerCase().trim()).filter(Boolean);
-    if (termos.length === 0) return porFiltros;
-    return porFiltros.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos)));
+    if (termos.length === 0) return result;
+    return result.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos)));
   }, [produtos, filtros, busca, maquinas, gavetas, depositos, saldos]);
 
   function handleNew() { setEditing(null); setFormOpen(true); }
   function handleEdit(produto) { setEditing(produto); setFormOpen(true); }
 
-  async function handleDelete(produto) {
+  function handleDelete(produto) { setExcluirProduto(produto); }
+  async function confirmarExclusao() {
+    if (!excluirProduto) return;
+    setExcluindo(true);
     try {
-      await safeDelete('Produto', produto.id);
+      await safeDelete('Produto', excluirProduto.id);
       toast({ title: 'Produto excluído' });
+      setExcluirProduto(null);
     } catch (err) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+    } finally {
+      setExcluindo(false);
     }
   }
 
@@ -102,6 +122,25 @@ export default function ProdutosManager() {
         onSaved={load}
         produtos={produtos}
       />
+
+      <AlertDialog open={!!excluirProduto} onOpenChange={(o) => !o && !excluindo && setExcluirProduto(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {excluirProduto && (
+                <>Tem certeza que deseja excluir o produto <b>{excluirProduto.nome}</b> ({excluirProduto.codigo || 'sem código'})? Esta ação não pode ser desfeita.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExclusao} disabled={excluindo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {excluindo ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
