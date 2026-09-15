@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Download, Loader2, Trash2, FileCheck2, FilePlus2, Pencil } from 'lucide-react';
+import { Printer, Download, Loader2, Trash2, FileCheck2, FilePlus2, Pencil, Link2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { imprimirTicketTermico } from '@/lib/ticketThermal';
 import MarcaNfDialog from './MarcaNfDialog';
 import EditarTicketDialog from './EditarTicketDialog';
+import VincularPedidoDialog from './VincularPedidoDialog';
 
 const TIPO_LABEL = { venda: 'Venda', lavoura: 'Saída p/ Lavoura', compra: 'Entrada p/ Compra', entrada_saida: 'Entrada e Saída', avulsa: 'Avulsa' };
 
@@ -24,6 +25,7 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
   const [gerandoPdf, setGerandoPdf] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [marcaNf, setMarcaNf] = useState(false);
+  const [vincularOpen, setVincularOpen] = useState(false);
   const clienteNome = (id) => pessoas.find((p) => p.id === id)?.nome || '—';
   const produtoNome = (id) => produtos.find((p) => p.id === id)?.nome || '—';
   const pedido = ticket ? pedidos.find((p) => p.id === ticket.pedido_id) : null;
@@ -169,6 +171,12 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
               <Pencil className="w-4 h-4 mr-2" /> Editar Ticket
             </Button>
 
+            {ticket.status === 'fechado' && !ticket.pedido_id && ticket.produto_id && (
+              <Button variant="ghost" className="w-full text-primary hover:text-primary" onClick={() => setVincularOpen(true)}>
+                <Link2 className="w-4 h-4 mr-2" /> Vincular a Pedido
+              </Button>
+            )}
+
             {ticket.status === 'fechado' && ticket.tipo === 'venda' && (
               <Button variant="outline" className="w-full" onClick={() => setMarcaNf(true)}>
                 {ticket.nfe_importada ? (
@@ -199,6 +207,15 @@ export default function TicketDetalheDialog({ ticket, pedidos, pessoas, produtos
           transportadoras={transportadoras}
           onClose={() => setEditOpen(false)}
           onSaved={(updated) => { setEditOpen(false); onReload?.(); onTicketUpdated?.(updated); }}
+        />
+        <VincularPedidoDialog
+          ticket={vincularOpen ? ticket : null}
+          pedidos={pedidos}
+          pessoas={pessoas}
+          produtos={produtos}
+          transportadoras={transportadoras}
+          onClose={() => setVincularOpen(false)}
+          onDone={(updated) => { setVincularOpen(false); onReload?.(); onTicketUpdated?.(updated); }}
         />
       </DialogContent>
     </Dialog>

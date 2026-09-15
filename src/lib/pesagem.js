@@ -381,3 +381,72 @@ export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pe
 
   return { ticketOriginal: closedOriginal, ticketNovo: novoTicket, baixaErrorOriginal, baixaErrorNovo };
 }
+
+// Vincula um ticket FECHADO a um pedido aberto DO MESMO PRODUTO, acessível a
+// partir do modal de detalhe do ticket no histórico.
+// - Se o ticket JÁ É 'venda' (fechado sem pedido): apenas vincula e consome o
+//   saldo do pedido. O estoque já foi baixado no fechamento — NÃO baixa de novo.
+// - Se o ticket NÃO É 'venda' (lavoura/compra/entrada_saida): converte para
+//   'venda' (tipo, produto, cliente e transportadora do pedido), consome o
+//   saldo do pedido e BAIXA o estoque agora. Tipos não-venda não baixam estoque
+//   no fechamento, então a baixa acontece uma única vez aqui (sem furo/dupla baixa).
+// Retorna { ticket: updatedTicket, baixaError, convertidoDe }.
+export async function vincularConverterTicket({ ticket, pedido, produtos, clienteNome, transpNome }) {
+  if (!ticket?.id || !pedido?.id) throw new Error('Ticket ou pedido inválido.');
+  const liq = round3(Number(ticket.peso_liquido) || 0);
+  const tipoOriginal = ticket.tipo || '';
+  const jaVenda = tipoOriginal === 'venda';
+  const semLimite = !!pedido.sem_limite;
+
+  const transpId = ticket.transportadora_id || (pedido.transportadora_ids || '').split(',')[0]?.trim() || '';
+
+  const updateTicket = {
+    pedido_id: pedido.id,
+    produto_id: pedido.produto_id,
+    cliente_id: pedido.cliente_id,
+    cliente_nome: clienteNome(pedido.cliente_id),
+    transportadora_id: transpId,
+    transportadora_nome: transpId ? transpNome(transpId) : (ticket.transportadora_nome || ''),
+  };
+  if (!jaVenda) updateTicket.tipo = 'venda';
+
+  // 1. Atualiza o ticket (vincula + converte o tipo quando necessário)
+  await base44.entities.TicketPesagem.update(ticket.id, updateTicket);
+  const updatedTicket = { ...ticket, ...updateTicket };
+
+  // 2. Consome o saldo do pedido (pedidos "sem limite" não debitam)
+  if (!semLimite) {
+    const novoSaldo = round3((Number(pedido.saldo_kg) || 0) - liq);
+    await base44.entities.PedidoPesagem.update(pedido.id, {
+      saldo_kg: novoSaldo,
+      status: statusPorSaldo(novoSaldo, pedido.total_kg, pedido.status),
+    });
+  }
+
+  // 3. Baixa o estoque SOMENTE na conversão (não-venda → venda).
+  //    Venda já baixou no fechamento; converter uma venda só reorganiza o pedido.
+  let baixaError = null;
+  if (!jaVenda && liq > 0) {
+    const produto = (produtos || []).find((p) => p.id === pedido.produto_id);
+    if (produto) {
+      try {
+        await baixarEstoqueVendaTicket({ produto, quantidadeKg: liq, ticketNumero: ticket.numero });
+      } catch (e) {
+        baixaError = String(e?.message || e);
+      }
+    } else {
+      baixaError = 'PRODUTO_NAO_ENCONTRADO';
+    }
+  }
+
+  invalidateEntidade('TicketPesagem');
+  invalidateEntidade('PedidoPesagem');
+  if (!jaVenda) {
+    invalidateEntidade('SaldoEstoque');
+    invalidateEntidade('Movimentacao');
+    invalidateEntidade('Lote');
+    invalidateEntidade('Produto');
+  }
+
+  return { ticket: updatedTicket, baixaError, convertidoDe: jaVenda ? null : tipoOriginal };
+}
