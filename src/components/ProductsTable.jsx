@@ -98,12 +98,12 @@ export default function ProductsTable({
             render: (p, c) => (
               <span className="inline-flex gap-1">
                 {c.onEdit && (
-                  <Button size="icon" variant="ghost" onClick={() => c.onEdit(p)}>
+                  <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); c.onEdit(p); }}>
                     <Pencil className="w-4 h-4" />
                   </Button>
                 )}
                 {c.onDelete && (
-                  <Button size="icon" variant="ghost" className="text-destructive" onClick={() => c.onDelete(p)}>
+                  <Button size="icon" variant="ghost" className="text-destructive" onClick={(e) => { e.stopPropagation(); c.onDelete(p); }}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 )}
@@ -128,6 +128,8 @@ export default function ProductsTable({
           data={produtos}
           getRowId={(p) => p._rowKey || p.id}
           ctx={ctx}
+          onRowClick={onEdit || undefined}
+          rowClassName={onEdit ? 'cursor-pointer' : ''}
           footerLabel="Total"
           containerClassName="max-h-[420px]"
           toggleLabel="Colunas"
