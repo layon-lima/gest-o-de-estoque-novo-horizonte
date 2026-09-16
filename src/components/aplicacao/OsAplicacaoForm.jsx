@@ -26,7 +26,7 @@ const emptyForm = {
   observacao: '',
 };
 
-export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas, lavouras, produtos, saldos, depositos, ordens, os = null }) {
+export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas, lavouras, produtos, saldos, depositos, ordens, os = null, anosSafra = [] }) {
   const editing = !!os;
   const [form, setForm] = useState(emptyForm);
   const [itens, setItens] = useState([]);
@@ -221,7 +221,16 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
             </div>
             <div className="space-y-1.5">
               <Label>Ano Safra *</Label>
-              <Input value={form.ano_safra} onChange={(e) => setForm({ ...form, ano_safra: e.target.value })} placeholder="Ex.: 2025/2026" />
+              <SearchSelect
+                value={form.ano_safra}
+                onChange={(v) => setForm({ ...form, ano_safra: v === 'all' ? '' : v })}
+                allLabel="— Selecione —"
+                placeholder="Buscar ano safra..."
+                options={(anosSafra || []).map((a) => ({ value: a.nome, label: a.nome }))}
+              />
+              {(anosSafra || []).length === 0 && (
+                <p className="text-xs text-destructive">Nenhum ano safra cadastrado. Cadastre em "Anos Safra".</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Lavoura *</Label>

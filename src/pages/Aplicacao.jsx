@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { executarOS, parseItens, diasEmAberto } from '@/lib/osAplicacao';
 import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
+import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
 
 const STATUS_FILTERS = [
   { v: 'all', l: 'Todas' },
@@ -30,6 +31,8 @@ export default function Aplicacao() {
   const [custoLavoura, setCustoLavoura] = useState(null);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
+  const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
+  const [anosOpen, setAnosOpen] = useState(false);
 
   const { data, loading, reload } = useEntidades({
     Cultura: {},
@@ -40,18 +43,25 @@ export default function Aplicacao() {
     Deposito: {},
     Movimentacao: { sort: '-data', limit: 200 },
     OrdemServicoAplicacao: { sort: '-data', limit: 500 },
+    AnoSafra: {},
   });
 
-  const { Cultura: culturas, Lavoura: lavouras, Produto: produtos, SaldoEstoque: saldos, Lote: lotes, Deposito: depositos, Movimentacao: movimentacoes, OrdemServicoAplicacao: ordens } = data;
+  const { Cultura: culturas, Lavoura: lavouras, Produto: produtos, SaldoEstoque: saldos, Lote: lotes, Deposito: depositos, Movimentacao: movimentacoes, OrdemServicoAplicacao: ordens, AnoSafra: anosSafra } = data;
+
+  const anosSafraOrdenados = useMemo(
+    () => [...(anosSafra || [])].sort((a, b) => (b.nome || '').localeCompare(a.nome || '')),
+    [anosSafra]
+  );
 
   const filtered = useMemo(() => {
     return (ordens || []).filter((o) => {
       const matchStatus = filtroStatus === 'all' || o.status === filtroStatus;
       const q = busca.toLowerCase().trim();
       const matchBusca = !q || [o.numero, o.cultura_nome, o.lavoura_nome, o.ano_safra, o.responsavel].filter(Boolean).join(' ').toLowerCase().includes(q);
-      return matchStatus && matchBusca;
+      const matchAnoSafra = anoSafraFiltro === 'all' || o.ano_safra === anoSafraFiltro;
+      return matchStatus && matchBusca && matchAnoSafra;
     });
-  }, [ordens, filtroStatus, busca]);
+  }, [ordens, filtroStatus, busca, anoSafraFiltro]);
 
   // Lavouras com OS executadas para o relatório de custo.
   const lavourasComCusto = useMemo(() => {
@@ -126,6 +136,31 @@ export default function Aplicacao() {
             R$ {(ordens || []).reduce((s, o) => s + (Number(o.custo_total) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </Card>
+      </div>
+
+      {/* Pastas por Ano Safra */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-medium text-muted-foreground shrink-0">Ano Safra:</span>
+        <button
+          type="button"
+          onClick={() => setAnoSafraFiltro('all')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${anoSafraFiltro === 'all' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent'}`}
+        >
+          Todos
+        </button>
+        {anosSafraOrdenados.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => setAnoSafraFiltro(a.nome)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${anoSafraFiltro === a.nome ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent'}`}
+          >
+            {a.nome}
+          </button>
+        ))}
+        <Button variant="outline" size="sm" className="ml-auto" onClick={() => setAnosOpen(true)}>
+          <CalendarDays className="w-4 h-4 mr-1.5" /> Anos Safra
+        </Button>
       </div>
 
       {/* Filtros */}
@@ -256,6 +291,7 @@ export default function Aplicacao() {
         depositos={depositos}
         ordens={ordens}
         os={editandoOs}
+        anosSafra={anosSafra}
       />
 
       <OsAplicacaoDetalhe
@@ -277,6 +313,12 @@ export default function Aplicacao() {
         onOpenChange={(v) => !v && setCustoLavoura(null)}
         lavoura={custoLavoura}
         ordens={ordens}
+      />
+
+      <AnoSafraManager
+        open={anosOpen}
+        onOpenChange={setAnosOpen}
+        anosSafra={anosSafra}
       />
     </div>
   );
