@@ -207,7 +207,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
         <DialogHeader>
           <DialogTitle>{editing ? `Editar OS ${os.numero}` : 'Nova Ordem de Serviço de Aplicação'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-6xl mx-auto w-full">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 max-w-6xl mx-auto w-full">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label>Cultura *</Label>
@@ -319,7 +319,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>{saving ? 'Salvando…' : editing ? 'Salvar Alterações' : 'Criar OS'}</Button>
+            <Button type="button" onClick={handleSubmit} disabled={saving}>{saving ? 'Salvando…' : editing ? 'Salvar Alterações' : 'Criar OS'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
