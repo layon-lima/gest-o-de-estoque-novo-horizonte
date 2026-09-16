@@ -166,9 +166,22 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           observacao: form.observacao,
         });
         toast({ title: 'OS atualizada', description: os.numero });
+        invalidateEntidade('OrdemServicoAplicacao');
+        onSaved?.({
+          ...os,
+          cultura_id: form.cultura_id,
+          cultura_nome: cultura?.nome || '',
+          ano_safra: form.ano_safra.trim(),
+          lavoura_id: form.lavoura_id,
+          lavoura_nome: lavoura?.nome || '',
+          hectares,
+          itens: stringifyItens(itens),
+          observacao: form.observacao,
+        });
+        onOpenChange(false);
       } else {
         const numero = formatarNumeroOS(maxNumeroOS(ordens) + 1);
-        await base44.entities.OrdemServicoAplicacao.create({
+        const created = await base44.entities.OrdemServicoAplicacao.create({
           numero,
           cultura_id: form.cultura_id,
           cultura_nome: cultura?.nome || '',
@@ -184,11 +197,10 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           custo_total: 0,
         });
         toast({ title: 'OS criada', description: numero });
+        invalidateEntidade('OrdemServicoAplicacao');
+        onSaved?.(created);
+        onOpenChange(false);
       }
-
-      invalidateEntidade('OrdemServicoAplicacao');
-      onSaved?.();
-      onOpenChange(false);
     } finally {
       setSaving(false);
     }

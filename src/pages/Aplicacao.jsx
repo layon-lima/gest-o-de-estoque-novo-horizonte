@@ -75,6 +75,12 @@ export default function Aplicacao() {
     setFormOpen(true);
   }
 
+  // Ao salvar (criar/editar) a OS, abre o modal de detalhe imediatamente.
+  function handleSavedOs(savedOs) {
+    reload();
+    setDetalheOs(savedOs);
+  }
+
   async function handleConsumo(os, itensAtualizados) {
     // Atualiza os itens da OS com o realizado antes de executar.
     const osAtualizada = { ...os, itens: JSON.stringify(itensAtualizados) };
@@ -284,7 +290,7 @@ export default function Aplicacao() {
       <OsAplicacaoForm
         open={formOpen}
         onOpenChange={(v) => { setFormOpen(v); if (!v) setEditandoOs(null); }}
-        onSaved={reload}
+        onSaved={handleSavedOs}
         culturas={culturas}
         lavouras={lavouras}
         produtos={produtos}
