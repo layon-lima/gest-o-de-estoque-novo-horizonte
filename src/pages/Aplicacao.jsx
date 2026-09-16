@@ -43,10 +43,11 @@ export default function Aplicacao() {
     Deposito: {},
     Movimentacao: { sort: '-data', limit: 200 },
     OrdemServicoAplicacao: { sort: '-data', limit: 500 },
+    Setor: {},
     AnoSafra: {},
   });
 
-  const { Cultura: culturas, Lavoura: lavouras, Produto: produtos, SaldoEstoque: saldos, Lote: lotes, Deposito: depositos, Movimentacao: movimentacoes, OrdemServicoAplicacao: ordens, AnoSafra: anosSafra } = data;
+  const { Cultura: culturas, Lavoura: lavouras, Produto: produtos, SaldoEstoque: saldos, Lote: lotes, Deposito: depositos, Movimentacao: movimentacoes, OrdemServicoAplicacao: ordens, AnoSafra: anosSafra, Setor: setores } = data;
 
   const anosSafraOrdenados = useMemo(
     () => [...(anosSafra || [])].sort((a, b) => (b.nome || '').localeCompare(a.nome || '')),
@@ -292,6 +293,7 @@ export default function Aplicacao() {
         ordens={ordens}
         os={editandoOs}
         anosSafra={anosSafra}
+        setores={setores}
       />
 
       <OsAplicacaoDetalhe

@@ -19,7 +19,7 @@ const norm = (v) => String(v || '').trim().toLowerCase();
 const NOMES_VALIDADE = /defensivo|adubo|semente|fertilizante/;
 
 export default function SetorManager() {
-  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false });
+  const [form, setForm] = useState({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false, permite_aplicacao: false });
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
   const { toast } = useToast();
@@ -50,7 +50,7 @@ export default function SetorManager() {
     }
     if (editingId) await base44.entities.Setor.update(editingId, form);
     else await base44.entities.Setor.create(form);
-    setForm({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false });
+    setForm({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false, permite_aplicacao: false });
     setEditingId(null);
     invalidateEntidade('Setor');
   }
@@ -64,7 +64,7 @@ export default function SetorManager() {
   }
 
   function handleEdit(item) {
-    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', icon: item.icon || '', controla_validade: !!item.controla_validade, tem_aba_mobile: !!item.tem_aba_mobile, permite_inventario: !!item.permite_inventario });
+    setForm({ nome: item.nome, descricao: item.descricao || '', cor: item.cor || '#16a34a', icon: item.icon || '', controla_validade: !!item.controla_validade, tem_aba_mobile: !!item.tem_aba_mobile, permite_inventario: !!item.permite_inventario, permite_aplicacao: !!item.permite_aplicacao });
     setEditingId(item.id);
   }
 
@@ -138,9 +138,20 @@ export default function SetorManager() {
               onCheckedChange={(v) => setForm({ ...form, permite_inventario: v })}
             />
           </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="s-apl" className="cursor-pointer">Permite aplicação (OS)</Label>
+              <p className="text-xs text-muted-foreground">Defensivos e adubos — produtos deste setor aparecem na seleção de OS de aplicação</p>
+            </div>
+            <Switch
+              id="s-apl"
+              checked={!!form.permite_aplicacao}
+              onCheckedChange={(v) => setForm({ ...form, permite_aplicacao: v })}
+            />
+          </div>
           <div className="flex gap-2">
             <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false }); }}>Cancelar</Button>}
+            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm({ nome: '', descricao: '', cor: '#16a34a', icon: '', controla_validade: false, tem_aba_mobile: false, permite_inventario: false, permite_aplicacao: false }); }}>Cancelar</Button>}
           </div>
         </form>
       </Card>
@@ -160,6 +171,9 @@ export default function SetorManager() {
                   <p className="font-medium truncate">{item.nome}</p>
                   {item.controla_validade && (
                     <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0">Validade</Badge>
+                  )}
+                  {item.permite_aplicacao && (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0">Aplicação</Badge>
                   )}
                 </div>
                 {item.descricao && <p className="text-sm text-muted-foreground truncate">{item.descricao}</p>}

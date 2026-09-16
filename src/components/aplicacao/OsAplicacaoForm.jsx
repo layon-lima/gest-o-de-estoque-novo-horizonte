@@ -26,7 +26,7 @@ const emptyForm = {
   observacao: '',
 };
 
-export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas, lavouras, produtos, saldos, depositos, ordens, os = null, anosSafra = [] }) {
+export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas, lavouras, produtos, saldos, depositos, ordens, os = null, anosSafra = [], setores = [] }) {
   const editing = !!os;
   const [form, setForm] = useState(emptyForm);
   const [itens, setItens] = useState([]);
@@ -75,10 +75,14 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
   const produtosDisponiveis = useMemo(() => {
     const q = busca.toLowerCase().trim();
     return produtos
+      .filter((p) => {
+        const setor = setores.find((s) => s.id === p.setor_id);
+        return !!setor?.permite_aplicacao;
+      })
       .filter((p) => saldoProduto(p.id, saldos) > 0)
       .filter((p) => !itens.some((it) => it.produto_id === p.id))
       .filter((p) => !q || (p.nome || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q));
-  }, [produtos, saldos, itens, busca]);
+  }, [produtos, saldos, itens, busca, setores]);
 
   function addProduto(produto) {
     const depositoId = produto.deposito_id || '';
@@ -253,7 +257,8 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
 
           {/* Seleção de produtos */}
           <div className="space-y-2 rounded-lg border p-3">
-            <Label>Adicionar produtos (com saldo em estoque)</Label>
+            <Label>Adicionar produtos (defensivos/adubos com saldo)</Label>
+            <p className="text-xs text-muted-foreground -mt-1">Aparecem apenas produtos de setores marcados como "Permite aplicação".</p>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou código..." className="pl-9" />
