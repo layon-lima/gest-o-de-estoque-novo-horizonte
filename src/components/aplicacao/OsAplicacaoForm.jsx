@@ -77,7 +77,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
     return produtos
       .filter((p) => {
         const setor = setores.find((s) => s.id === p.setor_id);
-        return !!setor?.permite_aplicacao;
+        return /defensivo|adubo/i.test(setor?.nome || '');
       })
       .filter((p) => saldoProduto(p.id, saldos) > 0)
       .filter((p) => !itens.some((it) => it.produto_id === p.id))
@@ -258,7 +258,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           {/* Seleção de produtos */}
           <div className="space-y-2 rounded-lg border p-3">
             <Label>Adicionar produtos (defensivos/adubos com saldo)</Label>
-            <p className="text-xs text-muted-foreground -mt-1">Aparecem apenas produtos de setores marcados como "Permite aplicação".</p>
+            <p className="text-xs text-muted-foreground -mt-1">Aparecem apenas produtos dos setores Defensivos e Adubos.</p>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou código..." className="pl-9" />
