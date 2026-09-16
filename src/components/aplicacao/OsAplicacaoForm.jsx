@@ -15,7 +15,7 @@ import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
-import { formatQtd } from '@/lib/format';
+import { formatQtd, parseQtd } from '@/lib/format';
 import { formatarNumeroOS, maxNumeroOS, calcularPrevisto, stringifyItens, parseItens, saldoProduto } from '@/lib/osAplicacao';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
@@ -53,6 +53,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           nome: it.nome,
           unidade: it.unidade || 'un',
           dose_por_hect: it.dose_por_hect || 0,
+          total_lavoura: it.total_lavoura || 0,
           previsto: it.previsto || 0,
           deposito_id: it.deposito_id || '',
           custo_unitario: Number(it.custo_unitario) || 0,
@@ -94,6 +95,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
         nome: produto.nome,
         unidade: produto.unidade || 'un',
         dose_por_hect: 0,
+        total_lavoura: 0,
         previsto: 0,
         deposito_id: depositoId,
         custo_unitario: Number(produto.custo_unitario) || 0,
@@ -107,7 +109,13 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
       const next = [...prev];
       next[idx] = { ...next[idx], [key]: val };
       if (key === 'dose_por_hect') {
+        // Modo dose: limpa o total lavoura e calcula previsto = dose × hectares.
+        next[idx].total_lavoura = 0;
         next[idx].previsto = calcularPrevisto(val, hectares);
+      } else if (key === 'total_lavoura') {
+        // Modo total lavoura: limpa a dose e previsto = total informado.
+        next[idx].dose_por_hect = 0;
+        next[idx].previsto = parseQtd(val);
       }
       return next;
     });
@@ -120,7 +128,12 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
   // Recalcula previsto quando hectares muda.
   useEffect(() => {
     setItens((prev) =>
-      prev.map((it) => ({ ...it, previsto: calcularPrevisto(it.dose_por_hect, hectares) }))
+      prev.map((it) => {
+        const total = parseQtd(it.total_lavoura);
+        // Em modo total lavoura o previsto é fixo (total); em modo dose recalcula por hectares.
+        const previsto = total > 0 ? total : calcularPrevisto(it.dose_por_hect, hectares);
+        return { ...it, previsto };
+      })
     );
   }, [hectares]);
 
@@ -263,7 +276,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           {hectares > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <Badge className="bg-primary/15 text-primary border-transparent">Hectares: {formatQtd(hectares)} ha</Badge>
-              <span className="text-muted-foreground">O previsto é calculado automaticamente (dose × hectares).</span>
+              <span className="text-muted-foreground">Informe a dose/ha OU o total por lavoura — apenas um dos dois por linha. O previsto é calculado automaticamente.</span>
             </div>
           )}
 
@@ -298,6 +311,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
                     <th className="p-2 text-left whitespace-nowrap">Produto</th>
                     <th className="p-2 text-center whitespace-nowrap">Un.</th>
                     <th className="p-2 text-right whitespace-nowrap">Dose/ha</th>
+                    <th className="p-2 text-right whitespace-nowrap">Total Lavoura</th>
                     <th className="p-2 text-right whitespace-nowrap">Previsto</th>
                     <th className="p-2 text-center whitespace-nowrap">Depósito</th>
                     <th className="p-2"></th>
@@ -313,7 +327,25 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
                         </td>
                         <td className="p-2 text-center whitespace-nowrap">{it.unidade}</td>
                         <td className="p-2 text-right whitespace-nowrap">
-                          <Input type="text" inputMode="decimal" className="h-8 w-24 text-right" value={it.dose_por_hect} onChange={(e) => updateItem(idx, 'dose_por_hect', e.target.value)} />
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            className="h-8 w-24 text-right"
+                            value={it.dose_por_hect}
+                            onChange={(e) => updateItem(idx, 'dose_por_hect', e.target.value)}
+                            disabled={parseQtd(it.total_lavoura) > 0}
+                          />
+                        </td>
+                        <td className="p-2 text-right whitespace-nowrap">
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            className="h-8 w-28 text-right"
+                            value={it.total_lavoura || ''}
+                            onChange={(e) => updateItem(idx, 'total_lavoura', e.target.value)}
+                            disabled={parseQtd(it.dose_por_hect) > 0}
+                            placeholder="Opcional"
+                          />
                         </td>
                         <td className="p-2 text-right whitespace-nowrap font-semibold tabular-nums">{formatQtd(it.previsto)}</td>
                         <td className="p-2 whitespace-nowrap">
