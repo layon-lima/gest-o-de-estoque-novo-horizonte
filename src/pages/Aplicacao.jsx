@@ -14,7 +14,7 @@ import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
 import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
-import ResumoOsDialog from '@/components/aplicacao/ResumoOsDialog';
+import { gerarPDFResumoOS } from '@/lib/resumoOsPdf';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const STATUS_FILTERS = [
@@ -36,7 +36,6 @@ export default function Aplicacao() {
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
   const [anosOpen, setAnosOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [resumoOpen, setResumoOpen] = useState(false);
 
   const { data, loading, reload } = useEntidades({
     Cultura: {},
@@ -126,8 +125,11 @@ export default function Aplicacao() {
         </div>
         <div className="flex items-center gap-2">
           {selectedIds.length > 0 && (
-            <Button variant="outline" onClick={() => setResumoOpen(true)}>
-              <ClipboardList className="w-4 h-4 mr-2" /> Gerar Resumo ({selectedIds.length})
+            <Button
+              variant="outline"
+              onClick={() => gerarPDFResumoOS((ordens || []).filter((o) => selectedIds.includes(o.id)))}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" /> Gerar Resumo PDF ({selectedIds.length})
             </Button>
           )}
           <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }}>
@@ -357,12 +359,6 @@ export default function Aplicacao() {
         open={anosOpen}
         onOpenChange={setAnosOpen}
         anosSafra={anosSafra}
-      />
-
-      <ResumoOsDialog
-        open={resumoOpen}
-        onOpenChange={setResumoOpen}
-        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id))}
       />
     </div>
   );
