@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { formatQtd } from '@/lib/format';
-import { executarOS, parseItens } from '@/lib/osAplicacao';
+import { executarOS, parseItens, diasEmAberto } from '@/lib/osAplicacao';
 import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
@@ -26,6 +26,7 @@ export default function Aplicacao() {
   const { toast } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [detalheOs, setDetalheOs] = useState(null);
+  const [editandoOs, setEditandoOs] = useState(null);
   const [custoLavoura, setCustoLavoura] = useState(null);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
@@ -56,6 +57,12 @@ export default function Aplicacao() {
   const lavourasComCusto = useMemo(() => {
     return (lavouras || []).filter((l) => (ordens || []).some((o) => o.lavoura_id === l.id && o.status === 'executada'));
   }, [lavouras, ordens]);
+
+  function handleEditOs(os) {
+    setDetalheOs(null);
+    setEditandoOs(os);
+    setFormOpen(true);
+  }
 
   async function handleConsumo(os, itensAtualizados) {
     // Atualiza os itens da OS com o realizado antes de executar.
@@ -94,7 +101,7 @@ export default function Aplicacao() {
           <h1 className="text-2xl font-bold">Aplicação por Lavoura</h1>
           <p className="text-sm text-muted-foreground mt-1">Ordens de serviço de aplicação de adubos e defensivos</p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" /> Nova OS
         </Button>
       </header>
@@ -146,7 +153,7 @@ export default function Aplicacao() {
         <Card className="p-12 text-center">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
           <p className="text-sm text-muted-foreground mb-4">Nenhuma OS encontrada.</p>
-          <Button onClick={() => setFormOpen(true)} className="mx-auto">
+          <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }} className="mx-auto">
             <Plus className="w-4 h-4 mr-2" /> Criar primeira OS
           </Button>
         </Card>
@@ -164,6 +171,7 @@ export default function Aplicacao() {
                   <th className="p-2 text-center whitespace-nowrap">Produtos</th>
                   <th className="p-2 text-right whitespace-nowrap">Custo</th>
                   <th className="p-2 text-center whitespace-nowrap">Status</th>
+                  <th className="p-2 text-center whitespace-nowrap">Dias</th>
                   <th className="p-2 text-left whitespace-nowrap">Data</th>
                 </tr>
               </thead>
@@ -188,6 +196,17 @@ export default function Aplicacao() {
                         {o.custo_total ? `R$ ${Number(o.custo_total).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                       </td>
                       <td className="p-2 text-center whitespace-nowrap"><Badge className={statusBadge}>{statusLabel}</Badge></td>
+                      <td className="p-2 text-center whitespace-nowrap">
+                        {o.status === 'aberta' ? (() => {
+                          const d = diasEmAberto(o);
+                          const alerta = d > 7;
+                          return (
+                            <span className={`inline-flex items-center gap-1 text-xs font-medium ${alerta ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              {alerta && <AlertTriangle className="w-3.5 h-3.5" />}{d}d
+                            </span>
+                          );
+                        })() : <span className="text-muted-foreground">—</span>}
+                      </td>
                       <td className="p-2 whitespace-nowrap text-xs text-muted-foreground">{o.data ? new Date(o.data).toLocaleDateString('pt-BR') : '—'}</td>
                     </tr>
                   );
@@ -228,7 +247,7 @@ export default function Aplicacao() {
 
       <OsAplicacaoForm
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(v) => { setFormOpen(v); if (!v) setEditandoOs(null); }}
         onSaved={reload}
         culturas={culturas}
         lavouras={lavouras}
@@ -236,6 +255,7 @@ export default function Aplicacao() {
         saldos={saldos}
         depositos={depositos}
         ordens={ordens}
+        os={editandoOs}
       />
 
       <OsAplicacaoDetalhe
@@ -249,6 +269,7 @@ export default function Aplicacao() {
         lotes={lotes}
         movimentacoes={movimentacoes}
         onConsumo={handleConsumo}
+        onEdit={handleEditOs}
       />
 
       <CustoLavouraDialog

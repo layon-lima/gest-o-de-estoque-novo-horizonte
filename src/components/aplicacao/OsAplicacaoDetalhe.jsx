@@ -2,13 +2,16 @@ import { useState } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Printer, CheckCircle2, Trash2, FileText } from 'lucide-react';
+import { Printer, CheckCircle2, Trash2, FileText, AlertTriangle, Pencil } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd, formatDose } from '@/lib/format';
-import { parseItens } from '@/lib/osAplicacao';
+import { parseItens, diasEmAberto } from '@/lib/osAplicacao';
 import { gerarPDFOS } from '@/lib/osPdf';
 import { invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -20,9 +23,10 @@ const STATUS_LABELS = {
   cancelada: { label: 'Cancelada', className: 'bg-muted text-muted-foreground border-transparent' },
 };
 
-export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, lavouras, produtos, saldos, lotes, movimentacoes, onConsumo }) {
+export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, lavouras, produtos, saldos, lotes, movimentacoes, onConsumo, onEdit }) {
   const [consumoOpen, setConsumoOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const { toast } = useToast();
 
   if (!os) return null;
@@ -87,6 +91,11 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                 <p className="text-sm text-muted-foreground">{lavoura?.nome || os.lavoura_nome}</p>
               </div>
               <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
+              {os.status === 'aberta' && diasEmAberto(os) > 7 && (
+                <Badge className="bg-red-100 text-red-700 border-transparent inline-flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Aberta há {diasEmAberto(os)} dias
+                </Badge>
+              )}
             </div>
           </DialogHeader>
 
@@ -174,6 +183,9 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
               </Button>
               {os.status === 'aberta' && (
                 <>
+                  <Button variant="outline" onClick={() => onEdit?.(os)}>
+                    <Pencil className="w-4 h-4 mr-2" /> Editar
+                  </Button>
                   <Button variant="outline" className="text-destructive" onClick={handleCancelar}>
                     Cancelar OS
                   </Button>
@@ -182,7 +194,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                   </Button>
                 </>
               )}
-              <Button variant="ghost" className="text-destructive" onClick={handleDelete}>
+              <Button variant="ghost" className="text-destructive" onClick={() => setDeleteOpen(true)} title="Excluir OS">
                 <Trash2 className="w-4 h-4" />
               </Button>
             </DialogFooter>
@@ -199,6 +211,23 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
         onConfirm={handleConsumo}
         saving={saving}
       />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-destructive" /> Excluir OS?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a OS <b className="font-mono">{os.numero}</b>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

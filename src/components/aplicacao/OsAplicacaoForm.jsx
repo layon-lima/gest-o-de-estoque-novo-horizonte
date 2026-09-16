@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +16,7 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { formatQtd } from '@/lib/format';
-import { formatarNumeroOS, calcularPrevisto, stringifyItens, saldoProduto } from '@/lib/osAplicacao';
+import { formatarNumeroOS, maxNumeroOS, calcularPrevisto, stringifyItens, parseItens, saldoProduto } from '@/lib/osAplicacao';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
 const emptyForm = {
@@ -23,21 +26,45 @@ const emptyForm = {
   observacao: '',
 };
 
-export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas, lavouras, produtos, saldos, depositos, ordens }) {
+export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas, lavouras, produtos, saldos, depositos, ordens, os = null }) {
+  const editing = !!os;
   const [form, setForm] = useState(emptyForm);
   const [itens, setItens] = useState([]);
   const [busca, setBusca] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Pré-preenche o formulário: edita a OS recebida ou limpa para criar nova.
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (os) {
+      setForm({
+        cultura_id: os.cultura_id || '',
+        ano_safra: os.ano_safra || '',
+        lavoura_id: os.lavoura_id || '',
+        observacao: os.observacao || '',
+      });
+      setItens(
+        parseItens(os.itens).map((it) => ({
+          produto_id: it.produto_id,
+          codigo: it.codigo,
+          nome: it.nome,
+          unidade: it.unidade || 'un',
+          dose_por_hect: it.dose_por_hect || 0,
+          previsto: it.previsto || 0,
+          deposito_id: it.deposito_id || '',
+          custo_unitario: Number(it.custo_unitario) || 0,
+        }))
+      );
+    } else {
       setForm(emptyForm);
       setItens([]);
-      setBusca('');
     }
-  }, [open]);
+    setBusca('');
+    setConfirmOpen(false);
+  }, [open, os]);
 
   const hectares = useMemo(() => {
     const lav = lavouras.find((l) => l.id === form.lavoura_id);
@@ -93,57 +120,68 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
     );
   }, [hectares]);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  function validate() {
     if (!form.cultura_id) {
       toast({ variant: 'destructive', title: 'Selecione a cultura' });
-      return;
+      return false;
     }
     if (!form.lavoura_id) {
       toast({ variant: 'destructive', title: 'Selecione a lavoura' });
-      return;
+      return false;
     }
     if (!form.ano_safra.trim()) {
       toast({ variant: 'destructive', title: 'Informe o ano safra' });
-      return;
+      return false;
     }
     if (itens.length === 0) {
       toast({ variant: 'destructive', title: 'Adicione ao menos um produto' });
-      return;
+      return false;
     }
     if (hectares <= 0) {
       toast({ variant: 'destructive', title: 'Lavoura sem hectares definidos' });
-      return;
+      return false;
     }
+    return true;
+  }
 
+  async function persist() {
     setSaving(true);
     try {
       const cultura = culturas.find((c) => c.id === form.cultura_id);
       const lavoura = lavouras.find((l) => l.id === form.lavoura_id);
-      const numero = formatarNumeroOS(
-        Math.max(0, ...ordens.map((o) => {
-          const m = String(o.numero || '').match(/(\d+)\s*$/);
-          return m ? parseInt(m[1], 10) : 0;
-        })) + 1
-      );
 
-      await base44.entities.OrdemServicoAplicacao.create({
-        numero,
-        cultura_id: form.cultura_id,
-        cultura_nome: cultura?.nome || '',
-        ano_safra: form.ano_safra.trim(),
-        lavoura_id: form.lavoura_id,
-        lavoura_nome: lavoura?.nome || '',
-        hectares,
-        itens: stringifyItens(itens),
-        status: 'aberta',
-        data: new Date().toISOString(),
-        responsavel: user?.full_name || user?.email || '',
-        observacao: form.observacao,
-        custo_total: 0,
-      });
+      if (editing) {
+        await base44.entities.OrdemServicoAplicacao.update(os.id, {
+          cultura_id: form.cultura_id,
+          cultura_nome: cultura?.nome || '',
+          ano_safra: form.ano_safra.trim(),
+          lavoura_id: form.lavoura_id,
+          lavoura_nome: lavoura?.nome || '',
+          hectares,
+          itens: stringifyItens(itens),
+          observacao: form.observacao,
+        });
+        toast({ title: 'OS atualizada', description: os.numero });
+      } else {
+        const numero = formatarNumeroOS(maxNumeroOS(ordens) + 1);
+        await base44.entities.OrdemServicoAplicacao.create({
+          numero,
+          cultura_id: form.cultura_id,
+          cultura_nome: cultura?.nome || '',
+          ano_safra: form.ano_safra.trim(),
+          lavoura_id: form.lavoura_id,
+          lavoura_nome: lavoura?.nome || '',
+          hectares,
+          itens: stringifyItens(itens),
+          status: 'aberta',
+          data: new Date().toISOString(),
+          responsavel: user?.full_name || user?.email || '',
+          observacao: form.observacao,
+          custo_total: 0,
+        });
+        toast({ title: 'OS criada', description: numero });
+      }
 
-      toast({ title: 'OS criada', description: numero });
       invalidateEntidade('OrdemServicoAplicacao');
       onSaved?.();
       onOpenChange(false);
@@ -152,14 +190,25 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
     }
   }
 
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!validate()) return;
+    // Edição exige validação (confirmação) antes de aplicar.
+    if (editing) {
+      setConfirmOpen(true);
+    } else {
+      persist();
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent fullscreen className="sm:max-w-3xl">
+      <DialogContent fullscreen>
         <DialogHeader>
-          <DialogTitle>Nova Ordem de Serviço de Aplicação</DialogTitle>
+          <DialogTitle>{editing ? `Editar OS ${os.numero}` : 'Nova Ordem de Serviço de Aplicação'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-4 max-w-6xl mx-auto w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label>Cultura *</Label>
               <SearchSelect
@@ -230,7 +279,6 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
                 </thead>
                 <tbody>
                   {itens.map((it, idx) => {
-                    const depNome = depositos.find((d) => d.id === it.deposito_id);
                     return (
                       <tr key={idx} className="border-t">
                         <td className="p-2 whitespace-nowrap">
@@ -271,10 +319,27 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Criar OS'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Salvando…' : editing ? 'Salvar Alterações' : 'Criar OS'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar alterações na OS?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está editando a OS <b className="font-mono">{os?.numero}</b>. Os produtos, doses e depósitos serão atualizados. Deseja confirmar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={persist} disabled={saving}>
+              {saving ? 'Salvando…' : 'Confirmar alterações'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

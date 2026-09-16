@@ -20,6 +20,15 @@ export function formatarNumeroOS(n) {
   return `OSA-${String(n).padStart(6, '0')}`;
 }
 
+// Dias que uma OS está em aberto (data de abertura até hoje).
+// Usado para acionar o flag de alerta quando passa de 7 dias.
+export function diasEmAberto(os, agora = new Date()) {
+  if (!os?.data) return 0;
+  const abertura = new Date(os.data);
+  if (Number.isNaN(abertura.getTime())) return 0;
+  return Math.max(0, Math.floor((agora - abertura) / 86400000));
+}
+
 // Calcula o previsto de um item: dose_por_hect × hectares.
 export function calcularPrevisto(dosePorHect, hectares) {
   const dose = parseQtd(dosePorHect);
