@@ -113,9 +113,11 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
         next[idx].total_lavoura = 0;
         next[idx].previsto = calcularPrevisto(val, hectares);
       } else if (key === 'total_lavoura') {
-        // Modo total lavoura: limpa a dose e previsto = total informado.
-        next[idx].dose_por_hect = 0;
-        next[idx].previsto = parseQtd(val);
+        // Modo total lavoura: calcula a dose = total ÷ hectares e previsto = total.
+        const total = parseQtd(val);
+        const ha = Number(hectares) || 0;
+        next[idx].dose_por_hect = total > 0 && ha > 0 ? total / ha : 0;
+        next[idx].previsto = total;
       }
       return next;
     });
@@ -130,9 +132,11 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
     setItens((prev) =>
       prev.map((it) => {
         const total = parseQtd(it.total_lavoura);
-        // Em modo total lavoura o previsto é fixo (total); em modo dose recalcula por hectares.
-        const previsto = total > 0 ? total : calcularPrevisto(it.dose_por_hect, hectares);
-        return { ...it, previsto };
+        if (total > 0) {
+          const ha = Number(hectares) || 0;
+          return { ...it, dose_por_hect: ha > 0 ? total / ha : 0, previsto: total };
+        }
+        return { ...it, previsto: calcularPrevisto(it.dose_por_hect, hectares) };
       })
     );
   }, [hectares]);
@@ -343,7 +347,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
                             className="h-8 w-28 text-right"
                             value={it.total_lavoura || ''}
                             onChange={(e) => updateItem(idx, 'total_lavoura', e.target.value)}
-                            disabled={parseQtd(it.dose_por_hect) > 0}
+                            disabled={parseQtd(it.dose_por_hect) > 0 && parseQtd(it.total_lavoura) === 0}
                             placeholder="Opcional"
                           />
                         </td>
