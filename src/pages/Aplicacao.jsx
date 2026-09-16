@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
 import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
+import ResumoOsDialog from '@/components/aplicacao/ResumoOsDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const STATUS_FILTERS = [
   { v: 'all', l: 'Todas' },
@@ -33,6 +35,8 @@ export default function Aplicacao() {
   const [filtroStatus, setFiltroStatus] = useState('all');
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
   const [anosOpen, setAnosOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [resumoOpen, setResumoOpen] = useState(false);
 
   const { data, loading, reload } = useEntidades({
     Cultura: {},
@@ -63,6 +67,8 @@ export default function Aplicacao() {
       return matchStatus && matchBusca && matchAnoSafra;
     });
   }, [ordens, filtroStatus, busca, anoSafraFiltro]);
+
+  const abertasFiltered = filtered.filter((o) => o.status === 'aberta');
 
   // Lavouras com OS executadas para o relatório de custo.
   const lavourasComCusto = useMemo(() => {
@@ -118,9 +124,16 @@ export default function Aplicacao() {
           <h1 className="text-2xl font-bold">Aplicação por Lavoura</h1>
           <p className="text-sm text-muted-foreground mt-1">Ordens de serviço de aplicação de adubos e defensivos</p>
         </div>
-        <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" /> Nova OS
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectedIds.length > 0 && (
+            <Button variant="outline" onClick={() => setResumoOpen(true)}>
+              <ClipboardList className="w-4 h-4 mr-2" /> Gerar Resumo ({selectedIds.length})
+            </Button>
+          )}
+          <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> Nova OS
+          </Button>
+        </div>
       </header>
 
       {/* Resumo */}
@@ -205,6 +218,15 @@ export default function Aplicacao() {
             <table className="min-w-full w-auto text-sm">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
+                  <th className="p-2 w-10">
+                    <Checkbox
+                      checked={abertasFiltered.length > 0 && abertasFiltered.every((o) => selectedIds.includes(o.id))}
+                      onCheckedChange={(checked) => {
+                        const ids = abertasFiltered.map((o) => o.id);
+                        setSelectedIds((prev) => checked ? [...new Set([...prev, ...ids])] : prev.filter((id) => !ids.includes(id)));
+                      }}
+                    />
+                  </th>
                   <th className="p-2 text-left whitespace-nowrap">Nº</th>
                   <th className="p-2 text-left whitespace-nowrap">Lavoura</th>
                   <th className="p-2 text-left whitespace-nowrap">Cultura</th>
@@ -228,6 +250,14 @@ export default function Aplicacao() {
                   const statusLabel = o.status === 'aberta' ? 'Aberta' : o.status === 'executada' ? 'Executada' : 'Cancelada';
                   return (
                     <tr key={o.id} className="border-t hover:bg-accent/30 cursor-pointer" onClick={() => setDetalheOs(o)}>
+                      <td className="p-2 w-10" onClick={(e) => e.stopPropagation()}>
+                        {o.status === 'aberta' && (
+                          <Checkbox
+                            checked={selectedIds.includes(o.id)}
+                            onCheckedChange={(checked) => setSelectedIds((prev) => checked ? [...prev, o.id] : prev.filter((id) => id !== o.id))}
+                          />
+                        )}
+                      </td>
                       <td className="p-2 whitespace-nowrap font-mono text-xs font-medium">{o.numero}</td>
                       <td className="p-2 whitespace-nowrap font-medium">{o.lavoura_nome || '—'}</td>
                       <td className="p-2 whitespace-nowrap">{o.cultura_nome || '—'}</td>
@@ -327,6 +357,12 @@ export default function Aplicacao() {
         open={anosOpen}
         onOpenChange={setAnosOpen}
         anosSafra={anosSafra}
+      />
+
+      <ResumoOsDialog
+        open={resumoOpen}
+        onOpenChange={setResumoOpen}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id))}
       />
     </div>
   );
