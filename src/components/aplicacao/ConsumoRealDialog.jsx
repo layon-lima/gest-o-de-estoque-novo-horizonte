@@ -18,7 +18,7 @@ export default function ConsumoRealDialog({ open, onOpenChange, os, produtos, sa
     if (os && open) {
       const parsed = parseItens(os.itens).map((it) => ({
         ...it,
-        realizado: it.realizado || it.previsto || 0,
+        realizado: '',
       }));
       setItens(parsed);
     }
