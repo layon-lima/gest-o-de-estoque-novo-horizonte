@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays, ClipboardList, CheckCircle2, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { executarOS, parseItens, diasEmAberto } from '@/lib/osAplicacao';
 import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import AutobaixaDialog from '@/components/aplicacao/AutobaixaDialog';
+import EdicaoMassaDialog from '@/components/aplicacao/EdicaoMassaDialog';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
 import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
 import { gerarPDFResumoOS } from '@/lib/resumoOsPdf';
@@ -37,6 +38,8 @@ export default function Aplicacao() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [autobaixaOpen, setAutobaixaOpen] = useState(false);
   const [autobaixaSaving, setAutobaixaSaving] = useState(false);
+  const [edicaoMassaOpen, setEdicaoMassaOpen] = useState(false);
+  const [edicaoMassaSaving, setEdicaoMassaSaving] = useState(false);
 
   const { data, loading, reload } = useEntidades({
     Cultura: {},
@@ -157,6 +160,23 @@ export default function Aplicacao() {
     }
   }
 
+  async function handleEdicaoMassa(distribuicao) {
+    setEdicaoMassaSaving(true);
+    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta');
+    let ok = 0;
+    for (const os of selecionadas) {
+      const itens = distribuicao[os.id];
+      if (!itens) continue;
+      await base44.entities.OrdemServicoAplicacao.update(os.id, { itens: JSON.stringify(itens) });
+      ok++;
+    }
+    invalidateEntidade('OrdemServicoAplicacao');
+    setEdicaoMassaSaving(false);
+    setEdicaoMassaOpen(false);
+    setSelectedIds([]);
+    toast({ title: 'Edição em massa concluída', description: `${ok} OS atualizadas.` });
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -184,6 +204,11 @@ export default function Aplicacao() {
           {selectedIds.length >= 2 && (
             <Button onClick={() => setAutobaixaOpen(true)}>
               <CheckCircle2 className="w-4 h-4 mr-2" /> Autobaixa ({selectedIds.length})
+            </Button>
+          )}
+          {selectedIds.length >= 2 && (
+            <Button variant="outline" onClick={() => setEdicaoMassaOpen(true)}>
+              <Edit3 className="w-4 h-4 mr-2" /> Editar em Massa ({selectedIds.length})
             </Button>
           )}
           <Button onClick={() => setNovoConfirm(true)}>
@@ -417,6 +442,15 @@ export default function Aplicacao() {
         movimentacoes={movimentacoes}
         onConfirm={handleAutobaixa}
         saving={autobaixaSaving}
+      />
+
+      <EdicaoMassaDialog
+        open={edicaoMassaOpen}
+        onOpenChange={setEdicaoMassaOpen}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta')}
+        produtos={produtos}
+        onConfirm={handleEdicaoMassa}
+        saving={edicaoMassaSaving}
       />
 
       <CustoLavouraDialog
