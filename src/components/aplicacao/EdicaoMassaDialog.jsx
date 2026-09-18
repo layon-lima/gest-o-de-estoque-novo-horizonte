@@ -154,8 +154,9 @@ export default function EdicaoMassaDialog({ open, onOpenChange, ordens, produtos
           </TabsContent>
         </Tabs>
 
-        <div className="text-sm font-medium text-muted-foreground">
-          OS afetadas: <span className="text-foreground">{osAfetadas}</span>
+        <div className="flex flex-wrap gap-3 text-sm font-medium text-muted-foreground">
+          <span>OS afetadas: <span className="text-foreground">{osAfetadas}</span></span>
+          <span>Ha total: <span className="text-foreground">{(ordens || []).reduce((s, o) => s + (Number(o.hectares) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
         </div>
 
         <DialogFooter>

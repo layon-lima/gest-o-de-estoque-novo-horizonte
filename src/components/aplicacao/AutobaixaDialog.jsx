@@ -137,6 +137,10 @@ export default function AutobaixaDialog({ open, onOpenChange, ordens, produtos, 
           Informe o total real utilizado de cada produto. O sistema distribui esse total entre as OS
           proporcionalmente ao que cada uma pedia (previsto) e baixa o estoque de todas de uma vez.
         </p>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <span className="glass-pill rounded-md px-2.5 py-1">OS: <b className="text-foreground">{ordens.length}</b></span>
+          <span className="glass-pill rounded-md px-2.5 py-1">Ha total: <b className="text-foreground">{formatQtd((ordens || []).reduce((s, o) => s + (Number(o.hectares) || 0), 0))}</b></span>
+        </div>
 
         <div className="border rounded-lg overflow-x-auto scrollbar-thin">
           <table className="min-w-full w-auto text-sm">
