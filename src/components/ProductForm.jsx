@@ -22,6 +22,7 @@ import { formatQtd, parseQtd, formatInputQtd } from '@/lib/format';
 import { UNIDADES, convertQty, isConversivel } from '@/lib/units';
 import { entrarSaldo } from '@/lib/saldos';
 import { relocarSaldoCadastro } from '@/lib/movimentacoes';
+import { recalcularCustosPorProduto } from '@/lib/osAplicacao';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
 const empty = {
@@ -121,6 +122,17 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           invalidateEntidade('Lote');
           if (res.movido) {
             toast({ title: 'Saldo realocado', description: `${formatQtd(res.quantidade)} ${form.unidade || ''} movido(s) para o novo endereço.` });
+          }
+        }
+
+        // Propaga novo custo unitário para todas as OS que contêm o produto.
+        const custoAntigo = Number(produto.custo_unitario) || 0;
+        const custoNovo = parseQtd(form.custo_unitario) || 0;
+        if (custoAntigo !== custoNovo) {
+          const n = await recalcularCustosPorProduto(produto.id, custoNovo);
+          if (n > 0) {
+            invalidateEntidade('OrdemServicoAplicacao');
+            toast({ title: 'Custos das OS atualizados', description: `${n} OS recalculada(s) com o novo custo.` });
           }
         }
       } else {

@@ -207,3 +207,29 @@ export function custoPorLavoura(lavouraId, ordens) {
     qtdOS: ordensLavoura.length,
   };
 }
+
+// Recalcula o custo de todas as OS que contêm um produto, usando o novo
+// custo unitário. Para OS executadas usa o realizado; para as demais, o previsto.
+// Atualiza custo_unitario/custo_total de cada item e custo_total da OS.
+export async function recalcularCustosPorProduto(produtoId, novoCustoUnit) {
+  const custo = Number(novoCustoUnit) || 0;
+  const ordens = await base44.entities.OrdemServicoAplicacao.list('-data', 1000);
+  const afetadas = [];
+  for (const o of ordens) {
+    const itens = parseItens(o.itens);
+    if (!itens.some((it) => it.produto_id === produtoId)) continue;
+    let custoTotal = 0;
+    for (const it of itens) {
+      if (it.produto_id === produtoId) it.custo_unitario = custo;
+      const base = o.status === 'executada' ? Number(it.realizado) || 0 : Number(it.previsto) || 0;
+      const cu = Number(it.custo_unitario) || 0;
+      it.custo_total = base * cu;
+      custoTotal += it.custo_total;
+    }
+    afetadas.push({ id: o.id, itens: stringifyItens(itens), custo_total: custoTotal });
+  }
+  if (afetadas.length) {
+    await base44.entities.OrdemServicoAplicacao.bulkUpdate(afetadas);
+  }
+  return afetadas.length;
+}
