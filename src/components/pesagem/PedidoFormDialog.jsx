@@ -149,7 +149,18 @@ export default function PedidoFormDialog({ open, onClose, onSaved, pessoas, prod
                 <p className="text-xs text-muted-foreground">Não bloqueia por saldo — apenas conta o carregado.</p>
               </div>
             </div>
-            <Switch checked={form.sem_limite} onCheckedChange={(v) => setForm({ ...form, sem_limite: v })} />
+            <Switch
+              checked={form.sem_limite}
+              onCheckedChange={(v) => {
+                const next = { ...form, sem_limite: v };
+                // Ao mudar de "sem limite" para limitado, assume como limite o já carregado.
+                if (!v && isEdit && carregadoKg > 0) {
+                  const peso = parseQtd(form.peso_saca_kg);
+                  if (peso > 0) next.qtd_sacas = String(Math.round((carregadoKg / peso) * 1e6) / 1e6);
+                }
+                setForm(next);
+              }}
+            />
           </div>
           {isEdit && (
             <div className="space-y-1.5">
