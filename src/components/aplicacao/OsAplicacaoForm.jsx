@@ -226,12 +226,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
   function handleSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
-    // Edição exige validação (confirmação) antes de aplicar.
-    if (editing) {
-      setConfirmOpen(true);
-    } else {
-      persist();
-    }
+    setConfirmOpen(true);
   }
 
   return (
@@ -389,15 +384,17 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar alterações na OS?</AlertDialogTitle>
+            <AlertDialogTitle>{editing ? `Confirmar alterações na OS ${os?.numero}?` : 'Confirmar criação da OS?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Você está editando a OS <b className="font-mono">{os?.numero}</b>. Os produtos, doses e depósitos serão atualizados. Deseja confirmar?
+              {editing
+                ? <>Você está editando a OS <b className="font-mono">{os?.numero}</b>. Os produtos, doses e depósitos serão atualizados. Deseja confirmar?</>
+                : 'Será criada uma nova Ordem de Serviço de Aplicação com os produtos e doses informados. Deseja confirmar?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={persist} disabled={saving}>
-              {saving ? 'Salvando…' : 'Confirmar alterações'}
+              {saving ? 'Salvando…' : editing ? 'Confirmar alterações' : 'Criar OS'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

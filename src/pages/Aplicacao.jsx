@@ -16,13 +16,10 @@ import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
 import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
 import { gerarPDFResumoOS } from '@/lib/resumoOsPdf';
 import { Checkbox } from '@/components/ui/checkbox';
-
-const STATUS_FILTERS = [
-  { v: 'all', l: 'Todas' },
-  { v: 'aberta', l: 'Abertas' },
-  { v: 'executada', l: 'Executadas' },
-  { v: 'cancelada', l: 'Canceladas' },
-];
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 
 export default function Aplicacao() {
   const { user } = useAuth();
@@ -32,7 +29,8 @@ export default function Aplicacao() {
   const [editandoOs, setEditandoOs] = useState(null);
   const [custoLavoura, setCustoLavoura] = useState(null);
   const [busca, setBusca] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('all');
+  const [tab, setTab] = useState('aberta');
+  const [novoConfirm, setNovoConfirm] = useState(false);
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
   const [anosOpen, setAnosOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -58,16 +56,16 @@ export default function Aplicacao() {
   );
 
   const filtered = useMemo(() => {
+    const q = busca.toLowerCase().trim();
     return (ordens || []).filter((o) => {
-      const matchStatus = filtroStatus === 'all' || o.status === filtroStatus;
-      const q = busca.toLowerCase().trim();
+      if (o.status !== tab) return false;
       const matchBusca = !q || [o.numero, o.cultura_nome, o.lavoura_nome, o.ano_safra, o.responsavel].filter(Boolean).join(' ').toLowerCase().includes(q);
       const matchAnoSafra = anoSafraFiltro === 'all' || o.ano_safra === anoSafraFiltro;
-      return matchStatus && matchBusca && matchAnoSafra;
+      return matchBusca && matchAnoSafra;
     });
-  }, [ordens, filtroStatus, busca, anoSafraFiltro]);
+  }, [ordens, tab, busca, anoSafraFiltro]);
 
-  const abertasFiltered = filtered.filter((o) => o.status === 'aberta');
+  const abertasFiltered = tab === 'aberta' ? filtered : [];
 
   // Lavouras com OS executadas para o relatório de custo.
   const lavourasComCusto = useMemo(() => {
@@ -132,7 +130,7 @@ export default function Aplicacao() {
               <ClipboardList className="w-4 h-4 mr-2" /> Gerar Resumo PDF ({selectedIds.length})
             </Button>
           )}
-          <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }}>
+          <Button onClick={() => setNovoConfirm(true)}>
             <Plus className="w-4 h-4 mr-2" /> Nova OS
           </Button>
         </div>
@@ -185,34 +183,35 @@ export default function Aplicacao() {
         </Button>
       </div>
 
-      {/* Filtros */}
-      <div className="flex gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número, lavoura, cultura..." className="pl-9" />
-        </div>
-        <div className="flex rounded-lg border overflow-hidden shrink-0">
-          {STATUS_FILTERS.map((opt) => (
-            <button
-              key={opt.v}
-              type="button"
-              onClick={() => setFiltroStatus(opt.v)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroStatus === opt.v ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
-            >
-              {opt.l}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Abas: status da OS + Custos por Lavoura */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="w-full justify-start overflow-x-auto h-auto py-1">
+          <TabsTrigger value="aberta">Abertas ({(ordens || []).filter((o) => o.status === 'aberta').length})</TabsTrigger>
+          <TabsTrigger value="executada">Executadas ({(ordens || []).filter((o) => o.status === 'executada').length})</TabsTrigger>
+          <TabsTrigger value="cancelada">Canceladas ({(ordens || []).filter((o) => o.status === 'cancelada').length})</TabsTrigger>
+          <TabsTrigger value="custos">Custos por Lavoura</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      {/* Lista de OS */}
-      {filtered.length === 0 ? (
+      {tab !== 'custos' && (
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por número, lavoura, cultura..." className="pl-9" />
+          </div>
+        </div>
+      )}
+
+      {tab !== 'custos' && (
+      filtered.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
-          <p className="text-sm text-muted-foreground mb-4">Nenhuma OS encontrada.</p>
-          <Button onClick={() => { setEditandoOs(null); setFormOpen(true); }} className="mx-auto">
-            <Plus className="w-4 h-4 mr-2" /> Criar primeira OS
-          </Button>
+          <p className="text-sm text-muted-foreground mb-4">Nenhuma OS {tab === 'aberta' ? 'aberta' : tab === 'executada' ? 'executada' : 'cancelada'}.</p>
+          {tab === 'aberta' && (
+            <Button onClick={() => setNovoConfirm(true)} className="mx-auto">
+              <Plus className="w-4 h-4 mr-2" /> Criar primeira OS
+            </Button>
+          )}
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden">
@@ -289,12 +288,11 @@ export default function Aplicacao() {
             </table>
           </div>
         </Card>
-      )}
+      ))}
 
-      {/* Relatório de custo por lavoura */}
-      {lavourasComCusto.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Custo por Lavoura</h2>
+      {/* Custo por Lavoura (aba) */}
+      {tab === 'custos' && (
+        lavourasComCusto.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {lavourasComCusto.map((l) => {
               const custo = (ordens || [])
@@ -316,7 +314,12 @@ export default function Aplicacao() {
               );
             })}
           </div>
-        </div>
+        ) : (
+          <Card className="p-12 text-center">
+            <DollarSign className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
+            <p className="text-sm text-muted-foreground">Nenhuma OS executada para o relatório de custos.</p>
+          </Card>
+        )
       )}
 
       <OsAplicacaoForm
@@ -360,6 +363,23 @@ export default function Aplicacao() {
         onOpenChange={setAnosOpen}
         anosSafra={anosSafra}
       />
+
+      <AlertDialog open={novoConfirm} onOpenChange={setNovoConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Criar nova OS?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja abrir o formulário para criar uma nova Ordem de Serviço de Aplicação?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setEditandoOs(null); setFormOpen(true); setNovoConfirm(false); }}>
+              Criar OS
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

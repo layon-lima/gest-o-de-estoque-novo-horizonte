@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Printer, CheckCircle2, Trash2, FileText, AlertTriangle, Pencil } from 'lucide-react';
+import { Printer, CheckCircle2, Trash2, FileText, AlertTriangle, Pencil, MoreVertical, Ban } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd, formatDose } from '@/lib/format';
@@ -16,6 +16,7 @@ import { gerarPDFOS } from '@/lib/osPdf';
 import { invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
 import ConsumoRealDialog from '@/components/aplicacao/ConsumoRealDialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 const STATUS_LABELS = {
   aberta: { label: 'Aberta', className: 'bg-blue-500 text-white border-transparent' },
@@ -27,6 +28,9 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
   const [consumoOpen, setConsumoOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(false);
+  const [confirmCancelar, setConfirmCancelar] = useState(false);
+  const [acoesOpen, setAcoesOpen] = useState(false);
   const { toast } = useToast();
 
   if (!os) return null;
@@ -177,26 +181,36 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
               </table>
             </div>
 
-            <DialogFooter className="flex-wrap gap-2">
+            <DialogFooter className="flex items-center justify-between flex-wrap gap-2">
               <Button variant="outline" onClick={handlePrint}>
                 <Printer className="w-4 h-4 mr-2" /> Imprimir / PDF
               </Button>
-              {os.status === 'aberta' && (
-                <>
-                  <Button variant="outline" onClick={() => onEdit?.(os)}>
-                    <Pencil className="w-4 h-4 mr-2" /> Editar
+              <Popover open={acoesOpen} onOpenChange={setAcoesOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    <MoreVertical className="w-4 h-4 mr-2" /> Ações
                   </Button>
-                  <Button variant="outline" className="text-destructive" onClick={handleCancelar}>
-                    Cancelar OS
-                  </Button>
-                  <Button onClick={() => setConsumoOpen(true)}>
-                    <CheckCircle2 className="w-4 h-4 mr-2" /> Lançar Consumo
-                  </Button>
-                </>
-              )}
-              <Button variant="ghost" className="text-destructive" onClick={() => setDeleteOpen(true)} title="Excluir OS">
-                <Trash2 className="w-4 h-4" />
-              </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-52 p-1">
+                  {os.status === 'aberta' && (
+                    <>
+                      <button type="button" onClick={() => { setAcoesOpen(false); setConfirmEdit(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left">
+                        <Pencil className="w-4 h-4" /> Editar
+                      </button>
+                      <button type="button" onClick={() => { setAcoesOpen(false); setConsumoOpen(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left">
+                        <CheckCircle2 className="w-4 h-4" /> Lançar Consumo
+                      </button>
+                      <button type="button" onClick={() => { setAcoesOpen(false); setConfirmCancelar(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left text-destructive">
+                        <Ban className="w-4 h-4" /> Cancelar OS
+                      </button>
+                      <div className="my-1 h-px bg-border" />
+                    </>
+                  )}
+                  <button type="button" onClick={() => { setAcoesOpen(false); setDeleteOpen(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left text-destructive">
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </button>
+                </PopoverContent>
+              </Popover>
             </DialogFooter>
           </div>
         </DialogContent>
@@ -224,6 +238,40 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmEdit} onOpenChange={setConfirmEdit}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Pencil className="w-5 h-5 text-primary" /> Editar OS?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja editar a OS <b className="font-mono">{os.numero}</b>? Os produtos, doses e depósitos poderão ser alterados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmEdit(false); onEdit?.(os); }}>
+              Editar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmCancelar} onOpenChange={setConfirmCancelar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-destructive" /> Cancelar OS?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja cancelar a OS <b className="font-mono">{os.numero}</b>? A OS passará ao status "Cancelada" e não poderá ser executada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Manter OS</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelar} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirmar cancelamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
