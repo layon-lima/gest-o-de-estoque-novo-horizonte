@@ -89,6 +89,7 @@ export function somaLiquidoTickets(tickets = [], pedidoId) {
 // Define o status do pedido com base no saldo (kg) restante, preservando 'cancelado'.
 export function statusPorSaldo(saldoKg, totalKg, statusAtual) {
   if (statusAtual === 'cancelado') return 'cancelado';
+  if (statusAtual === 'concluido') return 'concluido';
   const saldo = Number(saldoKg) || 0;
   const total = Number(totalKg) || 0;
   return total > 0 && saldo <= 0 ? 'concluido' : 'aberto';
