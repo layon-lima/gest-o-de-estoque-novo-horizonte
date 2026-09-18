@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays, ClipboardList } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { formatQtd } from '@/lib/format';
 import { executarOS, parseItens, diasEmAberto } from '@/lib/osAplicacao';
 import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
+import AutobaixaDialog from '@/components/aplicacao/AutobaixaDialog';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
 import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
 import { gerarPDFResumoOS } from '@/lib/resumoOsPdf';
@@ -34,6 +35,8 @@ export default function Aplicacao() {
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
   const [anosOpen, setAnosOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [autobaixaOpen, setAutobaixaOpen] = useState(false);
+  const [autobaixaSaving, setAutobaixaSaving] = useState(false);
 
   const { data, loading, reload } = useEntidades({
     Cultura: {},
@@ -106,6 +109,54 @@ export default function Aplicacao() {
     toast({ title: 'Consumo lançado', description: `${os.numero} executada. Estoque baixado.` });
   }
 
+  async function handleAutobaixa(distribuicao) {
+    setAutobaixaSaving(true);
+    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta');
+    let ok = 0;
+    let firstErr = null;
+    for (const os of selecionadas) {
+      const itens = distribuicao[os.id];
+      if (!itens) continue;
+      try {
+        const osAtualizada = { ...os, itens: JSON.stringify(itens) };
+        await base44.entities.OrdemServicoAplicacao.update(os.id, { itens: osAtualizada.itens });
+        await executarOS({
+          os: osAtualizada,
+          produtos,
+          lotes,
+          saldos,
+          movimentacoes,
+          responsavel: user?.full_name || user?.email || '',
+        });
+        ok++;
+      } catch (e) {
+        firstErr = firstErr || { os, err: e };
+        break;
+      }
+    }
+    invalidateEntidade('OrdemServicoAplicacao');
+    invalidateEntidade('SaldoEstoque');
+    invalidateEntidade('Produto');
+    invalidateEntidade('Movimentacao');
+    invalidateEntidade('Lote');
+    setAutobaixaSaving(false);
+    setAutobaixaOpen(false);
+    setSelectedIds([]);
+    if (firstErr) {
+      const msg = String(firstErr.err?.message || firstErr.err);
+      let desc = msg;
+      if (msg.startsWith('SALDO_INSUFICIENTE')) {
+        const [, disp, nome] = msg.split(':');
+        desc = `Saldo insuficiente de ${nome || 'produto'} (disponível ${formatQtd(Number(disp) || 0)}) ao executar ${firstErr.os.numero}. ${ok} OS já baixadas.`;
+      } else if (msg.startsWith('DEPOSITO_OBRIGATORIO')) {
+        desc = `Depósito obrigatório para ${msg.split(':')[1] || 'produto'} em ${firstErr.os.numero}. ${ok} OS já baixadas.`;
+      }
+      toast({ variant: 'destructive', title: 'Erro na autobaixa', description: desc });
+    } else {
+      toast({ title: 'Autobaixa concluída', description: `${ok} OS executadas e estoque baixado.` });
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -128,6 +179,11 @@ export default function Aplicacao() {
               onClick={() => gerarPDFResumoOS((ordens || []).filter((o) => selectedIds.includes(o.id)))}
             >
               <ClipboardList className="w-4 h-4 mr-2" /> Gerar Resumo PDF ({selectedIds.length})
+            </Button>
+          )}
+          {selectedIds.length >= 2 && (
+            <Button onClick={() => setAutobaixaOpen(true)}>
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Autobaixa ({selectedIds.length})
             </Button>
           )}
           <Button onClick={() => setNovoConfirm(true)}>
@@ -349,6 +405,18 @@ export default function Aplicacao() {
         movimentacoes={movimentacoes}
         onConsumo={handleConsumo}
         onEdit={handleEditOs}
+      />
+
+      <AutobaixaDialog
+        open={autobaixaOpen}
+        onOpenChange={setAutobaixaOpen}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta')}
+        produtos={produtos}
+        saldos={saldos}
+        lotes={lotes}
+        movimentacoes={movimentacoes}
+        onConfirm={handleAutobaixa}
+        saving={autobaixaSaving}
       />
 
       <CustoLavouraDialog
