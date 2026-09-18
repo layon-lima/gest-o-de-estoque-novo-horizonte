@@ -86,7 +86,7 @@ export default function RelatorioAplicacao() {
       for (const it of parseItens(o.itens)) {
         let key, label, extra = {};
         if (nivel === 'produto') { key = it.produto_id; label = it.nome || ''; extra = { codigo: it.codigo || '', unidade: it.unidade || '' }; }
-        else if (nivel === 'lavoura') { key = o.lavoura_id || ''; label = o.lavoura_nome || ''; extra = { ha: Number(o.hectares) || 0 }; }
+        else if (nivel === 'lavoura') { key = o.lavoura_id || ''; label = o.lavoura_nome || ''; }
         else if (nivel === 'safra') { key = o.ano_safra || ''; label = o.ano_safra || ''; }
         else if (nivel === 'produto_safra') { key = `${it.produto_id}|${o.ano_safra}`; label = it.nome || ''; extra = { safra: o.ano_safra || '', codigo: it.codigo || '', unidade: it.unidade || '' }; }
         if (!groups[key]) groups[key] = { label, previsto: 0, realizado: 0, custo: 0, osIds: new Set(), ha: {}, ...extra };
