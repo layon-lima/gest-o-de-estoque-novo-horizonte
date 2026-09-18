@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileDown, FileSpreadsheet, ArrowDownCircle, ArrowUpCircle, Undo2, Search } from 'lucide-react';
+import { FileDown, FileSpreadsheet, ArrowDownCircle, ArrowUpCircle, Undo2, Search, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { useEntidades } from '@/lib/useEntidades';
 import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
 import ValidadeBadge from '@/components/ValidadeBadge';
 import SearchSelect from '@/components/SearchSelect';
+import RelatorioAplicacao from '@/components/relatorios/RelatorioAplicacao';
 import { sortGavetas } from '@/lib/gavetas';
 import { codigoMovimento, descricaoMovimento, quantidadeSinalizada } from '@/lib/movTipoCodigo';
 
@@ -270,6 +271,7 @@ export default function Relatorios() {
           <TabsTrigger value="estoque">Estoque</TabsTrigger>
           <TabsTrigger value="entradas">Entradas e Saídas</TabsTrigger>
           <TabsTrigger value="validade">Validade</TabsTrigger>
+          <TabsTrigger value="aplicacao"><Sprout className="w-4 h-4 mr-1.5" />Aplicação</TabsTrigger>
         </TabsList>
 
         <TabsContent value="estoque" className="space-y-6 mt-4">
@@ -432,6 +434,10 @@ export default function Relatorios() {
               />
             )}
           </Card>
+        </TabsContent>
+
+        <TabsContent value="aplicacao">
+          <RelatorioAplicacao />
         </TabsContent>
       </Tabs>
     </div>

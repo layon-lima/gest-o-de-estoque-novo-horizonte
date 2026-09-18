@@ -268,3 +268,75 @@ export function exportCSV(titulo, colunas, linhas) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+function escXml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Gera um arquivo Excel real (.xls SpreadsheetML) com uma planilha.
+ * Células numéricas (passadas como number) viram Number no Excel; demais como String.
+ * Entrega igual ao PDF: Web Share no mobile, download direto no desktop, upload+abertura no APK.
+ */
+export async function exportExcel(titulo, colunas, linhas, opts = {}) {
+  const sheet = (opts.sheetName || sanitizeFilename(titulo)).slice(0, 31) || 'Relatorio';
+  const headStyle = `<Style ss:ID="head"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#228B57" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/></Style>`;
+  const header = `<Row>${colunas
+    .map((c) => `<Cell ss:StyleID="head"><Data ss:Type="String">${escXml(c)}</Data></Cell>`)
+    .join('')}</Row>`;
+  const body = (linhas || [])
+    .map(
+      (linha) =>
+        `<Row>${linha
+          .map((cell) => {
+            if (typeof cell === 'number' && isFinite(cell)) {
+              return `<Cell><Data ss:Type="Number">${cell}</Data></Cell>`;
+            }
+            return `<Cell><Data ss:Type="String">${escXml(cell)}</Data></Cell>`;
+          })
+          .join('')}</Row>`
+    )
+    .join('');
+
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<?mso-application progid="Excel.Sheet"?>\n` +
+    `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n` +
+    `<Styles>${headStyle}</Styles>\n` +
+    `<Worksheet ss:Name="${escXml(sheet)}"><Table>${header}${body}</Table></Worksheet>\n` +
+    `</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const filename = `${sanitizeFilename(titulo)}.xls`;
+  const file = new File([blob], filename, { type: 'application/vnd.ms-excel' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: titulo });
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+    }
+  }
+
+  const isDesktop =
+    window.matchMedia?.('(pointer: fine)')?.matches && !/Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isDesktop) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return;
+  }
+
+  const file_url = await uploadToStorage(blob, filename);
+  openExternally(file_url);
+}
