@@ -129,8 +129,8 @@ export default function GavetaManager() {
   }
 
   return (
-    <div className="grid md:grid-cols-3 gap-6">
-      <Card className="p-5">
+    <div className="cadastro-manager-grid">
+      <Card className="cadastro-form-card">
         <h3 className="font-semibold mb-1">{editingId ? 'Editar Gaveta' : 'Nova Gaveta'}</h3>
         <p className="text-xs text-muted-foreground mb-4">Endereço físico onde os produtos e lotes ficam guardados.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -159,8 +159,8 @@ export default function GavetaManager() {
         </form>
       </Card>
 
-      <div className="md:col-span-2 space-y-3">
-        <SearchInput value={busca} onChange={setBusca} placeholder="Buscar gaveta por código ou descrição..." />
+      <div className="cadastro-list-panel">
+        <SearchInput className="cadastro-toolbar" value={busca} onChange={setBusca} placeholder="Buscar gaveta por código ou descrição..." />
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
         {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma gaveta encontrada.</p>}
         <div className="space-y-2">
@@ -168,7 +168,7 @@ export default function GavetaManager() {
             const ocp = ocupacao.get(item.id) || { itens: [], totalProdutos: 0, totalSaldo: 0 };
             const vazia = ocp.totalProdutos === 0;
             return (
-              <Card key={item.id} className={`p-4 flex items-center gap-3 hover:shadow-sm transition-shadow ${vazia ? 'border-dashed' : ''}`}>
+              <Card key={item.id} className={`cadastro-list-row flex items-center gap-3 ${vazia ? 'border-dashed' : ''}`}>
                 <div className={`shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${vazia ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
                   {vazia ? <MapPin className="w-4 h-4" /> : <PackageCheck className="w-4 h-4" />}
                 </div>

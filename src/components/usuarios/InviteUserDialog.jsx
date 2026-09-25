@@ -1,81 +1,234 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+﻿import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { UserPlus, Loader2, Mail } from 'lucide-react';
+import { UserPlus, Loader2, User, Lock } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
-export default function InviteUserDialog({ open, onOpenChange, onInvited }) {
-  const [email, setEmail] = useState('');
+export default function InviteUserDialog({
+  open,
+  onOpenChange,
+  onInvited,
+}) {
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState('user');
   const [loading, setLoading] = useState(false);
+
   const { toast } = useToast();
+
+  const limpar = () => {
+    setDisplayName('');
+    setUsername('');
+    setPassword('');
+    setRole('user');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return;
+
+    if (
+      !displayName.trim() ||
+      !username.trim() ||
+      !password
+    ) {
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await base44.users.inviteUser(email.trim(), role);
-      toast({ title: 'Convite enviado!', description: `${email.trim()} receberá um e-mail para acessar o sistema.` });
-      setEmail('');
-      setRole('user');
+      await base44.users.createUser({
+        display_name: displayName.trim(),
+        username: username.trim(),
+        password,
+        role,
+      });
+
+      toast({
+        title: 'Usuário criado!',
+        description: `${displayName.trim()} já pode acessar o sistema.`,
+      });
+
+      limpar();
       onOpenChange(false);
       onInvited?.();
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao convidar', description: err?.message || 'Não foi possível enviar o convite.' });
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao criar usuário',
+        description:
+          err?.message ||
+          'Não foi possível criar o usuário.',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!loading) {
+          onOpenChange(value);
+
+          if (!value) {
+            limpar();
+          }
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
-            Convidar Usuário
+            Novo Usuário
           </DialogTitle>
+
           <DialogDescription>
-            O usuário receberá um convite por e-mail e poderá se cadastrar para acessar o sistema.
+            Crie um usuário local para acessar o sistema.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
+            <Label htmlFor="display-name">
+              Nome
+            </Label>
+
+            <Input
+              id="display-name"
+              value={displayName}
+              onChange={(e) =>
+                setDisplayName(e.target.value)
+              }
+              placeholder="Ex.: João da Silva"
+              required
+              disabled={loading}
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="username">
+              Usuário
+            </Label>
+
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@exemplo.com"
-                className="pl-10"
+                id="username"
+                value={username}
+                onChange={(e) =>
+                  setUsername(e.target.value)
+                }
+                placeholder="Ex.: joao"
+                className="pl-9"
+                minLength={3}
                 required
                 disabled={loading}
-                autoFocus
+                autoComplete="off"
               />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">
+              Senha
+            </Label>
+
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+
+              <Input
+                id="new-password"
+                type="password"
+                value={password}
+                onChange={(e) =>
+                  setPassword(e.target.value)
+                }
+                placeholder="Senha inicial"
+                className="pl-9"
+                minLength={4}
+                required
+                disabled={loading}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Cargo</Label>
-            <Select value={role} onValueChange={setRole} disabled={loading}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+
+            <Select
+              value={role}
+              onValueChange={setRole}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+
               <SelectContent>
-                <SelectItem value="user">Usuário</SelectItem>
-                <SelectItem value="admin">Administrador</SelectItem>
+                <SelectItem value="user">
+                  Usuário
+                </SelectItem>
+
+                <SelectItem value="admin">
+                  Administrador
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-            <Button type="submit" disabled={loading || !email.trim()}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enviar Convite'}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                onOpenChange(false)
+              }
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !displayName.trim() ||
+                !username.trim() ||
+                password.length < 4
+              }
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'Criar Usuário'
+              )}
             </Button>
           </DialogFooter>
         </form>

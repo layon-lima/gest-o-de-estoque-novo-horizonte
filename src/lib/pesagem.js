@@ -1,8 +1,12 @@
 // Utilitários do módulo de Pesagem Rodoviária.
 import { base44 } from '@/api/base44Client';
+import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
-import { sairSaldo } from '@/lib/saldos';
-import { maxNumeroMovimento, formatarNumeroMov, reverterEstoqueMov } from '@/lib/movimentacoes';
+import { convertQtyForProduto } from '@/lib/units';
+import {
+  construirItensSaida,
+  estornarDocumentoAtivoPorOrigem,
+} from '@/lib/estoqueOperacoes';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
 // Normaliza placa: uppercase, sem hífen/espaços (ex.: "ABC-1234" -> "ABC1234").
@@ -111,61 +115,116 @@ export function formatMoeda(n) {
 // saída vinculada ao ticket. Autocontida: carrega saldos/lotes/movimentações.
 // Retorna { mov, consumidos, totalDisponivel, suficiente }.
 // Lança 'DEPOSITO_OBRIGATORIO' quando não houver depósito nem saldo.
-export async function baixarEstoqueVendaTicket({ produto, quantidadeKg, ticketNumero }) {
-  const qtd = parseQtd(quantidadeKg);
-  if (!(qtd > 0) || !produto?.id) return null;
+export async function baixarEstoqueVendaTicket({
+  produto,
+  quantidadeKg,
+  ticketNumero,
+  ticketId,
+}) {
+  const qtdKg =
+    parseQtd(quantidadeKg);
 
-  const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: produto.id });
-  const depositoId = produto.deposito_id || saldos.find((s) => (s.quantidade || 0) > 0)?.deposito_id || '';
-  if (!depositoId) throw new Error('DEPOSITO_OBRIGATORIO');
-  const gavetaId = produto.gaveta_id || '';
-
-  const lotes = await base44.entities.Lote.filter({ produto_id: produto.id });
-  const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
-
-  const { consumidos, totalDisponivel, suficiente } = await sairSaldo({
-    produto,
-    depositoId,
-    gavetaId,
-    quantidade: qtd,
-    lotes: lotesProduto,
-    saldos,
-  });
-  if (!suficiente) throw new Error(`SALDO_INSUFICIENTE:${totalDisponivel}`);
-
-  // Atualiza lotes (denormalizado, para compatibilidade das views de validade).
-  for (const c of consumidos) {
-    const l = lotesProduto.find((x) => x.id === c.lote_id);
-    if (l) {
-      const novaQtdLote = (l.quantidade || 0) - c.quantidade;
-      await base44.entities.Lote.update(l.id, {
-        quantidade: novaQtdLote,
-        ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}),
-      });
-    }
+  if (
+    !(qtdKg > 0) ||
+    !produto?.id
+  ) {
+    return null;
   }
 
-  const movimentacoes = await base44.entities.Movimentacao.list('-created_date', 100);
-  const primeiroLote = lotesProduto.find((l) => l.id === consumidos[0]?.lote_id);
-  const mov = await base44.entities.Movimentacao.create({
-    data: new Date().toISOString(),
-    numero: formatarNumeroMov(maxNumeroMovimento(movimentacoes) + 1),
-    produto_id: produto.id,
-    codigo: produto.codigo,
-    nome_produto: produto.nome,
-    quantidade: qtd,
-    setor_id: produto.setor_id,
-    deposito_id: depositoId,
-    maquina_id: produto.maquina_id || '',
-    gaveta_id: gavetaId,
-    tipo: 'saida',
-    observacao: `Venda — Ticket ${ticketNumero || ''}`,
-    lote_id: consumidos[0]?.lote_id || '',
-    data_validade: primeiroLote?.data_validade || '',
-    lotes_consumidos: JSON.stringify(consumidos),
-  });
+  const conversao =
+    convertQtyForProduto(
+      qtdKg,
+      'kg',
+      produto
+    );
 
-  return { mov, consumidos, totalDisponivel, suficiente };
+  const qtdBase =
+    Number(conversao.qtd) || 0;
+
+  if (!(qtdBase > 0)) {
+    throw new Error(
+      'Quantidade inválida.'
+    );
+  }
+
+  const origemId =
+    String(
+      ticketId ||
+      ticketNumero ||
+      ''
+    ).trim();
+
+  if (!origemId) {
+    throw new Error(
+      'TICKET_SEM_IDENTIFICADOR'
+    );
+  }
+
+  const alocacao =
+    await construirItensSaida({
+      produto,
+      quantidadeBase:
+        qtdBase,
+      depositoId:
+        produto.deposito_id || '',
+      gavetaId:
+        produto.gaveta_id || '',
+      somenteDeposito: false,
+      somenteGaveta: false,
+      observacao:
+        `Venda — Ticket ${ticketNumero || ''}`,
+    });
+
+  if (!alocacao.suficiente) {
+    throw new Error(
+      `SALDO_INSUFICIENTE:${alocacao.totalDisponivel}`
+    );
+  }
+
+  const resposta =
+    await estoqueApi.movimentar({
+      tipo_movimento:
+        'SAIDA_CONSUMO',
+      origem_modulo:
+        'pesagem',
+      documento_origem_id:
+        origemId,
+      referencia_externa:
+        ticketNumero || origemId,
+      observacao:
+        `Venda — Ticket ${ticketNumero || ''}`,
+      itens:
+        alocacao.itens,
+    });
+
+  const documento =
+    resposta.documento;
+
+  const consumidos =
+    (documento.itens || [])
+      .map(
+        (item) => ({
+          lote_id:
+            item.lote_origem_id || '',
+          quantidade:
+            Number(
+              item.quantidade
+            ) || 0,
+          custo_unitario:
+            Number(
+              item.custo_unitario
+            ) || 0,
+        })
+      );
+
+  return {
+    mov: documento,
+    documento,
+    consumidos,
+    totalDisponivel:
+      alocacao.totalDisponivel,
+    suficiente: true,
+  };
 }
 
 // Fecha um ticket de pesagem: atualiza o ticket, o pedido (venda) e baixa o estoque.
@@ -202,7 +261,7 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
     const prodVenda = produtos.find((p) => p.id === pedidoSel.produto_id);
     if (prodVenda) {
       try {
-        await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquido, ticketNumero: ticket.numero });
+        await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquido, ticketNumero: ticket.numero, ticketId: ticket.id });
       } catch (e) {
         baixaError = String(e?.message || e);
       }
@@ -225,50 +284,134 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
 // Ajusta estoque e saldo do pedido ao editar os pesos de um ticket de venda FECHADO:
 // estorna a movimentação de saída original (devolvendo estoque/lotes), reajusta o
 // saldo do pedido e re-aplica a baixa com o novo peso líquido. Retorna { baixaError }.
-export async function ajustarEstoqueVendaTicket({ ticket, novoLiquido, produtos }) {
-  const novoLiq = round3(Number(novoLiquido) || 0);
-  const liquidoAntigo = round3(Number(ticket?.peso_liquido) || 0);
+export async function ajustarEstoqueVendaTicket({
+  ticket,
+  novoLiquido,
+  produtos,
+}) {
+  const novoLiq =
+    round3(
+      Number(novoLiquido) || 0
+    );
+
+  const liquidoAntigo =
+    round3(
+      Number(
+        ticket?.peso_liquido
+      ) || 0
+    );
 
   let pedido = null;
+
   if (ticket?.pedido_id) {
-    try { pedido = await base44.entities.PedidoPesagem.get(ticket.pedido_id); } catch { pedido = null; }
-  }
-
-  // 1. Estornar a movimentação de saída deste ticket (restaura saldo/lotes)
-  const movs = await base44.entities.Movimentacao.filter({ produto_id: ticket.produto_id, tipo: 'saida' });
-  const alvo = (movs || []).find((m) => m.estornada !== true && String(m.observacao || '').includes(`Venda — Ticket ${ticket.numero}`));
-  if (alvo) {
-    const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: ticket.produto_id });
-    const lotes = await base44.entities.Lote.filter({ produto_id: ticket.produto_id });
-    const produtoFull = (produtos || []).find((p) => p.id === ticket.produto_id) || await base44.entities.Produto.get(ticket.produto_id);
-    await reverterEstoqueMov(alvo, { produtos: [produtoFull], lotes, saldos });
-    await base44.entities.Movimentacao.update(alvo.id, { estornada: true });
-  }
-
-  // 2. Reajustar o saldo do pedido (restaura o líquido antigo, desconta o novo)
-  if (pedido && !pedido.sem_limite) {
-    const novoSaldo = round3((Number(pedido.saldo_kg) || 0) + liquidoAntigo - novoLiq);
-    await base44.entities.PedidoPesagem.update(pedido.id, { saldo_kg: novoSaldo });
-  }
-
-  // 3. Re-aplicar a baixa de estoque com o novo líquido
-  let baixaError = null;
-  const produto = (produtos || []).find((p) => p.id === ticket.produto_id);
-  if (produto && novoLiq > 0) {
     try {
-      await baixarEstoqueVendaTicket({ produto, quantidadeKg: novoLiq, ticketNumero: ticket.numero });
-    } catch (e) {
-      baixaError = String(e?.message || e);
+      pedido =
+        await base44.entities
+          .PedidoPesagem
+          .get(
+            ticket.pedido_id
+          );
+    } catch {
+      pedido = null;
     }
   }
 
-  invalidateEntidade('TicketPesagem');
-  invalidateEntidade('PedidoPesagem');
-  invalidateEntidade('SaldoEstoque');
-  invalidateEntidade('Movimentacao');
-  invalidateEntidade('Lote');
-  invalidateEntidade('Produto');
-  return { baixaError };
+  const origemId =
+    String(
+      ticket?.id ||
+      ticket?.numero ||
+      ''
+    );
+
+  await estornarDocumentoAtivoPorOrigem({
+    origemModulo: 'pesagem',
+    documentoOrigemId:
+      origemId,
+    tipoMovimento:
+      'SAIDA_CONSUMO',
+    motivo:
+      `Reajuste do Ticket ${ticket?.numero || ''}`,
+  });
+
+  let baixaError = null;
+
+  const produto =
+    (produtos || []).find(
+      (p) =>
+        p.id === ticket.produto_id
+    );
+
+  if (
+    produto &&
+    novoLiq > 0
+  ) {
+    try {
+      await baixarEstoqueVendaTicket({
+        produto,
+        quantidadeKg:
+          novoLiq,
+        ticketNumero:
+          ticket.numero,
+        ticketId:
+          ticket.id,
+      });
+    } catch (erro) {
+      baixaError =
+        String(
+          erro?.message || erro
+        );
+    }
+  }
+
+  if (
+    !baixaError &&
+    pedido &&
+    !pedido.sem_limite
+  ) {
+    const novoSaldo =
+      round3(
+        (
+          Number(
+            pedido.saldo_kg
+          ) || 0
+        )
+        + liquidoAntigo
+        - novoLiq
+      );
+
+    await base44.entities
+      .PedidoPesagem
+      .update(
+        pedido.id,
+        {
+          saldo_kg:
+            novoSaldo,
+        }
+      );
+  }
+
+  invalidateEntidade(
+    'TicketPesagem'
+  );
+  invalidateEntidade(
+    'PedidoPesagem'
+  );
+  invalidateEntidade(
+    'SaldoEstoque'
+  );
+  invalidateEntidade(
+    'Movimentacao'
+  );
+  invalidateEntidade(
+    'Lote'
+  );
+  invalidateEntidade(
+    'Produto'
+  );
+
+  return {
+    baixaError,
+  };
 }
 
 // Quebra um ticket em dois quando o peso excede o saldo do pedido original.
@@ -362,12 +505,12 @@ export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pe
 
   if (prodVenda) {
     try {
-      await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: saldoOriginal, ticketNumero: ticket.numero });
+      await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: saldoOriginal, ticketNumero: ticket.numero, ticketId: ticket.id });
     } catch (e) {
       baixaErrorOriginal = String(e?.message || e);
     }
     try {
-      await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquidoExcesso, ticketNumero: novoNumero });
+      await baixarEstoqueVendaTicket({ produto: prodVenda, quantidadeKg: liquidoExcesso, ticketNumero: novoNumero, ticketId: novoTicket.id });
     } catch (e) {
       baixaErrorNovo = String(e?.message || e);
     }
@@ -431,7 +574,7 @@ export async function vincularConverterTicket({ ticket, pedido, produtos, client
     const produto = (produtos || []).find((p) => p.id === pedido.produto_id);
     if (produto) {
       try {
-        await baixarEstoqueVendaTicket({ produto, quantidadeKg: liq, ticketNumero: ticket.numero });
+        await baixarEstoqueVendaTicket({ produto, quantidadeKg: liq, ticketNumero: ticket.numero, ticketId: ticket.id });
       } catch (e) {
         baixaError = String(e?.message || e);
       }

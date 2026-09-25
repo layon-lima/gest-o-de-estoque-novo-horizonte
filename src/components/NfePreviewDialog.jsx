@@ -52,7 +52,7 @@ export default function NfePreviewDialog({ open, nfeInfo, items, produtos, setor
           return {
             ...item,
             produto_id: produto?.id || '',
-            create_new: !matched,
+            create_new: false,
             novo_nome: item.xProd || '',
             novo_codigo: '',
             novo_setor_id: '',

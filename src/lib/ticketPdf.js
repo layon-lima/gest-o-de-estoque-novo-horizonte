@@ -2,9 +2,6 @@
 // jsPDF é carregado sob demanda (import dinâmico) só ao gerar o documento.
 const TIPO_LABEL = { venda: 'VENDA', lavoura: 'SAÍDA P/ LAVOURA', compra: 'ENTRADA POR COMPRA', entrada_saida: 'ENTRADA E SAÍDA', avulsa: 'AVULSA' };
 
-const XLSX_URL =
-  'https://media.base44.com/files/public/6a84b445f638bd5605381437/faca5668c_ticket001.xlsx';
-
 const INK = [0, 0, 0];
 const MUTED = [130, 130, 130];
 const LINE = [210, 210, 210];
@@ -28,64 +25,7 @@ function fmtHoraCurta(iso) {
 }
 
 // --- Extração do logo (image1.jpg) embutido no xlsx, feita no navegador ---
-let logoCache = null;
-async function loadSheetLogo() {
-  if (logoCache) return logoCache;
-  try {
-    const res = await fetch(XLSX_URL);
-    if (!res.ok) return null;
-    const ab = await res.arrayBuffer();
-    const dv = new DataView(ab);
-    const u8 = new Uint8Array(ab);
-    let eocd = -1;
-    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) {
-      if (u8[i] === 0x50 && u8[i + 1] === 0x4b && u8[i + 2] === 0x05 && u8[i + 3] === 0x06) {
-        eocd = i; break;
-      }
-    }
-    if (eocd < 0) return null;
-    const cdCount = dv.getUint16(eocd + 10, true);
-    let cdOff = dv.getUint32(eocd + 16, true);
-    let entry = null;
-    for (let i = 0; i < cdCount; i++) {
-      if (dv.getUint32(cdOff, true) !== 0x02014b50) break;
-      const method = dv.getUint16(cdOff + 10, true);
-      const compSize = dv.getUint32(cdOff + 20, true);
-      const fnLen = dv.getUint16(cdOff + 28, true);
-      const extraLen = dv.getUint16(cdOff + 30, true);
-      const cLen = dv.getUint16(cdOff + 32, true);
-      const lho = dv.getUint32(cdOff + 42, true);
-      let fn = '';
-      for (let j = 0; j < fnLen; j++) fn += String.fromCharCode(u8[cdOff + 46 + j]);
-      cdOff += 46 + fnLen + extraLen + cLen;
-      if (/media\/image1\./i.test(fn)) { entry = { method, compSize, lho }; break; }
-    }
-    if (!entry) return null;
-    const lfn = dv.getUint16(entry.lho + 26, true);
-    const lex = dv.getUint16(entry.lho + 28, true);
-    const ds = entry.lho + 30 + lfn + lex;
-    let blob;
-    if (entry.method === 0) {
-      blob = new Blob([u8.slice(ds, ds + entry.compSize)], { type: 'image/jpeg' });
-    } else if (typeof DecompressionStream !== 'undefined') {
-      const comp = u8.slice(ds, ds + entry.compSize);
-      const stream = new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      blob = await new Response(stream).blob();
-    } else {
-      return null;
-    }
-    const url = URL.createObjectURL(blob);
-    logoCache = await new Promise((resolve) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = () => resolve(null);
-      im.src = url;
-    });
-    return logoCache;
-  } catch (e) {
-    return null;
-  }
-}
+async function loadSheetLogo() { return null; }
 
 // --- Logo vetorial (fallback) ---
 const SUN = [255, 179, 0];

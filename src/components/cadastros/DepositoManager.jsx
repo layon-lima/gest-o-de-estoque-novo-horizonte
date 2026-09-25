@@ -71,8 +71,8 @@ export default function DepositoManager() {
   }
 
   return (
-    <div className="grid md:grid-cols-3 gap-6">
-      <Card className="p-5">
+    <div className="cadastro-manager-grid">
+      <Card className="cadastro-form-card">
         <h3 className="font-semibold mb-1">{editingId ? 'Editar Depósito' : 'Novo Depósito'}</h3>
         <p className="text-xs text-muted-foreground mb-4">Agrupamento dentro de um setor. A numeração é automática e global.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -108,13 +108,13 @@ export default function DepositoManager() {
         </form>
       </Card>
 
-      <div className="md:col-span-2 space-y-3">
-        <SearchInput value={busca} onChange={setBusca} placeholder="Buscar depósito por número, nome, descrição ou setor..." />
+      <div className="cadastro-list-panel">
+        <SearchInput className="cadastro-toolbar" value={busca} onChange={setBusca} placeholder="Buscar depósito por número, nome, descrição ou setor..." />
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
         {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhum depósito encontrado.</p>}
         <div className="space-y-2">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+            <Card key={item.id} className="cadastro-list-row flex items-center gap-3">
               <div className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center bg-primary/10 text-primary">
                 <Layers className="w-4 h-4" />
               </div>

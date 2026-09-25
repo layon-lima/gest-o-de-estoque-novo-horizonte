@@ -284,30 +284,117 @@ function escXml(s) {
  */
 export async function exportExcel(titulo, colunas, linhas, opts = {}) {
   const sheet = (opts.sheetName || sanitizeFilename(titulo)).slice(0, 31) || 'Relatorio';
-  const headStyle = `<Style ss:ID="head"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#228B57" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/></Style>`;
-  const header = `<Row>${colunas
+  const columnTypes = Array.isArray(opts.columnTypes) ? opts.columnTypes : [];
+  const metadata = Array.isArray(opts.metadata) ? opts.metadata : [];
+
+  const styles = `
+    <Style ss:ID="Default" ss:Name="Normal">
+      <Alignment ss:Vertical="Center"/>
+      <Font ss:FontName="Aptos" ss:Size="10"/>
+    </Style>
+    <Style ss:ID="head">
+      <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#0F6B50" ss:Pattern="Solid"/>
+      <Alignment ss:Vertical="Center"/>
+    </Style>
+    <Style ss:ID="number"><NumberFormat ss:Format="#,##0.000"/></Style>
+    <Style ss:ID="currency"><NumberFormat ss:Format="R$ #,##0.00"/></Style>
+    <Style ss:ID="date"><NumberFormat ss:Format="dd/mm/yyyy"/></Style>
+    <Style ss:ID="datetime"><NumberFormat ss:Format="dd/mm/yyyy hh:mm"/></Style>
+    <Style ss:ID="metaLabel"><Font ss:Bold="1"/></Style>
+  `;
+
+  const normalizeDate = (value, withTime) => {
+    if (value == null || value === '') return null;
+
+    if (!withTime && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return `${value.slice(0, 10)}T00:00:00.000`;
+    }
+
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    if (withTime) return d.toISOString().replace(/\.\d{3}Z$/, '.000');
+
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T00:00:00.000`;
+  };
+
+  const cellXml = (cell, ci) => {
+    const declared = columnTypes[ci] || null;
+
+    if ((declared === 'number' || declared === 'currency') && cell !== '' && cell != null) {
+      const n = Number(cell);
+      if (Number.isFinite(n)) {
+        const style = declared === 'currency' ? 'currency' : 'number';
+        return `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${n}</Data></Cell>`;
+      }
+    }
+
+    if (declared === 'boolean') {
+      const label = cell === true || cell === 'true' || cell === 1 ? 'Sim' : 'Não';
+      return `<Cell><Data ss:Type="String">${escXml(label)}</Data></Cell>`;
+    }
+
+    if (declared === 'date' || declared === 'datetime') {
+      const iso = normalizeDate(cell, declared === 'datetime');
+      if (iso) {
+        return `<Cell ss:StyleID="${declared}"><Data ss:Type="DateTime">${iso}</Data></Cell>`;
+      }
+    }
+
+    if (typeof cell === 'number' && isFinite(cell)) {
+      return `<Cell ss:StyleID="number"><Data ss:Type="Number">${cell}</Data></Cell>`;
+    }
+
+    return `<Cell><Data ss:Type="String">${escXml(cell)}</Data></Cell>`;
+  };
+
+  const widths = colunas.map((col, ci) => {
+    let maxLen = String(col || '').length;
+    for (const row of linhas || []) {
+      maxLen = Math.max(maxLen, String(row?.[ci] ?? '').length);
+      if (maxLen >= 42) break;
+    }
+    const width = Math.min(260, Math.max(70, maxLen * 7.2));
+    return `<Column ss:AutoFitWidth="0" ss:Width="${width.toFixed(0)}"/>`;
+  }).join('');
+
+  const header = `<Row ss:Height="22">${colunas
     .map((c) => `<Cell ss:StyleID="head"><Data ss:Type="String">${escXml(c)}</Data></Cell>`)
     .join('')}</Row>`;
+
   const body = (linhas || [])
-    .map(
-      (linha) =>
-        `<Row>${linha
-          .map((cell) => {
-            if (typeof cell === 'number' && isFinite(cell)) {
-              return `<Cell><Data ss:Type="Number">${cell}</Data></Cell>`;
-            }
-            return `<Cell><Data ss:Type="String">${escXml(cell)}</Data></Cell>`;
-          })
-          .join('')}</Row>`
-    )
+    .map((linha) => `<Row>${linha.map((cell, ci) => cellXml(cell, ci)).join('')}</Row>`)
     .join('');
+
+  const metaSheet = metadata.length
+    ? `<Worksheet ss:Name="Parametros"><Table>
+        <Column ss:Width="150"/><Column ss:Width="320"/>
+        <Row><Cell ss:StyleID="head"><Data ss:Type="String">Parâmetro</Data></Cell><Cell ss:StyleID="head"><Data ss:Type="String">Valor</Data></Cell></Row>
+        ${metadata.map(([label, value]) => `<Row><Cell ss:StyleID="metaLabel"><Data ss:Type="String">${escXml(label)}</Data></Cell><Cell><Data ss:Type="String">${escXml(value)}</Data></Cell></Row>`).join('')}
+      </Table>
+      <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><Selected/></WorksheetOptions>
+    </Worksheet>`
+    : '';
+
+  const lastRow = Math.max(1, (linhas || []).length + 1);
+  const lastCol = Math.max(1, colunas.length);
 
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<?mso-application progid="Excel.Sheet"?>\n` +
-    `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n` +
-    `<Styles>${headStyle}</Styles>\n` +
-    `<Worksheet ss:Name="${escXml(sheet)}"><Table>${header}${body}</Table></Worksheet>\n` +
+    `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ` +
+    `xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" ` +
+    `xmlns:x="urn:schemas-microsoft-com:office:excel">\n` +
+    `<Styles>${styles}</Styles>\n` +
+    `<Worksheet ss:Name="${escXml(sheet)}"><Table>${widths}${header}${body}</Table>` +
+    `<AutoFilter x:Range="R1C1:R${lastRow}C${lastCol}" xmlns="urn:schemas-microsoft-com:office:excel"/>` +
+    `<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">` +
+    `<FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane>` +
+    `</WorksheetOptions></Worksheet>\n` +
+    metaSheet +
     `</Workbook>`;
 
   const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
@@ -325,6 +412,7 @@ export async function exportExcel(titulo, colunas, linhas, opts = {}) {
 
   const isDesktop =
     window.matchMedia?.('(pointer: fine)')?.matches && !/Android|iPhone|iPad/i.test(navigator.userAgent);
+
   if (isDesktop) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

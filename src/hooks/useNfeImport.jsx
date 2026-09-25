@@ -1,40 +1,70 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { estoqueApi } from '@/api/estoqueClient';
 import { useToast } from '@/components/ui/use-toast';
-import { parseNfeXml, validarItemNfe } from '@/lib/nfeParser';
-import { setorControlaValidade, proximoCodigoLote } from '@/lib/lotes';
-import { findProdutoDuplicado } from '@/lib/produtoDedup';
-import { proximoCodigoInterno } from '@/lib/produtoCodigo';
+import {
+  parseNfeXml,
+  validarItemNfe,
+} from '@/lib/nfeParser';
+import { setorControlaValidade } from '@/lib/lotes';
 import { convertQtyForProduto } from '@/lib/units';
-import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
-import { entrarSaldo } from '@/lib/saldos';
 
-export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported }) {
-  const [importing, setImporting] = useState(false);
-  const [preview, setPreview] = useState(null);
+
+export function useNfeImport({
+  produtos,
+  setores,
+  onImported,
+}) {
+  const [importing, setImporting] =
+    useState(false);
+
+  const [preview, setPreview] =
+    useState(null);
+
   const { toast } = useToast();
+
 
   async function processFile(file) {
     if (!file) return;
+
     setImporting(true);
+
     try {
-      const xmlText = await file.text();
-      const { nNF, emitente, chave, items } = parseNfeXml(xmlText);
+      const xmlText =
+        await file.text();
+
+      const {
+        nNF,
+        emitente,
+        chave,
+        items,
+      } = parseNfeXml(xmlText);
 
       if (items.length === 0) {
         toast({
-          title: 'Nenhum item encontrado',
-          description: 'O XML não contém produtos para importar.',
+          title:
+            'Nenhum item encontrado',
+          description:
+            'O XML não contém produtos para importar.',
           variant: 'destructive',
         });
+
         return;
       }
 
-      setPreview({ nNF, emitente, chave, items });
+      setPreview({
+        nNF,
+        emitente,
+        chave,
+        items,
+      });
     } catch (err) {
       toast({
-        title: 'Erro ao importar XML',
-        description: err.message || 'Não foi possível processar o arquivo.',
+        title:
+          'Erro ao importar XML',
+        description:
+          err.message ||
+          'Não foi possível processar o arquivo.',
         variant: 'destructive',
       });
     } finally {
@@ -42,212 +72,342 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
     }
   }
 
-  async function confirm(editedItems, nfData) {
-    setImporting(true);
-    try {
-      const numeroNf = nfData?.numero_nf ?? preview.nNF;
-      const fornecedor = nfData?.fornecedor ?? preview.emitente;
-      const chaveAcesso = nfData?.chave_acesso ?? preview.chave;
-      const obs = `NF-e ${numeroNf}${fornecedor ? ' — ' + fornecedor : ''}`;
-      const now = new Date().toISOString();
 
-      // Bloqueia apenas se houver uma entrada ATIVA (não estornada) com a
-      // mesma chave de acesso. Entradas estornadas (revertidas) permitem
-      // reimportar a NF-e, restaurando o saldo no estoque.
-      const chaveBusca = (chaveAcesso || '').trim();
+  async function confirm(
+    editedItems,
+    nfData
+  ) {
+    setImporting(true);
+
+    try {
+      const numeroNf =
+        nfData?.numero_nf ??
+        preview.nNF;
+
+      const fornecedor =
+        nfData?.fornecedor ??
+        preview.emitente;
+
+      const chaveAcesso =
+        nfData?.chave_acesso ??
+        preview.chave;
+
+      const chaveBusca =
+        String(
+          chaveAcesso || ''
+        ).trim();
+
       if (chaveBusca) {
-        const existentes = await base44.entities.Movimentacao.filter({ chave_acesso: chaveBusca });
-        const ativas = existentes.filter((m) => m.tipo === 'entrada' && m.estornada !== true);
-        if (ativas.length > 0) {
+        const existentes =
+          await estoqueApi
+            .buscarDocumentos({
+              origem_modulo: 'nfe',
+              referencia_externa:
+                chaveBusca,
+              tipo_movimento:
+                'ENTRADA_COMPRA',
+              status:
+                'contabilizado',
+              limit: 10,
+            });
+
+        if (existentes.length > 0) {
           toast({
-            title: 'NF-e já importada',
-            description: 'Esta nota fiscal já está ativa no estoque. Estorne a entrada anterior para reimportá-la.',
-            variant: 'destructive',
+            title:
+              'NF-e já importada',
+            description:
+              'Esta nota fiscal já está ativa no estoque. Estorne a entrada anterior para reimportá-la.',
+            variant:
+              'destructive',
           });
+
           return;
         }
       }
 
-      const lotesAtuais = await base44.entities.Lote.list();
-      const movsExistentes = await base44.entities.Movimentacao.list('-created_date', 1000);
-      const saldosWork = await base44.entities.SaldoEstoque.list('-created_date', 5000);
-      let proxNum = maxNumeroMovimento(movsExistentes) + 1;
-      const produtosWork = produtos.map((p) => ({ ...p }));
       let matched = 0;
       let unmatched = 0;
-      let criados = 0;
       let convertidos = 0;
+
       const divergencias = [];
+      const itensMovimento = [];
+      const atualizacoesProduto = [];
 
-      for (const item of editedItems) {
-        let produto;
-        let criouNovo = false;
+      for (
+        let indice = 0;
+        indice < editedItems.length;
+        indice++
+      ) {
+        const item =
+          editedItems[indice];
 
-        if (!item.create_new && item.produto_id) {
-          produto = produtosWork.find((p) => p.id === item.produto_id);
-          if (!produto) { unmatched++; continue; }
-          // Atualiza o custo unitário do produto com o vUnCom da NF-e.
-          const vUnCom = Number(item.vUnCom) || 0;
-          if (vUnCom > 0) {
-            await base44.entities.Produto.update(produto.id, { custo_unitario: vUnCom });
-            produto.custo_unitario = vUnCom;
-          }
-        } else if (item.create_new) {
-          if (!item.novo_nome || !item.novo_setor_id) { unmatched++; continue; }
-          const duplicado = findProdutoDuplicado({
-            produtos: produtosWork,
-            dados: { codigo: item.novo_codigo || '', codigo_referencia: item.codigo_referencia || '' },
-          });
-          if (duplicado) {
-            produto = duplicado;
-          } else {
-            produto = await base44.entities.Produto.create({
-              nome: item.novo_nome,
-              codigo: proximoCodigoInterno(produtosWork),
-              setor_id: item.novo_setor_id,
-              deposito_id: item.deposito_id || '',
-              maquina_id: item.maquina_id || '',
-              gaveta_id: item.gaveta_id || '',
-              codigo_referencia: item.codigo_referencia || item.cProd || '',
-              unidade: item.novo_unidade || 'un',
-              unidade_alt: Number(item.novo_fator_conversao) > 0 ? (item.uCom || '') : '',
-              fator_conversao: Number(item.novo_fator_conversao) || 0,
-              quantidade: 0,
-              estoque_minimo: 0,
-              custo_unitario: Number(item.vUnCom) || 0,
-            });
-            produtosWork.push(produto);
-            criouNovo = true;
-            criados++;
-          }
-        } else {
+        if (
+          item.create_new ||
+          !item.produto_id
+        ) {
           unmatched++;
           continue;
         }
 
-        // Conversão de unidade: NF-e (item.uCom) -> unidade do produto.
-        // Aplica-se a produtos novos E existentes. Considera conversão
-        // automática (unidades mapeadas) e, se necessário, a conversão
-        // customizada salva no produto ou informada na importação.
-        const prodParaConv = { ...produto };
-        if (!criouNovo && Number(item.fator_custom) > 0) {
-          prodParaConv.unidade_alt = item.uCom;
-          prodParaConv.fator_conversao = Number(item.fator_custom);
-        }
-        // Validação: vProd ≈ qCom × vUnCom (tolerância R$ 0,01)
-        const valItem = validarItemNfe(item);
-        if (!valItem.ok) divergencias.push(`${item.xProd || item.cProd}: esperado R$ ${valItem.esperado}, lido R$ ${item.vProd}`);
-
-        const convResult = convertQtyForProduto(item.qCom, item.uCom, prodParaConv);
-        let qtd = convResult.qtd;
-        if (convResult.convertido) convertidos++;
-
-        // Persiste fator customizado informado na importação (produto existente).
-        if (!criouNovo && Number(item.fator_custom) > 0) {
-          await base44.entities.Produto.update(produto.id, {
-            unidade_alt: item.uCom,
-            fator_conversao: Number(item.fator_custom),
-          });
-          produto.unidade_alt = item.uCom;
-          produto.fator_conversao = Number(item.fator_custom);
-        }
-
-        const depositoId = item.deposito_id || produto.deposito_id || '';
-        if (!depositoId) { unmatched++; continue; }
-
-        const controla = setorControlaValidade(produto.setor_id, setores);
-        let loteId = '';
-        let dataValidade = '';
-        const gavetaId = item.gaveta_id || produto.gaveta_id || '';
-
-        if (controla && item.data_validade) {
-          // Lote interno por produto + validade + depósito.
-          let lote = lotesAtuais.find(
-            (l) => l.produto_id === produto.id && l.data_validade === item.data_validade && (l.deposito_id || '') === depositoId
+        const produto =
+          (produtos || []).find(
+            (p) =>
+              p.id === item.produto_id
           );
-          if (lote) {
-            loteId = lote.id;
-            lote.quantidade = (lote.quantidade || 0) + qtd;
-            await base44.entities.Lote.update(lote.id, { quantidade: lote.quantidade, deposito_id: depositoId, gaveta_id: gavetaId || lote.gaveta_id });
-            lote.deposito_id = depositoId;
-          } else {
-            const created = await base44.entities.Lote.create({
-              produto_id: produto.id,
-              codigo_referencia: produto.codigo_referencia || '',
-              setor_id: produto.setor_id,
-              deposito_id: depositoId,
-              maquina_id: item.maquina_id || produto.maquina_id || '',
-              gaveta_id: gavetaId || produto.gaveta_id || '',
-              codigo_lote: proximoCodigoLote(produto, lotesAtuais),
-              data_validade: item.data_validade,
-              quantidade: qtd,
-              unidade: produto.unidade || 'un',
-            });
-            loteId = created.id;
-            lotesAtuais.push({ id: created.id, produto_id: produto.id, quantidade: qtd, data_validade: item.data_validade, deposito_id: depositoId, codigo_lote: created.codigo_lote });
-          }
-          dataValidade = item.data_validade;
+
+        if (!produto) {
+          unmatched++;
+          continue;
         }
 
-        const vUnComMov = Number(item.vUnCom) || 0;
-        const vProdMov = Number(item.vProd) || 0;
+        const depositoId =
+          item.deposito_id ||
+          produto.deposito_id ||
+          '';
 
-        // ENTRADA no saldo multi-depósito — atualiza SaldoEstoque e recalcula
-        // Produto.quantidade (fonte da verdade = soma das parcelas de saldo).
-        await entrarSaldo({
+        if (!depositoId) {
+          unmatched++;
+          continue;
+        }
+
+        const gavetaId =
+          item.gaveta_id ||
+          produto.gaveta_id ||
+          '';
+
+        const prodParaConv = {
+          ...produto,
+        };
+
+        const fatorCustom =
+          Number(item.fator_custom) ||
+          0;
+
+        if (fatorCustom > 0) {
+          prodParaConv.unidade_alt =
+            item.uCom;
+
+          prodParaConv.fator_conversao =
+            fatorCustom;
+        }
+
+        const valItem =
+          validarItemNfe(item);
+
+        if (!valItem.ok) {
+          divergencias.push(
+            `${item.xProd || item.cProd}: esperado R$ ${valItem.esperado}, lido R$ ${item.vProd}`
+          );
+        }
+
+        const conversao =
+          convertQtyForProduto(
+            item.qCom,
+            item.uCom,
+            prodParaConv
+          );
+
+        const qtdBase =
+          Number(conversao.qtd) || 0;
+
+        const qtdInformada =
+          Number(item.qCom) || 0;
+
+        if (
+          !(qtdBase > 0) ||
+          !(qtdInformada > 0)
+        ) {
+          unmatched++;
+          continue;
+        }
+
+        if (conversao.convertido) {
+          convertidos++;
+        }
+
+        const controlaValidade =
+          setorControlaValidade(
+            produto.setor_id,
+            setores
+          );
+
+        if (
+          controlaValidade &&
+          !item.data_validade
+        ) {
+          throw new Error(
+            `Validade obrigatória para ${produto.nome}.`
+          );
+        }
+
+        const valorTotal =
+          Number(item.vProd) || 0;
+
+        const valorUnitarioNfe =
+          Number(item.vUnCom) || 0;
+
+        const fatorEfetivo =
+          qtdInformada > 0
+            ? qtdBase /
+              qtdInformada
+            : 1;
+
+        const custoBase =
+          valorTotal > 0
+            ? valorTotal / qtdBase
+            : (
+                fatorEfetivo > 0
+                  ? valorUnitarioNfe /
+                    fatorEfetivo
+                  : valorUnitarioNfe
+              );
+
+        itensMovimento.push({
+          produto_id:
+            produto.id,
+          quantidade:
+            qtdInformada,
+          unidade:
+            item.uCom ||
+            produto.unidade ||
+            'un',
+          fator_conversao:
+            fatorCustom > 0
+              ? fatorCustom
+              : undefined,
+          deposito_destino_id:
+            depositoId,
+          gaveta_destino_id:
+            gavetaId,
+          custo_unitario:
+            custoBase,
+          data_validade:
+            controlaValidade
+              ? item.data_validade
+              : undefined,
+          observacao:
+            `NFITEM:${indice} | ${item.xProd || produto.nome}`,
+        });
+
+        atualizacoesProduto.push({
           produto,
-          depositoId,
-          gavetaId,
-          loteId,
-          quantidade: qtd,
-          custoUnitario: vUnComMov,
-          unidade: produto.unidade || 'un',
-          saldos: saldosWork,
+          dados: {
+            ...(fatorCustom > 0
+              ? {
+                  unidade_alt:
+                    item.uCom,
+                  fator_conversao:
+                    fatorCustom,
+                }
+              : {}),
+            maquina_id:
+              item.maquina_id ||
+              produto.maquina_id ||
+              '',
+            gaveta_id:
+              gavetaId ||
+              produto.gaveta_id ||
+              '',
+            codigo_referencia:
+              item.codigo_referencia ||
+              produto.codigo_referencia ||
+              '',
+          },
         });
 
-        await base44.entities.Movimentacao.create({
-          data: now,
-          numero: formatarNumeroMov(proxNum++),
-          produto_id: produto.id,
-          codigo: produto.codigo,
-          nome_produto: produto.nome,
-          quantidade: qtd,
-          custo_unitario: vUnComMov,
-          valor_movimentado: vProdMov,
-          setor_id: produto.setor_id,
-          deposito_id: depositoId,
-          maquina_id: item.maquina_id || produto.maquina_id,
-          gaveta_id: gavetaId,
-          tipo: 'entrada',
-          observacao: obs,
-          numero_nf: numeroNf || '',
-          fornecedor: fornecedor || '',
-          chave_acesso: chaveAcesso || '',
-          lote_id: loteId,
-          data_validade: dataValidade,
-        });
-
-        // Atualiza o endereço padrão do produto (novo produto ganha depósito).
-        await base44.entities.Produto.update(produto.id, {
-          ...(criouNovo ? { deposito_id: depositoId } : {}),
-          maquina_id: item.maquina_id || produto.maquina_id,
-          gaveta_id: gavetaId || produto.gaveta_id,
-          codigo_referencia: item.codigo_referencia || produto.codigo_referencia,
-        });
-        if (criouNovo) produto.deposito_id = depositoId;
-        produto.gaveta_id = gavetaId || produto.gaveta_id;
         matched++;
       }
 
-      toast({
-        title: 'Importação concluída',
-        description: `${matched} entrada(s) registrada(s)${criados > 0 ? `, ${criados} produto(s) criado(s)` : ''}${convertidos > 0 ? `, ${convertidos} com conversão de unidade` : ''}${unmatched > 0 ? `, ${unmatched} ignorado(s)` : ''}.`,
+      if (itensMovimento.length === 0) {
+        throw new Error(
+          'Nenhum item válido foi selecionado para entrada.'
+        );
+      }
+
+      const origemId =
+        (
+          chaveBusca ||
+          `${numeroNf || 'SEM-NUMERO'}:${fornecedor || 'SEM-FORNECEDOR'}`
+        )
+          .slice(0, 100);
+
+      const referencia =
+        chaveBusca ||
+        String(
+          numeroNf || origemId
+        );
+
+      await estoqueApi.movimentar({
+        tipo_movimento:
+          'ENTRADA_COMPRA',
+        origem_modulo:
+          'nfe',
+        documento_origem_id:
+          origemId,
+        referencia_externa:
+          referencia,
+        observacao:
+          `NF-e ${numeroNf || ''}${
+            fornecedor
+              ? ` — ${fornecedor}`
+              : ''
+          }`,
+        itens: itensMovimento,
       });
-      if (divergencias.length > 0) {
+
+      for (
+        const atualizacao
+        of atualizacoesProduto
+      ) {
+        const {
+          produto,
+          dados,
+        } = atualizacao;
+
+        await base44.entities
+          .Produto
+          .update(
+            produto.id,
+            dados
+          );
+
+        Object.assign(
+          produto,
+          dados
+        );
+      }
+
+      toast({
+        title:
+          'Importação concluída',
+        description:
+          `${matched} entrada(s) registrada(s)${
+            convertidos > 0
+              ? `, ${convertidos} com conversão de unidade`
+              : ''
+          }${
+            unmatched > 0
+              ? `, ${unmatched} ignorado(s)`
+              : ''
+          }.`,
+      });
+
+      if (
+        divergencias.length > 0
+      ) {
         toast({
           variant: 'destructive',
-          title: `Divergência de valor em ${divergencias.length} item(ns)`,
-          description: divergencias.slice(0, 3).join(' | ') + (divergencias.length > 3 ? ' ...' : ''),
+          title:
+            `Divergência de valor em ${divergencias.length} item(ns)`,
+          description:
+            divergencias
+              .slice(0, 3)
+              .join(' | ') +
+            (
+              divergencias.length > 3
+                ? ' ...'
+                : ''
+            ),
         });
       }
 
@@ -256,7 +416,9 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
     } catch (err) {
       toast({
         title: 'Erro ao importar',
-        description: err.message || 'Não foi possível concluir a importação.',
+        description:
+          err.message ||
+          'Não foi possível concluir a importação.',
         variant: 'destructive',
       });
     } finally {
@@ -264,9 +426,17 @@ export function useNfeImport({ produtos, setores, maquinas, gavetas, onImported 
     }
   }
 
+
   function close() {
     setPreview(null);
   }
 
-  return { importing, preview, processFile, confirm, close };
+
+  return {
+    importing,
+    preview,
+    processFile,
+    confirm,
+    close,
+  };
 }

@@ -2,9 +2,9 @@
 // Numeração sequencial, cálculo de previsto (dose × hectares),
 // lançamento de consumo real com baixa de estoque (Movimentacao + SaldoEstoque).
 import { base44 } from '@/api/base44Client';
+import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
-import { sairSaldo } from '@/lib/saldos';
-import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
+import { construirItensSaida } from '@/lib/estoqueOperacoes';
 
 // Extrai o sufixo numérico de um número de OS (ex.: OSA-000012 -> 12).
 export function maxNumeroOS(listaOS) {
@@ -74,93 +74,183 @@ export function saldoProduto(produtoId, saldos) {
 // e baixa o saldo (FEFO). Atualiza a OS com realizado, status e custo_total.
 // `form` = { itens: [{ produto_id, realizado, deposito_id }] }.
 // Lança 'SALDO_INSUFICIENTE:<disp>:<nome>' se faltar saldo.
-export async function executarOS({ os, produtos, lotes, saldos, movimentacoes, responsavel }) {
+export async function executarOS({
+  os,
+  produtos,
+  responsavel,
+}) {
   const itens = parseItens(os.itens);
   const now = new Date().toISOString();
 
-  // Valida depósitos e saldos antes de qualquer mutação.
-  for (const item of itens) {
-    const produto = produtos.find((p) => p.id === item.produto_id);
-    if (!produto) continue;
-    const realizado = parseQtd(item.realizado);
-    if (realizado <= 0) continue;
-    const depositoId = item.deposito_id || produto.deposito_id || '';
-    if (!depositoId) throw new Error(`DEPOSITO_OBRIGATORIO:${produto.nome}`);
+  const itensMovimento = [];
+  const itensAtivos = [];
 
-    const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
-    const saldosProduto = (saldos || []).filter((s) => s.produto_id === produto.id && s.deposito_id === depositoId);
-    const totalDisp = saldosProduto.reduce((s, sl) => s + (sl.quantidade || 0), 0);
-    if (totalDisp < realizado) {
-      throw new Error(`SALDO_INSUFICIENTE:${totalDisp}:${produto.nome}`);
+  for (
+    let indice = 0;
+    indice < itens.length;
+    indice++
+  ) {
+    const item = itens[indice];
+
+    const produto =
+      (produtos || []).find(
+        (p) => p.id === item.produto_id
+      );
+
+    if (!produto) {
+      continue;
     }
+
+    const realizado =
+      parseQtd(item.realizado);
+
+    if (realizado <= 0) {
+      continue;
+    }
+
+    const depositoId =
+      item.deposito_id ||
+      produto.deposito_id ||
+      '';
+
+    if (!depositoId) {
+      throw new Error(
+        `DEPOSITO_OBRIGATORIO:${produto.nome}`
+      );
+    }
+
+    const marcador =
+      `OSITEM:${indice}`;
+
+    const alocacao =
+      await construirItensSaida({
+        produto,
+        quantidadeBase:
+          realizado,
+        depositoId,
+        gavetaId:
+          produto.gaveta_id || '',
+        somenteDeposito: true,
+        somenteGaveta: false,
+        observacao:
+          `${marcador} | OS Aplicação ${os.numero || ''}`,
+      });
+
+    if (!alocacao.suficiente) {
+      throw new Error(
+        `SALDO_INSUFICIENTE:${alocacao.totalDisponivel}:${produto.nome}`
+      );
+    }
+
+    itensMovimento.push(
+      ...alocacao.itens
+    );
+
+    itensAtivos.push({
+      indice,
+      marcador,
+      produto,
+      realizado,
+    });
   }
 
-  let baseNum = maxNumeroMovimento(movimentacoes) + 1;
+  if (itensMovimento.length === 0) {
+    throw new Error(
+      'Nenhum consumo informado para executar a OS.'
+    );
+  }
+
+  const resposta =
+    await estoqueApi.movimentar({
+      tipo_movimento:
+        'APLICACAO',
+      origem_modulo:
+        'aplicacao',
+      documento_origem_id:
+        os.id || os.numero,
+      referencia_externa:
+        os.numero || undefined,
+      observacao:
+        [
+          `OS Aplicação ${os.numero || ''}`,
+          os.lavoura_nome || '',
+          responsavel || '',
+        ]
+          .filter(Boolean)
+          .join(' — '),
+      itens: itensMovimento,
+    });
+
+  const documento =
+    resposta.documento;
+
   let custoTotal = 0;
 
-  for (const item of itens) {
-    const produto = produtos.find((p) => p.id === item.produto_id);
-    if (!produto) continue;
-    const realizado = parseQtd(item.realizado);
-    if (realizado <= 0) continue;
+  for (const ativo of itensAtivos) {
+    const valorItem =
+      (documento.itens || [])
+        .filter(
+          (movItem) =>
+            String(
+              movItem.observacao || ''
+            ).includes(
+              ativo.marcador
+            )
+        )
+        .reduce(
+          (soma, movItem) =>
+            soma +
+            (
+              Number(
+                movItem.valor_total
+              ) || 0
+            ),
+          0
+        );
 
-    const depositoId = item.deposito_id || produto.deposito_id || '';
-    const gavetaId = produto.gaveta_id || '';
-    const lotesProduto = (lotes || []).filter((l) => l.produto_id === produto.id);
+    const custoUnitario =
+      ativo.realizado > 0
+        ? valorItem /
+          ativo.realizado
+        : 0;
 
-    const { consumidos } = await sairSaldo({
-      produto,
-      depositoId,
-      gavetaId,
-      quantidade: realizado,
-      lotes: lotesProduto,
-      saldos,
-    });
+    const item =
+      itens[ativo.indice];
 
-    // Recalcula saldo do produto localmente.
-    const novoSaldo = (saldos || [])
-      .filter((s) => s.produto_id === produto.id)
-      .reduce((s, sl) => s + (sl.quantidade || 0), 0);
-    produto.quantidade = novoSaldo;
+    item.realizado =
+      ativo.realizado;
 
-    const primeiroLote = lotesProduto.find((l) => l.id === consumidos[0]?.lote_id);
+    item.custo_unitario =
+      custoUnitario;
 
-    await base44.entities.Movimentacao.create({
-      data: now,
-      numero: formatarNumeroMov(baseNum++),
-      produto_id: produto.id,
-      codigo: produto.codigo,
-      nome_produto: produto.nome,
-      quantidade: realizado,
-      setor_id: produto.setor_id,
-      deposito_id: depositoId,
-      maquina_id: produto.maquina_id || '',
-      gaveta_id: gavetaId,
-      tipo: 'saida',
-      observacao: `OS Aplicação ${os.numero} — ${os.lavoura_nome || ''}`,
-      ...(consumidos.length ? { lotes_consumidos: JSON.stringify(consumidos), lote_id: consumidos[0]?.lote_id || '', data_validade: primeiroLote?.data_validade || '' } : {}),
-    });
+    item.custo_total =
+      valorItem;
 
-    // Custo do item: realizado × custo unitário.
-    const custoUnit = Number(produto.custo_unitario) || 0;
-    custoTotal += realizado * custoUnit;
+    item.mov_numero =
+      documento.numero;
 
-    // Marca o item com realizado e custo.
-    item.realizado = realizado;
-    item.custo_unitario = custoUnit;
-    item.custo_total = realizado * custoUnit;
-    item.mov_numero = formatarNumeroMov(baseNum - 1);
+    custoTotal +=
+      valorItem;
   }
 
-  // Atualiza a OS.
-  await base44.entities.OrdemServicoAplicacao.update(os.id, {
-    itens: stringifyItens(itens),
-    status: 'executada',
-    data_execucao: now,
-    custo_total: custoTotal,
-  });
+  await base44.entities
+    .OrdemServicoAplicacao
+    .update(
+      os.id,
+      {
+        itens:
+          stringifyItens(itens),
+        status: 'executada',
+        data_execucao: now,
+        custo_total:
+          custoTotal,
+      }
+    );
 
-  return { custoTotal };
+  return {
+    custoTotal,
+    documento,
+  };
 }
 
 // Calcula o custo detalhado de uma lavoura: agrega todas as OS executadas

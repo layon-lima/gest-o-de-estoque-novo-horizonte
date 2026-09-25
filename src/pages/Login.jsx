@@ -1,41 +1,32 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+﻿import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, Loader2, Leaf } from "lucide-react";
+import { User, Lock, Loader2, Leaf } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
-import GoogleIcon from "@/components/GoogleIcon";
 import { base44 } from "@/api/base44Client";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      await base44.auth.loginViaEmailPassword(email, password);
-      navigate("/");
-    } catch (err) {
-      setError(err?.message || "Credenciais inválidas");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleGoogle = async () => {
     setError("");
     setLoading(true);
+
     try {
-      await base44.auth.loginWithGoogle();
+      await base44.auth.loginViaEmailPassword(
+        username.trim(),
+        password
+      );
+
+      window.location.href = "/";
     } catch (err) {
-      setError(err?.message || "Erro ao conectar com Google");
+      setError(err?.message || "Usuário ou senha inválidos");
       setLoading(false);
     }
   };
@@ -54,28 +45,41 @@ export default function Login() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">E-mail</Label>
+          <Label htmlFor="username">Usuário</Label>
+
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <User
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+
             <Input
-              id="email"
-              type="email"
+              id="username"
+              type="text"
               autoFocus
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              placeholder="Digite seu usuário"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="pl-10 h-12"
               required
             />
           </div>
         </div>
+
         <div className="space-y-2">
           <Label htmlFor="password">Senha</Label>
+
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+
             <Input
               id="password"
               type="password"
+              autoComplete="current-password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -84,7 +88,12 @@ export default function Login() {
             />
           </div>
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
+
+        <Button
+          type="submit"
+          className="w-full h-12 font-medium"
+          disabled={loading}
+        >
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -95,27 +104,6 @@ export default function Login() {
           )}
         </Button>
       </form>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-2 text-muted-foreground">ou</span>
-        </div>
-      </div>
-
-      <Button variant="outline" className="w-full h-12" onClick={handleGoogle} disabled={loading}>
-        <GoogleIcon className="w-5 h-5" />
-        Entrar com Google
-      </Button>
-
-      <p className="text-center text-sm text-muted-foreground mt-6">
-        Não tem conta?{" "}
-        <a href="/register" className="text-primary font-medium hover:underline">
-          Cadastre-se
-        </a>
-      </p>
     </AuthLayout>
   );
 }

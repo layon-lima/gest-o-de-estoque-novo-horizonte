@@ -15,7 +15,6 @@ import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import AutobaixaDialog from '@/components/aplicacao/AutobaixaDialog';
 import EdicaoMassaDialog from '@/components/aplicacao/EdicaoMassaDialog';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
-import AnoSafraManager from '@/components/aplicacao/AnoSafraManager';
 import { gerarPDFResumoOS } from '@/lib/resumoOsPdf';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -34,7 +33,6 @@ export default function Aplicacao() {
   const [tab, setTab] = useState('aberta');
   const [novoConfirm, setNovoConfirm] = useState(false);
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
-  const [anosOpen, setAnosOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [autobaixaOpen, setAutobaixaOpen] = useState(false);
   const [autobaixaSaving, setAutobaixaSaving] = useState(false);
@@ -259,9 +257,6 @@ export default function Aplicacao() {
             {a.nome}
           </button>
         ))}
-        <Button variant="outline" size="sm" className="ml-auto" onClick={() => setAnosOpen(true)}>
-          <CalendarDays className="w-4 h-4 mr-1.5" /> Anos Safra
-        </Button>
       </div>
 
       {/* Abas: status da OS + Custos por Lavoura */}
@@ -460,11 +455,6 @@ export default function Aplicacao() {
         ordens={ordens}
       />
 
-      <AnoSafraManager
-        open={anosOpen}
-        onOpenChange={setAnosOpen}
-        anosSafra={anosSafra}
-      />
 
       <AlertDialog open={novoConfirm} onOpenChange={setNovoConfirm}>
         <AlertDialogContent>

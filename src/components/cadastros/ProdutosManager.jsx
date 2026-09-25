@@ -2,14 +2,13 @@ import { useState, useMemo } from 'react';
 import { Plus, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { base44 } from '@/api/base44Client';
 import ProductForm from '@/components/ProductForm';
 import ProductsTable from '@/components/ProductsTable';
 import SearchBar from '@/components/SearchBar';
 import FilterBar from '@/components/FilterBar';
 import { matchTerm } from '@/lib/estoqueFilters';
 import { useToast } from '@/components/ui/use-toast';
-import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
+import { useEntidades } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
@@ -27,8 +26,6 @@ export default function ProdutosManager() {
   });
   const { Produto: produtos, Setor: setores, Deposito: depositos, Maquina: maquinas, Gaveta: gavetas, SaldoEstoque: saldos } = data;
 
-  // Aba de cadastro: lista TODOS os produtos da base, tenham estoque ou não,
-  // filtrando apenas pelos atributos cadastrais (não por saldo/parcela SAP).
   const filtered = useMemo(() => {
     const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
     const setorFilter = asArr(filtros.setor_id);
@@ -46,10 +43,25 @@ export default function ProdutosManager() {
     return result.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos)));
   }, [produtos, filtros, busca, maquinas, gavetas, depositos, saldos]);
 
-  function handleNew() { setEditing(null); setFormOpen(true); }
-  function handleEdit(produto) { setEditing(produto); setFormOpen(true); }
+  function handleNew() {
+    setEditing(null);
+    setFormOpen(true);
+  }
 
-  function handleDelete(produto) { setExcluirProduto(produto); }
+  function handleEdit(produto) {
+    setEditing(produto);
+    setFormOpen(true);
+  }
+
+  function handleFormOpenChange(value) {
+    setFormOpen(value);
+    if (!value) setEditing(null);
+  }
+
+  function handleDelete(produto) {
+    setExcluirProduto(produto);
+  }
+
   async function confirmarExclusao() {
     if (!excluirProduto) return;
     setExcluindo(true);
@@ -64,12 +76,28 @@ export default function ProdutosManager() {
     }
   }
 
+  if (formOpen) {
+    return (
+      <ProductForm
+        open={formOpen}
+        onOpenChange={handleFormOpenChange}
+        produto={editing}
+        setores={setores}
+        depositos={depositos}
+        maquinas={maquinas}
+        gavetas={gavetas}
+        onSaved={load}
+        produtos={produtos}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-4">
+      <header className="cadastro-module-header">
         <div>
-          <h2 className="text-2xl font-bold">Produtos</h2>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie todos os produtos do estoque</p>
+          <div className="cadastro-module-header__title-row"><Package className="h-4 w-4 text-primary" /><h2 className="text-lg font-semibold">Produtos cadastrados</h2></div>
+          <p className="text-sm text-muted-foreground mt-1">{produtos.length} registro(s) no cadastro mestre</p>
         </div>
         <Button onClick={handleNew}>
           <Plus className="w-4 h-4 mr-2" /> Novo Produto
@@ -90,14 +118,14 @@ export default function ProdutosManager() {
         </Card>
       ) : (
         <>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="cadastro-filter-panel">
             <SearchBar value={busca} onChange={setBusca} produtos={produtos} maquinas={maquinas} gavetas={gavetas} depositos={depositos} saldos={saldos} />
             <div className="flex items-center gap-2 flex-wrap">
               <FilterBar filtros={filtros} setFiltros={setFiltros} setores={setores} maquinas={maquinas} gavetas={gavetas} depositos={depositos} />
             </div>
           </div>
 
-          <Card className="p-5">
+          <Card className="cadastro-table-card">
             <ProductsTable
               produtos={filtered}
               setores={setores}
@@ -110,18 +138,6 @@ export default function ProdutosManager() {
           </Card>
         </>
       )}
-
-      <ProductForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        produto={editing}
-        setores={setores}
-        depositos={depositos}
-        maquinas={maquinas}
-        gavetas={gavetas}
-        onSaved={load}
-        produtos={produtos}
-      />
 
       <AlertDialog open={!!excluirProduto} onOpenChange={(o) => !o && !excluindo && setExcluirProduto(null)}>
         <AlertDialogContent>

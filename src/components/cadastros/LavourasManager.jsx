@@ -16,7 +16,7 @@ export default function LavourasManager() {
   const lavouras = data.Lavoura || [];
 
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
+    <div className="cadastro-dual-grid">
       <CulturasPanel culturas={culturas} />
       <LavourasPanel lavouras={lavouras} culturas={culturas} />
     </div>
@@ -56,7 +56,7 @@ function CulturasPanel({ culturas }) {
   }
 
   return (
-    <Card className="p-5 h-fit">
+    <Card className="cadastro-section-card">
       <div className="flex items-center gap-2 mb-4">
         <Sprout className="w-5 h-5 text-primary" />
         <h3 className="font-semibold">Culturas</h3>
@@ -130,7 +130,7 @@ function LavourasPanel({ lavouras, culturas }) {
   }
 
   return (
-    <Card className="p-5 h-fit">
+    <Card className="cadastro-section-card">
       <div className="flex items-center gap-2 mb-4">
         <MapPin className="w-5 h-5 text-primary" />
         <h3 className="font-semibold">Lavouras</h3>

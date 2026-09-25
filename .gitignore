@@ -1,9 +1,47 @@
-#env
+﻿# ============================================================
+# ESTOQUE NOVO HORIZONTE - GITIGNORE
+# ============================================================
+
+# ------------------------------------------------------------
+# Variaveis de ambiente / segredos
+# ------------------------------------------------------------
 .env
 .env.*
+!.env.example
 
+# ------------------------------------------------------------
+# Node / Vite
+# ------------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# ------------------------------------------------------------
+# Python
+# ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Backend local
+/backend/.venv/
+/backend/uploads/
+/backend/.env
+
+# ------------------------------------------------------------
 # Logs
-/logs
+# ------------------------------------------------------------
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -11,22 +49,28 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# ------------------------------------------------------------
+# IDE / Sistema
+# ------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-.env
-.vite
+# ------------------------------------------------------------
+# Base44 legado
+# ------------------------------------------------------------
 base44/.app.jsonc
+
+# ------------------------------------------------------------
+# Arquivos locais de migracao / diagnostico
+# ------------------------------------------------------------
+historico_migracao/
+VALIDACAO_PROJETO.txt
+VALIDAR_PROJETO_COMPLETO_V4.ps1

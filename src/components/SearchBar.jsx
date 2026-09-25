@@ -68,7 +68,7 @@ export default function SearchBar({ value, onChange, produtos, maquinas, gavetas
   };
 
   return (
-    <div className="relative flex-1 min-w-0 w-full sm:w-auto sm:min-w-[280px] max-w-md" ref={containerRef}>
+    <div className="relative flex-1 min-w-0 w-full sm:w-auto sm:min-w-[280px]" ref={containerRef}>
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none z-10" />
       <Input
         value={value}
@@ -76,7 +76,7 @@ export default function SearchBar({ value, onChange, produtos, maquinas, gavetas
         onFocus={() => setShowSuggestions(true)}
         onKeyDown={handleKeyDown}
         placeholder="Buscar por nome, código ou referência… (vírgulas combinam)"
-        className="pl-10 pr-10 h-12 text-base font-medium border-primary/30 focus-visible:ring-primary"
+        className="pl-10 pr-10 h-10 text-sm font-medium bg-background"
       />
       {value && (
         <Button

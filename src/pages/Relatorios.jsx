@@ -1,445 +1,927 @@
-import { useState, useEffect, useMemo } from 'react';
-import { FileDown, FileSpreadsheet, ArrowDownCircle, ArrowUpCircle, Undo2, Search, Sprout } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@/components/ui/table';
-import ProductsTable from '@/components/ProductsTable';
-import DataTable from '@/components/tables/DataTable';
-import { useColumnConfig } from '@/hooks/useColumnConfig';
-import { exportPDF, exportCSV } from '@/lib/exports';
-import { getNome } from '@/lib/estoqueFilters';
-import { formatQtd } from '@/lib/format';
-import { useEntidades } from '@/lib/useEntidades';
-import { filterLotesByFaixa, FAIXAS_VALIDADE, statusValidade } from '@/lib/lotes';
-import ValidadeBadge from '@/components/ValidadeBadge';
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpFromLine,
+  BadgeDollarSign,
+  Boxes,
+  CalendarClock,
+  CalendarRange,
+  Car,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ClipboardCheck,
+  ClipboardList,
+  ContactRound,
+  Database,
+  Download,
+  FileCheck2,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  FlaskConical,
+  Fuel,
+  IdCard,
+  LandPlot,
+  ListChecks,
+  Loader2,
+  LockKeyhole,
+  MapPin,
+  Network,
+  Package,
+  RefreshCcw,
+  Repeat2,
+  Scale,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sprout,
+  Tractor,
+  Truck,
+  Undo2,
+  UserRoundCheck,
+  Warehouse,
+  Wheat,
+  X,
+} from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import SearchSelect from '@/components/SearchSelect';
-import RelatorioAplicacao from '@/components/relatorios/RelatorioAplicacao';
-import { sortGavetas } from '@/lib/gavetas';
-import { codigoMovimento, descricaoMovimento, quantidadeSinalizada } from '@/lib/movTipoCodigo';
+import { useToast } from '@/components/ui/use-toast';
+import { relatoriosApi } from '@/api/relatoriosClient';
+import { exportExcel, exportPDF } from '@/lib/exports';
 
-export default function Relatorios() {
-  const [filtro, setFiltro] = useState({ setor_id: 'all', maquina_id: 'all', gaveta_id: 'all' });
-  const [filtroValidade, setFiltroValidade] = useState({ setor_id: 'all', faixa: 'all' });
-  const [filtroMov, setFiltroMov] = useState({ tipo: 'all', busca: '' });
 
-  const { data, loading } = useEntidades({
-    Produto: {},
-    Setor: {},
-    Maquina: {},
-    Gaveta: {},
-    Movimentacao: { sort: '-data', limit: 200 },
-    Lote: {},
-  });
-  const {
-    Produto: produtos, Setor: setores, Maquina: maquinas, Gaveta: gavetas,
-    Movimentacao: movimentacoes, Lote: lotes,
-  } = data;
+const ICONS = {
+  Warehouse,
+  Boxes,
+  TriangleAlert: AlertTriangle,
+  CalendarClock,
+  Files: FileText,
+  ArrowLeftRight,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Repeat2,
+  Undo2,
+  LockKeyhole,
+  ListChecks,
+  Fuel,
+  Sprout,
+  FlaskConical,
+  ClipboardCheck,
+  ClipboardList,
+  ScrollText: FileText,
+  Scale,
+  BadgeDollarSign,
+  FileCheck2,
+  Package,
+  ContactRound,
+  UserRoundCheck,
+  Truck,
+  Container: Truck,
+  IdCard,
+  Car,
+  Tractor,
+  Network,
+  MapPinHouse: MapPin,
+  LandPlot,
+  Wheat,
+  CalendarRange,
+  ShieldCheck,
+};
 
-  const filtered = useMemo(() => {
-    return produtos.filter((p) => {
-      if (filtro.setor_id !== 'all' && p.setor_id !== filtro.setor_id) return false;
-      if (filtro.maquina_id !== 'all' && p.maquina_id !== filtro.maquina_id) return false;
-      if (filtro.gaveta_id !== 'all' && p.gaveta_id !== filtro.gaveta_id) return false;
-      return true;
+
+const CATEGORY_ICONS = {
+  Estoque: Warehouse,
+  Movimentações: ArrowLeftRight,
+  Operações: Tractor,
+  Pesagem: Scale,
+  Cadastros: Database,
+  Administração: ShieldCheck,
+};
+
+
+function formatCell(value, type) {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+
+  if (type === 'boolean') {
+    return value ? 'Sim' : 'Não';
+  }
+
+  if (type === 'number') {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 3,
     });
-  }, [produtos, filtro]);
+  }
 
-  // Opções em cascata: cada filtro mostra apenas opções com produtos em comum com os demais filtros ativos
-  const setorOptions = useMemo(() => {
-    const ids = new Set(
-      produtos
-        .filter((p) => p.setor_id && (filtro.maquina_id === 'all' || p.maquina_id === filtro.maquina_id) && (filtro.gaveta_id === 'all' || p.gaveta_id === filtro.gaveta_id))
-        .map((p) => p.setor_id)
-    );
-    return setores.filter((s) => ids.has(s.id));
-  }, [produtos, setores, filtro.maquina_id, filtro.gaveta_id]);
+  if (type === 'currency') {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    return num.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  }
 
-  const maquinaOptions = useMemo(() => {
-    const ids = new Set(
-      produtos
-        .filter((p) => p.maquina_id && (filtro.setor_id === 'all' || p.setor_id === filtro.setor_id) && (filtro.gaveta_id === 'all' || p.gaveta_id === filtro.gaveta_id))
-        .map((p) => p.maquina_id)
-    );
-    return maquinas.filter((m) => ids.has(m.id));
-  }, [produtos, maquinas, filtro.setor_id, filtro.gaveta_id]);
+  if (type === 'date') {
+    const d = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleDateString('pt-BR');
+  }
 
-  const gavetaOptions = useMemo(() => {
-    const ids = new Set(
-      produtos
-        .filter((p) => p.gaveta_id && (filtro.setor_id === 'all' || p.setor_id === filtro.setor_id) && (filtro.maquina_id === 'all' || p.maquina_id === filtro.maquina_id))
-        .map((p) => p.gaveta_id)
-    );
-    return gavetas.filter((g) => ids.has(g.id));
-  }, [produtos, gavetas, filtro.setor_id, filtro.maquina_id]);
+  if (type === 'datetime') {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('pt-BR');
+  }
 
-  // Reseta automaticamente valores que não existem mais nas opções derivadas
+  return String(value);
+}
+
+
+function reportIcon(report, className = 'h-5 w-5') {
+  const Icon = ICONS[report.icon] || FileText;
+  return <Icon className={className} />;
+}
+
+
+function ReportCard({ report, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(report)}
+      className="group text-left"
+    >
+      <Card className="h-full border-border/70 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            {reportIcon(report, 'h-5 w-5')}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {report.code}
+              </span>
+
+              <span className="text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                Abrir
+              </span>
+            </div>
+
+            <h3 className="mt-1 font-semibold leading-tight text-foreground">
+              {report.title}
+            </h3>
+
+            <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+              {report.description}
+            </p>
+          </div>
+        </div>
+      </Card>
+    </button>
+  );
+}
+
+
+function FilterField({ filter, value, options, onChange }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {filter.label}
+      </label>
+
+      <SearchSelect
+        value={value || 'all'}
+        onChange={onChange}
+        options={options || []}
+        allLabel="Todos"
+        placeholder={filter.label}
+        className="w-full"
+      />
+    </div>
+  );
+}
+
+
+function ResultTable({ report, result }) {
+  const [sort, setSort] = useState({ key: null, direction: 'asc' });
+  const [visible, setVisible] = useState(() =>
+    new Set((report.columns || []).map((c) => c.key))
+  );
+
   useEffect(() => {
-    setFiltro((f) => {
-      const next = { ...f };
-      if (f.setor_id !== 'all' && !setorOptions.some((s) => s.id === f.setor_id)) next.setor_id = 'all';
-      if (f.maquina_id !== 'all' && !maquinaOptions.some((m) => m.id === f.maquina_id)) next.maquina_id = 'all';
-      if (f.gaveta_id !== 'all' && !gavetaOptions.some((g) => g.id === f.gaveta_id)) next.gaveta_id = 'all';
+    setVisible(new Set((report.columns || []).map((c) => c.key)));
+    setSort({ key: null, direction: 'asc' });
+  }, [report.key]);
+
+  const columns = useMemo(
+    () => (report.columns || []).filter((c) => visible.has(c.key)),
+    [report.columns, visible]
+  );
+
+  const rows = useMemo(() => {
+    const base = [...(result?.rows || [])];
+    if (!sort.key) return base;
+
+    const col = report.columns.find((c) => c.key === sort.key);
+    const direction = sort.direction === 'asc' ? 1 : -1;
+
+    base.sort((a, b) => {
+      const av = a?.[sort.key];
+      const bv = b?.[sort.key];
+
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+
+      if (col?.type === 'number' || col?.type === 'currency') {
+        return (Number(av) - Number(bv)) * direction;
+      }
+
+      if (col?.type === 'date' || col?.type === 'datetime') {
+        return (new Date(av).getTime() - new Date(bv).getTime()) * direction;
+      }
+
+      return String(av).localeCompare(String(bv), 'pt-BR') * direction;
+    });
+
+    return base;
+  }, [result?.rows, sort, report.columns]);
+
+  const previewRows = rows.slice(0, 1000);
+
+  const toggleColumn = (key) => {
+    setVisible((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        if (next.size > 1) next.delete(key);
+      } else {
+        next.add(key);
+      }
       return next;
     });
-  }, [setorOptions, maquinaOptions, gavetaOptions]);
+  };
 
-  function buildRows() {
-    return filtered.map((p) => {
-      const qtd = p.quantidade || 0;
-      const st = qtd === 0 ? 'Zerado' : 'Normal';
-      return [
-        p.nome,
-        formatQtd(qtd),
-        p.unidade || '',
-        p.codigo,
-        getNome(p.setor_id, setores),
-        getNome(p.maquina_id, maquinas),
-        getNome(p.gaveta_id, gavetas, 'codigo'),
-        st,
-      ];
-    });
-  }
-
-  function handlePDF() {
-    const cols = ['Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Status'];
-    exportPDF('Relatório de Estoque', cols, buildRows());
-  }
-
-  function handleCSV() {
-    const cols = ['Produto', 'Quantidade', 'Unidade', 'Código', 'Setor', 'Máquina', 'Gaveta', 'Status'];
-    exportCSV('Relatório de Estoque', cols, buildRows());
-  }
-
-  const setorNome = filtro.setor_id !== 'all' ? getNome(filtro.setor_id, setores) : 'Todos';
-  const tituloRelatorio = `Estoque — ${setorNome} (${filtered.length} itens)`;
-
-  const movimentacoesFiltradas = useMemo(() => {
-    const termo = filtroMov.busca.trim().toLowerCase();
-    return movimentacoes.filter((m) => {
-      if (filtroMov.tipo !== 'all' && m.tipo !== filtroMov.tipo) return false;
-      if (!termo) return true;
-      const alvo = [m.nome_produto, m.codigo, m.numero_nf, m.fornecedor, m.chave_acesso, m.observacao]
-        .filter(Boolean).join(' ').toLowerCase();
-      return alvo.includes(termo);
-    });
-  }, [movimentacoes, filtroMov]);
-
-  const movCols = ['Nº', 'Tp', 'Descrição', 'Data/Hora', 'Tipo', 'Produto', 'Quantidade', 'Unidade', 'Código', 'Número NF', 'Fornecedor', 'Chave de Acesso', 'Setor', 'Máquina', 'Gaveta', 'Observação'];
-
-  const movColumns = [
-    { key: 'numero', label: 'Nº', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.numero || '—'}</span> },
-    { key: 'tp', label: 'Tp', render: (m) => <span className="font-mono text-xs text-muted-foreground">{codigoMovimento(m)}</span> },
-    { key: 'descricao', label: 'Descrição', render: (m) => <span className="text-xs text-muted-foreground">{descricaoMovimento(m)}</span> },
-    { key: 'data', label: 'Data/Hora', render: (m) => m.data ? new Date(m.data).toLocaleString('pt-BR') : '—', cellClassName: 'text-sm' },
-    {
-      key: 'tipo',
-      label: 'Tipo',
-      render: (m) => (
-        <div className="flex flex-col gap-1">
-          {m.tipo === 'entrada' ? (
-            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 w-fit"><ArrowDownCircle className="w-3 h-3" /> Entrada</Badge>
-          ) : m.tipo === 'saida' ? (
-            <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 w-fit"><ArrowUpCircle className="w-3 h-3" /> Saída</Badge>
-          ) : (
-            <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 w-fit"><Undo2 className="w-3 h-3" /> Estorno</Badge>
-          )}
-          {m.estornada === true && <span className="text-[10px] text-amber-600 font-medium">estornada</span>}
-        </div>
-      ),
-    },
-    { key: 'produto', label: 'Produto', render: (m) => <span className="font-medium text-sm">{m.nome_produto || '—'}</span> },
-    {
-      key: 'qtd',
-      label: 'Quantidade',
-      align: 'right',
-      render: (m, c) => {
-        const signed = quantidadeSinalizada(m, movimentacoes);
-        return (
-          <span className={`font-semibold tabular-nums ${signed < 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {formatQtd(signed)}{' '}
-            <span className="text-xs text-muted-foreground font-normal">{c.produtos.find((p) => p.id === m.produto_id)?.unidade || ''}</span>
-          </span>
-        );
-      },
-    },
-    { key: 'codigo', label: 'Código', render: (m) => <span className="font-mono text-xs text-muted-foreground">{m.codigo || '—'}</span> },
-    { key: 'numero_nf', label: 'Número NF', render: (m) => <span className="font-mono text-xs">{m.numero_nf || '—'}</span> },
-    { key: 'fornecedor', label: 'Fornecedor', render: (m) => <span className="text-xs">{m.fornecedor || '—'}</span> },
-    { key: 'chave', label: 'Chave de Acesso', render: (m) => <span className="font-mono text-xs">{m.chave_acesso || '—'}</span> },
-    { key: 'setor', label: 'Setor', render: (m, c) => <span className="text-sm">{getNome(m.setor_id, c.setores)}</span> },
-    { key: 'maquina', label: 'Máquina', render: (m, c) => <span className="text-sm">{getNome(m.maquina_id, c.maquinas)}</span> },
-    { key: 'gaveta', label: 'Gaveta', render: (m, c) => <span className="text-sm font-mono">{getNome(m.gaveta_id, c.gavetas, 'codigo')}</span> },
-    { key: 'obs', label: 'Observação', render: (m) => <span className="text-xs text-muted-foreground">{m.observacao || '—'}</span> },
-  ];
-  const movConfig = useColumnConfig('relMovCols2', movColumns.map((c) => c.key));
-
-  const valColumns = [
-    { key: 'produto', label: 'Produto', render: (l, c) => <span className="font-medium text-sm">{c.produtos.find((p) => p.id === l.produto_id)?.nome || '—'}</span> },
-    { key: 'qtd', label: 'Quantidade', align: 'right', render: (l) => <span className="font-semibold tabular-nums">{formatQtd(l.quantidade || 0)} {l.unidade}</span> },
-    { key: 'lote', label: 'Lote', render: (l) => <span className="font-mono text-xs">{l.codigo_lote}</span> },
-    { key: 'validade', label: 'Validade', render: (l) => l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—' },
-    { key: 'status', label: 'Status', render: (l) => <ValidadeBadge dataValidade={l.data_validade} /> },
-    { key: 'setor', label: 'Setor', render: (l, c) => <span className="text-sm">{getNome(l.setor_id, c.setores)}</span> },
-    { key: 'maquina', label: 'Máquina', render: (l, c) => <span className="text-sm">{getNome(l.maquina_id, c.maquinas)}</span> },
-    { key: 'gaveta', label: 'Gaveta', render: (l, c) => <span className="text-sm font-mono">{getNome(l.gaveta_id, c.gavetas, 'codigo')}</span> },
-  ];
-  const valConfig = useColumnConfig('relValCols', valColumns.map((c) => c.key));
-
-  function buildMovRows() {
-    return movimentacoesFiltradas.map((m) => {
-      const prod = produtos.find((p) => p.id === m.produto_id);
-      return [
-        m.numero || '',
-        codigoMovimento(m),
-        descricaoMovimento(m),
-        m.data ? new Date(m.data).toLocaleString('pt-BR') : '',
-        m.tipo === 'entrada' ? 'Entrada' : m.tipo === 'saida' ? 'Saída' : 'Estorno',
-        m.nome_produto || '',
-        formatQtd(quantidadeSinalizada(m, movimentacoes)),
-        prod?.unidade || '',
-        m.codigo || '',
-        m.numero_nf || '',
-        m.fornecedor || '',
-        m.chave_acesso || '',
-        getNome(m.setor_id, setores),
-        getNome(m.maquina_id, maquinas),
-        getNome(m.gaveta_id, gavetas, 'codigo'),
-        m.observacao || '',
-      ];
-    });
-  }
-
-  function handleMovPDF() {
-    exportPDF('Relatório de Movimentações', movCols, buildMovRows());
-  }
-
-  function handleMovCSV() {
-    exportCSV('Relatório de Movimentações', movCols, buildMovRows());
-  }
-
-  const lotesValidade = useMemo(() => {
-    const now = new Date();
-    let r = lotes.filter((l) => (l.quantidade || 0) > 0);
-    if (filtroValidade.setor_id !== 'all') r = r.filter((l) => l.setor_id === filtroValidade.setor_id);
-    r = filterLotesByFaixa(r, filtroValidade.faixa, now);
-    return [...r].sort((a, b) => new Date(a.data_validade) - new Date(b.data_validade));
-  }, [lotes, filtroValidade]);
-
-  function buildValidadeRows() {
-    return lotesValidade.map((l) => {
-      const produto = produtos.find((p) => p.id === l.produto_id);
-      return [
-        produto?.nome || '—',
-        formatQtd(l.quantidade || 0),
-        l.unidade || '',
-        l.codigo_lote || '',
-        l.data_validade ? new Date(l.data_validade).toLocaleDateString('pt-BR') : '—',
-        statusValidade(l).label,
-        getNome(l.setor_id, setores),
-        getNome(l.maquina_id, maquinas),
-        getNome(l.gaveta_id, gavetas, 'codigo'),
-      ];
-    });
-  }
-
-  function handleValidadePDF() {
-    exportPDF('Relatório de Validade', ['Produto', 'Quantidade', 'Unidade', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta'], buildValidadeRows());
-  }
-  function handleValidadeCSV() {
-    exportCSV('Relatório de Validade', ['Produto', 'Quantidade', 'Unidade', 'Lote', 'Validade', 'Status', 'Setor', 'Máquina', 'Gaveta'], buildValidadeRows());
-  }
+  const sortBy = (key) => {
+    setSort((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === 'asc'
+          ? 'desc'
+          : 'asc',
+    }));
+  };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
-      <header>
-        <h1 className="text-2xl font-bold">Relatórios</h1>
-        <p className="text-sm text-muted-foreground mt-1">Exporte relatórios em PDF ou Excel</p>
-      </header>
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold">
+            Resultado da consulta
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {result.total.toLocaleString('pt-BR')} registro(s)
+            {result.truncated
+              ? ` · retorno limitado a ${result.returned.toLocaleString('pt-BR')}`
+              : ''}
+          </p>
+        </div>
 
-      <Tabs defaultValue="estoque">
-        <TabsList>
-          <TabsTrigger value="estoque">Estoque</TabsTrigger>
-          <TabsTrigger value="entradas">Entradas e Saídas</TabsTrigger>
-          <TabsTrigger value="validade">Validade</TabsTrigger>
-          <TabsTrigger value="aplicacao"><Sprout className="w-4 h-4 mr-1.5" />Aplicação</TabsTrigger>
-        </TabsList>
+        <details className="relative">
+          <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border bg-background px-3 py-2 text-xs font-medium hover:bg-muted">
+            <SlidersHorizontal className="h-4 w-4" />
+            Colunas
+            <ChevronDown className="h-3.5 w-3.5" />
+          </summary>
 
-        <TabsContent value="estoque" className="space-y-6 mt-4">
-          <div className="flex items-center justify-end gap-2">
-            <Button onClick={handlePDF} variant="outline" disabled={filtered.length === 0}>
-              <FileDown className="w-4 h-4 mr-2" /> Exportar PDF
-            </Button>
-            <Button onClick={handleCSV} disabled={filtered.length === 0}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar Excel
-            </Button>
+          <div className="absolute right-0 z-30 mt-2 max-h-80 w-64 overflow-auto rounded-xl border bg-popover p-2 shadow-xl">
+            {report.columns.map((col) => (
+              <label
+                key={col.key}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
+              >
+                <input
+                  type="checkbox"
+                  checked={visible.has(col.key)}
+                  onChange={() => toggleColumn(col.key)}
+                />
+                <span>{col.label}</span>
+              </label>
+            ))}
+          </div>
+        </details>
+      </div>
+
+      <div className="max-h-[620px] overflow-auto scrollbar-thin">
+        <table className="min-w-full w-max text-sm">
+          <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`whitespace-nowrap border-b px-3 py-2.5 text-xs font-semibold ${
+                    col.align === 'right' ? 'text-right' : 'text-left'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => sortBy(col.key)}
+                    className="inline-flex items-center gap-1 hover:text-primary"
+                  >
+                    {col.label}
+                    {sort.key === col.key && (
+                      <span className="text-[10px] text-primary">
+                        {sort.direction === 'asc' ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {previewRows.map((row, index) => (
+              <tr
+                key={index}
+                className="border-b last:border-b-0 hover:bg-muted/30"
+              >
+                {columns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={`max-w-[420px] whitespace-nowrap px-3 py-2 ${
+                      col.align === 'right'
+                        ? 'text-right tabular-nums'
+                        : 'text-left'
+                    }`}
+                    title={String(row?.[col.key] ?? '')}
+                  >
+                    {formatCell(row?.[col.key], col.type)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {rows.length > 1000 && (
+        <div className="border-t bg-muted/20 px-4 py-2 text-center text-xs text-muted-foreground">
+          Preview mostrando 1.000 de {rows.length.toLocaleString('pt-BR')} linhas carregadas. O Excel exporta todas as linhas retornadas.
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function ReportRunner({ report, options, onBack }) {
+  const { toast } = useToast();
+
+  const [busca, setBusca] = useState('');
+  const [dataDe, setDataDe] = useState('');
+  const [dataAte, setDataAte] = useState('');
+  const [filtros, setFiltros] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    setBusca('');
+    setDataDe('');
+    setDataAte('');
+    setFiltros({});
+    setResult(null);
+  }, [report.key]);
+
+  const executar = async () => {
+    setLoading(true);
+    try {
+      const data = await relatoriosApi.executar(report.key, {
+        busca: busca || null,
+        data_de: dataDe || null,
+        data_ate: dataAte || null,
+        filtros,
+        limite: 50000,
+      });
+      setResult(data);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao executar relatório',
+        description: error?.message || String(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const limpar = () => {
+    setBusca('');
+    setDataDe('');
+    setDataAte('');
+    setFiltros({});
+    setResult(null);
+  };
+
+  const filterSummary = () => {
+    const lines = [];
+    if (busca) lines.push(['Busca', busca]);
+    if (dataDe) lines.push([`${report.period_label || 'Período'} de`, dataDe]);
+    if (dataAte) lines.push([`${report.period_label || 'Período'} até`, dataAte]);
+
+    for (const filter of report.filters || []) {
+      const value = filtros[filter.key];
+      if (!value || value === 'all') continue;
+      const option = (options?.[filter.option_key] || []).find(
+        (x) => String(x.value) === String(value)
+      );
+      lines.push([filter.label, option?.label || String(value)]);
+    }
+
+    return lines;
+  };
+
+  const exportarExcel = async () => {
+    if (!result?.rows?.length) return;
+
+    setExporting(true);
+    try {
+      const cols = report.columns.map((c) => c.label);
+      const rows = result.rows.map((row) =>
+        report.columns.map((c) => row?.[c.key] ?? '')
+      );
+
+      await exportExcel(report.title, cols, rows, {
+        sheetName: report.code,
+        columnTypes: report.columns.map((c) => c.type || 'text'),
+        metadata: [
+          ['Relatório', report.title],
+          ['Código', report.code],
+          ['Gerado em', new Date().toLocaleString('pt-BR')],
+          ['Registros', result.total],
+          ...filterSummary(),
+        ],
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao exportar Excel',
+        description: error?.message || String(error),
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportarPDF = async () => {
+    if (!result?.rows?.length) return;
+
+    try {
+      const cols = report.columns.map((c) => c.label);
+      const rows = result.rows.map((row) =>
+        report.columns.map((c) => formatCell(row?.[c.key], c.type))
+      );
+      await exportPDF(report.title, cols, rows);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao exportar PDF',
+        description: error?.message || String(error),
+      });
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-[1760px] space-y-5 p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="mt-0.5"
+            onClick={onBack}
+            title="Voltar ao catálogo"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            {reportIcon(report)}
           </div>
 
-          <Card className="p-5">
-            <div className="flex items-center gap-3 flex-wrap mb-1">
-              <span className="text-sm font-semibold text-muted-foreground">Filtrar relatório:</span>
-              <SearchSelect
-                value={filtro.setor_id}
-                onChange={(v) => setFiltro({ ...filtro, setor_id: v })}
-                allLabel="Todos os setores"
-                placeholder="Setor"
-                className="w-[180px]"
-                options={setorOptions.map((s) => ({ value: s.id, label: s.nome }))}
-              />
-              <SearchSelect
-                value={filtro.maquina_id}
-                onChange={(v) => setFiltro({ ...filtro, maquina_id: v })}
-                options={maquinaOptions.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
-                placeholder="Máquina"
-                allLabel="Todas as máquinas"
-                className="w-[220px]"
-              />
-              <SearchSelect
-                value={filtro.gaveta_id}
-                onChange={(v) => setFiltro({ ...filtro, gaveta_id: v })}
-                options={sortGavetas(gavetaOptions).map((g) => ({ value: g.id, label: g.codigo }))}
-                placeholder="Gaveta"
-                allLabel="Todas as gavetas"
-                className="w-[200px]"
-              />
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="font-mono text-[10px]">
+                {report.code}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {report.category}
+              </span>
             </div>
-          </Card>
 
-          <Card className="p-5">
-            <h3 className="font-semibold mb-3">{tituloRelatorio}</h3>
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
-              </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              {report.title}
+            </h1>
+
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              {report.description}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={!result?.rows?.length}
+            onClick={exportarPDF}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+
+          <Button
+            disabled={!result?.rows?.length || exporting}
+            onClick={exportarExcel}
+          >
+            {exporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <ProductsTable produtos={filtered} setores={setores} maquinas={maquinas} gavetas={gavetas} showStatus={false} />
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
             )}
-          </Card>
-        </TabsContent>
+            Excel
+          </Button>
+        </div>
+      </div>
 
-        <TabsContent value="entradas" className="space-y-6 mt-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className="font-semibold flex items-center gap-2">
-              <ArrowDownCircle className="w-5 h-5 text-green-600" />
-              Movimentações ({movimentacoesFiltradas.length})
-            </h3>
-            <div className="flex gap-2">
-              <Button onClick={handleMovPDF} variant="outline" disabled={movimentacoesFiltradas.length === 0}>
-                <FileDown className="w-4 h-4 mr-2" /> Exportar PDF
-              </Button>
-              <Button onClick={handleMovCSV} disabled={movimentacoesFiltradas.length === 0}>
-                <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar Excel
-              </Button>
-            </div>
+      <Card className="overflow-hidden border-border/70">
+        <div className="flex items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold">
+              Parâmetros de seleção
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Defina os critérios e execute a consulta.
+            </p>
           </div>
 
-          <Card className="p-5">
-            <div className="flex items-center gap-3 flex-wrap mb-4">
-              <span className="text-sm font-semibold text-muted-foreground">Filtrar:</span>
-              <SearchSelect
-                value={filtroMov.tipo}
-                onChange={(v) => setFiltroMov({ ...filtroMov, tipo: v })}
-                allLabel="Todas"
-                placeholder="Tipo"
-                className="w-[160px]"
-                options={[{ value: 'entrada', label: 'Entradas' }, { value: 'saida', label: 'Saídas' }, { value: 'estorno', label: 'Estornos' }]}
-              />
-              <div className="relative flex-1 min-w-[240px] max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Filter className="h-5 w-5 text-muted-foreground" />
+        </div>
+
+        <div className="p-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Pesquisa livre
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  value={filtroMov.busca}
-                  onChange={(e) => setFiltroMov({ ...filtroMov, busca: e.target.value })}
-                  placeholder="Buscar por NF, fornecedor, chave, produto…"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') executar();
+                  }}
+                  placeholder="Código, produto, documento, pessoa, observação..."
                   className="pl-9"
                 />
               </div>
             </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : movimentacoesFiltradas.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma movimentação encontrada.</p>
-            ) : (
-              <DataTable
-                config={movConfig}
-                columns={movColumns}
-                data={movimentacoesFiltradas}
-                getRowId={(m) => m.id}
-                ctx={{ setores, maquinas, gavetas, produtos }}
-                containerClassName="max-h-[600px]"
-                toggleLabel="Colunas"
-              />
-            )}
-          </Card>
-        </TabsContent>
+            {report.has_period && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {report.period_label || 'Período'} de
+                  </label>
+                  <Input
+                    type="date"
+                    value={dataDe}
+                    onChange={(e) => setDataDe(e.target.value)}
+                  />
+                </div>
 
-        <TabsContent value="validade" className="space-y-6 mt-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm font-semibold text-muted-foreground">Filtrar:</span>
-              <SearchSelect
-                value={filtroValidade.setor_id}
-                onChange={(v) => setFiltroValidade({ ...filtroValidade, setor_id: v })}
-                allLabel="Todos os setores"
-                placeholder="Setor"
-                className="w-[200px]"
-                options={setores.map((s) => ({ value: s.id, label: s.nome }))}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {report.period_label || 'Período'} até
+                  </label>
+                  <Input
+                    type="date"
+                    value={dataAte}
+                    onChange={(e) => setDataAte(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+
+            {(report.filters || []).map((filter) => (
+              <FilterField
+                key={filter.key}
+                filter={filter}
+                value={filtros[filter.key] || 'all'}
+                options={options?.[filter.option_key] || []}
+                onChange={(value) =>
+                  setFiltros((current) => ({
+                    ...current,
+                    [filter.key]: value,
+                  }))
+                }
               />
-              <SearchSelect
-                value={filtroValidade.faixa}
-                onChange={(v) => setFiltroValidade({ ...filtroValidade, faixa: v })}
-                placeholder="Validade"
-                className="w-[180px]"
-                options={FAIXAS_VALIDADE.map((f) => ({ value: f.value, label: f.label }))}
-              />
-              <span className="text-sm text-muted-foreground">{lotesValidade.length} lote(s)</span>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleValidadePDF} variant="outline" disabled={lotesValidade.length === 0}>
-                <FileDown className="w-4 h-4 mr-2" /> Exportar PDF
-              </Button>
-              <Button onClick={handleValidadeCSV} disabled={lotesValidade.length === 0}>
-                <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar Excel
-              </Button>
-            </div>
+            ))}
           </div>
 
-          <Card className="p-5">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : lotesValidade.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Nenhum lote encontrado.</p>
-            ) : (
-              <DataTable
-                config={valConfig}
-                columns={valColumns}
-                data={lotesValidade}
-                getRowId={(l) => l.id}
-                ctx={{ setores, maquinas, gavetas, produtos }}
-                containerClassName="max-h-[600px]"
-                toggleLabel="Colunas"
-              />
-            )}
-          </Card>
-        </TabsContent>
+          <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={limpar}
+              disabled={loading}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Limpar
+            </Button>
 
-        <TabsContent value="aplicacao">
-          <RelatorioAplicacao />
-        </TabsContent>
-      </Tabs>
+            <Button
+              type="button"
+              onClick={executar}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="mr-2 h-4 w-4" />
+              )}
+              Executar
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {!result && !loading && (
+        <Card className="border-dashed py-14 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <FileText className="h-5 w-5" />
+          </div>
+          <h3 className="mt-3 font-semibold">
+            Relatório pronto para execução
+          </h3>
+          <p className="mx-auto mt-1 max-w-lg text-sm text-muted-foreground">
+            Preencha os parâmetros que desejar. Campos em branco não restringem a consulta.
+          </p>
+        </Card>
+      )}
+
+      {loading && (
+        <Card className="py-14 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            Consultando dados do ERP...
+          </p>
+        </Card>
+      )}
+
+      {result && !loading && (
+        <>
+          {result.truncated && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                A consulta encontrou {result.total.toLocaleString('pt-BR')} registros. Foram retornados os primeiros {result.returned.toLocaleString('pt-BR')} para proteger o desempenho do sistema. Restrinja os filtros para obter o conjunto completo.
+              </span>
+            </div>
+          )}
+
+          {result.rows.length === 0 ? (
+            <Card className="py-14 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </div>
+              <h3 className="mt-3 font-semibold">
+                Nenhum registro encontrado
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ajuste os parâmetros e execute novamente.
+              </p>
+            </Card>
+          ) : (
+            <ResultTable report={report} result={result} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+
+export default function Relatorios() {
+  const { toast } = useToast();
+
+  const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState({
+    reports: [],
+    categories: [],
+    options: {},
+  });
+  const [category, setCategory] = useState('Todos');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    relatoriosApi
+      .catalogo()
+      .then((data) => {
+        if (!active) return;
+        setCatalog(data || { reports: [], categories: [], options: {} });
+      })
+      .catch((error) => {
+        if (!active) return;
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao carregar relatórios',
+          description: error?.message || String(error),
+        });
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [toast]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase('pt-BR');
+
+    return (catalog.reports || []).filter((report) => {
+      if (category !== 'Todos' && report.category !== category) {
+        return false;
+      }
+
+      if (!term) return true;
+
+      return [
+        report.code,
+        report.title,
+        report.description,
+        report.category,
+      ]
+        .join(' ')
+        .toLocaleLowerCase('pt-BR')
+        .includes(term);
+    });
+  }, [catalog.reports, category, search]);
+
+  const grouped = useMemo(() => {
+    const map = new Map();
+    for (const report of filtered) {
+      if (!map.has(report.category)) map.set(report.category, []);
+      map.get(report.category).push(report);
+    }
+    return map;
+  }, [filtered]);
+
+  if (selected) {
+    return (
+      <ReportRunner
+        report={selected}
+        options={catalog.options}
+        onBack={() => setSelected(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-[1760px] space-y-6 p-4 sm:p-6">
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="relative bg-gradient-to-r from-[#12362f] via-[#0f4438] to-[#0b5a46] px-5 py-1.5 text-white sm:px-6">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10">
+            <FileSpreadsheet className="h-14 w-14" />
+          </div>
+
+          <div className="relative max-w-3xl">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">
+              <Database className="h-4 w-4" />
+              Analytics ERP
+            </div>
+
+            <h1 className="mt-0.5 text-xl font-bold">
+              Central de Relatórios
+            </h1>
+
+          </div>
+        </div>
+
+        <div className="grid gap-3 px-4 py-2 sm:px-5 sm:py-2 lg:grid-cols-[minmax(280px,520px)_1fr] lg:items-center">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar relatório por nome, código ou assunto..."
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            {['Todos', ...(catalog.categories || [])].map((item) => {
+              const Icon = item === 'Todos'
+                ? FileText
+                : CATEGORY_ICONS[item] || FileText;
+
+              return (
+                <Button
+                  key={item}
+                  type="button"
+                  size="sm"
+                  variant={category === item ? 'default' : 'outline'}
+                  onClick={() => setCategory(item)}
+                  className="gap-1.5"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {item}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {loading ? (
+        <Card className="py-20 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-3 text-sm text-muted-foreground">
+            Carregando catálogo de relatórios...
+          </p>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="py-16 text-center">
+          <Search className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h2 className="mt-3 font-semibold">
+            Nenhum relatório encontrado
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tente outro termo ou selecione outra categoria.
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-7">
+          {[...grouped.entries()].map(([groupName, reports]) => {
+            const Icon = CATEGORY_ICONS[groupName] || FileText;
+
+            return (
+              <section key={groupName}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold">
+                        {groupName}
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        {reports.length} relatório(s)
+                      </p>
+                    </div>
+                  </div>
+
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {reports.map((report) => (
+                    <ReportCard
+                      key={report.key}
+                      report={report}
+                      onOpen={setSelected}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

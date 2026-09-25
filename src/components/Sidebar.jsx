@@ -1,204 +1,701 @@
-import { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Settings,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import {
+  NavLink,
+  useLocation,
+} from 'react-router-dom';
+
+import {
   ArrowLeftRight,
-  FileBarChart,
+  Boxes,
+  Building2,
+  Car,
+  ChevronDown,
   ClipboardList,
-  Leaf,
+  Contact,
+  FileBarChart,
   Fuel,
-  Scale,
-  IdCard,
-  Sprout,
-  X,
+  LayoutDashboard,
+  Leaf,
   LogOut,
+  MapPinned,
+  Package,
+  Scale,
+  Settings,
+  Sprout,
+  Tractor,
   Trash2,
+  Users,
+  Warehouse,
+  X,
 } from 'lucide-react';
+
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { getDisplayName, getDisplayInitial } from '@/lib/userName';
-import { allowedPagesForUser } from '@/lib/permissions';
-import { setoresAcessiveis } from '@/lib/setoresAcesso';
-import { base44 } from '@/api/base44Client';
-import SetorIcon from '@/components/setorIcon';
+
+import {
+  getDisplayInitial,
+  getDisplayName,
+} from '@/lib/userName';
+
+import {
+  allowedPagesForUser,
+  canAccessUsuarios,
+} from '@/lib/permissions';
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
 import {
   AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const allNavItems = [
-  { key: 'dashboard', to: '/', label: 'Pesquisa', icon: LayoutDashboard, end: true },
-  { key: 'movimentacoes', to: '/movimentacoes', label: 'Movimentos', icon: ArrowLeftRight, end: false },
-  { key: 'abastecimento', to: '/abastecimento', label: 'Abastecimento', icon: Fuel, end: false },
-  { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
-  { key: 'aplicacao', to: '/aplicacao', label: 'Aplicação', icon: Sprout, end: false },
-  { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
-  { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
-  { key: 'inventario', to: '/inventario', label: 'Inventário', icon: ClipboardList, end: false },
-  { key: 'portaria', to: '/portaria', label: 'Portaria', icon: IdCard, end: false },
+import BalancaStatusBadge from '@/components/balanca/BalancaStatusBadge';
+
+
+const MAIN_NAV = [
+  {
+    key: 'dashboard',
+    to: '/',
+    label: 'Pesquisa',
+    icon: LayoutDashboard,
+    end: true,
+  },
+  {
+    key: 'movimentacoes',
+    to: '/movimentacoes',
+    label: 'Movimentos',
+    icon: ArrowLeftRight,
+    end: false,
+  },
+  {
+    key: 'abastecimento',
+    to: '/abastecimento',
+    label: 'Abastecimento',
+    icon: Fuel,
+    end: false,
+  },
+  {
+    key: 'pesagem',
+    to: '/pesagem',
+    label: 'Pesagem',
+    icon: Scale,
+    end: false,
+  },
+  {
+    key: 'aplicacao',
+    to: '/aplicacao',
+    label: 'Aplicação',
+    icon: Sprout,
+    end: false,
+  },
+  {
+    key: 'cadastros',
+    to: '/cadastros?tab=pessoas',
+    label: 'Cadastros',
+    icon: Settings,
+    end: false,
+  },
+  {
+    key: 'relatorios',
+    to: '/relatorios',
+    label: 'Relatórios',
+    icon: FileBarChart,
+    end: false,
+  },
+  {
+    key: 'inventario',
+    to: '/inventario',
+    label: 'Inventário',
+    icon: ClipboardList,
+    end: false,
+  },
 ];
 
-export default function Sidebar({ open, onClose }) {
-  const { user, logout } = useAuth();
-  const { toast } = useToast();
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [setores, setSetores] = useState([]);
+
+const CADASTROS = [
+  {
+    key: 'pessoas',
+    label: 'Pessoas',
+    icon: Contact,
+  },
+  {
+    key: 'veiculos',
+    label: 'Veículos',
+    icon: Car,
+  },
+  {
+    key: 'maquinas',
+    label: 'Máquinas',
+    icon: Tractor,
+  },
+  {
+    key: 'produtos',
+    label: 'Produtos',
+    icon: Package,
+  },
+  {
+    key: 'setores',
+    label: 'Setores',
+    icon: Boxes,
+  },
+  {
+    key: 'depositos',
+    label: 'Depósitos',
+    icon: Warehouse,
+  },
+  {
+    key: 'gavetas',
+    label: 'Gavetas',
+    icon: MapPinned,
+  },
+  {
+    key: 'lavouras',
+    label: 'Lavouras',
+    icon: Building2,
+  },
+  {
+    key: 'ano_safra',
+    label: 'Ano / Safra',
+    icon: Building2,
+  },
+  {
+    key: 'usuarios',
+    label: 'Usuários',
+    icon: Users,
+  },
+];
+
+
+function DesktopMainItem({
+  item,
+}) {
+  const Icon = item.icon;
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      className={({ isActive }) =>
+        [
+          'top-nav__item',
+          isActive
+            ? 'is-active'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      }
+    >
+      <Icon className="h-[18px] w-[18px] shrink-0" />
+
+      <span>
+        {item.label}
+      </span>
+    </NavLink>
+  );
+}
+
+
+function MobileNavItem({
+  item,
+  onClick,
+}) {
+  const Icon = item.icon;
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onClick}
+      className={({ isActive }) =>
+        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+          isActive
+            ? 'bg-primary text-primary-foreground'
+            : 'text-foreground/70 hover:bg-muted hover:text-foreground'
+        }`
+      }
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+
+      {item.label}
+    </NavLink>
+  );
+}
+
+
+export default function Sidebar({
+  open,
+  onClose,
+}) {
+  const {
+    user,
+    logout,
+  } = useAuth();
+
+  const { toast } =
+    useToast();
+
+  const location =
+    useLocation();
+
+  const userMenuRef =
+    useRef(null);
+
+  const [deleteOpen, setDeleteOpen] =
+    useState(false);
+
+  const [userMenuOpen, setUserMenuOpen] =
+    useState(false);
+
+
+  const allowedKeys =
+    useMemo(
+      () =>
+        new Set(
+          allowedPagesForUser(user)
+            .map((page) => page.key)
+        ),
+      [user]
+    );
+
+
+  const mainItems =
+    useMemo(
+      () =>
+        MAIN_NAV.filter(
+          (item) =>
+            allowedKeys.has(item.key)
+        ),
+      [allowedKeys]
+    );
+
+
+  const cadastroItems =
+    useMemo(
+      () =>
+        CADASTROS.filter(
+          (item) =>
+            item.key !== 'usuarios'
+            || canAccessUsuarios(user)
+        ),
+      [user]
+    );
+
+
+  const isCadastros =
+    location.pathname === '/cadastros';
+
+
+  const cadastroSelecionado =
+    new URLSearchParams(
+      location.search
+    ).get('tab')
+    || 'pessoas';
+
 
   useEffect(() => {
-    base44.entities.Setor.list().then(setSetores).catch(() => setSetores([]));
-  }, []);
+    setUserMenuOpen(false);
+  }, [
+    location.pathname,
+    location.search,
+  ]);
 
-  const allowedKeys = new Set(allowedPagesForUser(user).map((p) => p.key));
-  const navItems = allNavItems.filter((it) => allowedKeys.has(it.key));
-  const setoresUser = setoresAcessiveis(setores, user);
 
-  const handleDeleteAccount = async () => {
-    setDeleteOpen(false);
-    toast({
-      title: 'Exclusão de conta solicitada',
-      description:
-        'Entre em contato com o administrador para concluir a exclusão dos seus dados.',
-    });
-    await logout();
-  };
+  useEffect(() => {
+    if (!userMenuOpen) {
+      return undefined;
+    }
+
+    const handleOutside = (event) => {
+      if (
+        userMenuRef.current
+        && !userMenuRef.current.contains(
+          event.target
+        )
+      ) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      'pointerdown',
+      handleOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        handleOutside
+      );
+    };
+  }, [userMenuOpen]);
+
+
+  const handleDeleteAccount =
+    async () => {
+      setDeleteOpen(false);
+
+      toast({
+        title:
+          'Exclusão de conta solicitada',
+        description:
+          'Entre em contato com o administrador para concluir a exclusão dos seus dados.',
+      });
+
+      await logout();
+    };
+
 
   return (
     <>
+      <TooltipProvider delayDuration={140}>
+        <div className="top-nav-wrap hidden lg:block">
+          <header className="top-nav">
+            <NavLink
+              to="/"
+              className="top-nav__brand"
+            >
+              <span className="top-nav__brand-mark">
+                <Leaf className="h-6 w-6" />
+              </span>
+
+              <span className="top-nav__brand-copy">
+                <strong>
+                  Controle de Estoque
+                </strong>
+
+                <small>
+                  Novo Horizonte
+                </small>
+              </span>
+            </NavLink>
+
+
+            <nav className="top-nav__main">
+              {mainItems.map((item) => (
+                <DesktopMainItem
+                  key={item.key}
+                  item={item}
+                />
+              ))}
+            </nav>
+
+
+            <div className="top-nav__right">
+              <div className="top-nav__balance">
+                <BalancaStatusBadge />
+              </div>
+
+              <div
+                ref={userMenuRef}
+                className="top-nav__user-wrap"
+              >
+                <button
+                  type="button"
+                  className="top-nav__user"
+                  onClick={() =>
+                    setUserMenuOpen(
+                      (prev) => !prev
+                    )
+                  }
+                  aria-expanded={userMenuOpen}
+                >
+                  <span className="top-nav__avatar">
+                    {getDisplayInitial(user)}
+                  </span>
+
+                  <span className="top-nav__user-name">
+                    {getDisplayName(user)
+                      || 'Usuário'}
+                  </span>
+
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${
+                      userMenuOpen
+                        ? 'rotate-180'
+                        : ''
+                    }`}
+                  />
+                </button>
+
+
+                {userMenuOpen && (
+                  <div className="top-nav__user-menu">
+                    <div className="top-nav__user-menu-head">
+                      <strong>
+                        {getDisplayName(user)
+                          || 'Usuário'}
+                      </strong>
+
+                      <span>
+                        {user?.email || ''}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={logout}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sair
+                    </button>
+
+                    <button
+                      type="button"
+                      className="is-danger"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setDeleteOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Excluir conta
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+
+          {isCadastros && (
+            <nav className="top-subnav">
+              <div className="top-subnav__inner">
+                {cadastroItems.map(
+                  (item) => {
+                    const Icon =
+                      item.icon;
+
+                    const active =
+                      cadastroSelecionado
+                      === item.key;
+
+                    return (
+                      <Tooltip
+                        key={item.key}
+                      >
+                        <TooltipTrigger asChild>
+                          <NavLink
+                            to={`/cadastros?tab=${item.key}`}
+                            className={
+                              `top-subnav__item ${
+                                active
+                                  ? 'is-active'
+                                  : ''
+                              }`
+                            }
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+
+                            <span>
+                              {item.label}
+                            </span>
+                          </NavLink>
+                        </TooltipTrigger>
+
+                        <TooltipContent>
+                          {item.label}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+                )}
+              </div>
+            </nav>
+          )}
+        </div>
+      </TooltipProvider>
+
+
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={onClose}
         />
       )}
+
+
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 glass-clear text-foreground flex flex-col transform transition-transform duration-300 lg:m-3 lg:rounded-3xl ${
-          open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card text-foreground shadow-xl transition-transform duration-300 lg:hidden ${
+          open
+            ? 'translate-x-0'
+            : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/15 text-primary">
-              <Leaf className="w-7 h-7" />
+            <div className="rounded-xl bg-primary/15 p-2 text-primary">
+              <Leaf className="h-7 w-7" />
             </div>
+
             <div>
-              <h1 className="font-bold text-base leading-tight">Controle de Estoque</h1>
-              <p className="text-xs opacity-70 font-medium">Novo Horizonte</p>
+              <h1 className="text-base font-bold leading-tight">
+                Controle de Estoque
+              </h1>
+
+              <p className="text-xs font-medium text-muted-foreground">
+                Novo Horizonte
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="lg:hidden p-1 rounded-lg hover:bg-foreground/10">
-            <X className="w-5 h-5" />
+
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 hover:bg-muted"
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
+
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-3 scrollbar-thin">
+          {mainItems.map((item) => (
+            <MobileNavItem
+              key={item.key}
+              item={item}
               onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-foreground/70 hover:bg-foreground/10 hover:text-foreground'
-                }`
-              }
-            >
-              <item.icon className="w-5 h-5 shrink-0" />
-              {item.label}
-            </NavLink>
+            />
           ))}
 
+
           {user?.role === 'admin' && (
-            <div className="pt-2 mt-2 border-t border-foreground/10">
-              <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-foreground/50 font-semibold">Administração</p>
+            <div className="mt-2 border-t pt-2">
+              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Administração
+              </p>
+
               <NavLink
                 to="/balanca"
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-foreground/70 hover:bg-foreground/10 hover:text-foreground'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground/70 hover:bg-muted hover:text-foreground'
                   }`
                 }
               >
-                <Scale className="w-5 h-5 shrink-0" />
+                <Scale className="h-5 w-5" />
                 Balança
               </NavLink>
             </div>
           )}
 
-          {setoresUser.length > 0 && (
-            <div className="pt-2 mt-2 border-t border-foreground/10">
-             <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-wide text-foreground/50 font-semibold">Setores</p>
-             {setoresUser.map((s) => (
-               <NavLink
-                 key={s.id}
-                 to={`/setor/${s.id}`}
-                 onClick={onClose}
-                 className={({ isActive }) =>
-                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                     isActive
-                       ? 'bg-primary text-primary-foreground shadow-sm'
-                       : 'text-foreground/70 hover:bg-foreground/10 hover:text-foreground'
-                   }`
-                 }
-               >
-                  <SetorIcon setor={s} className="w-5 h-5 shrink-0" />
-                  {s.nome}
-                </NavLink>
-              ))}
+
+          {isCadastros && (
+            <div className="mt-2 border-t pt-2">
+              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Cadastros
+              </p>
+
+              {cadastroItems.map(
+                (item) => {
+                  const Icon =
+                    item.icon;
+
+                  return (
+                    <NavLink
+                      key={item.key}
+                      to={`/cadastros?tab=${item.key}`}
+                      onClick={onClose}
+                      className={
+                        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                          cadastroSelecionado
+                          === item.key
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-foreground/70 hover:bg-muted hover:text-foreground'
+                        }`
+                      }
+                    >
+                      <Icon className="h-5 w-5" />
+                      {item.label}
+                    </NavLink>
+                  );
+                }
+              )}
             </div>
           )}
         </nav>
 
-        <div className="px-4 py-3 border-t border-foreground/10 space-y-2">
+
+        <div className="space-y-2 border-t px-4 py-3">
           <div className="flex items-center gap-3 px-2 pb-1">
-            <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm shrink-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
               {getDisplayInitial(user)}
             </div>
+
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{getDisplayName(user) || 'Usuário'}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
+              <p className="truncate text-sm font-medium">
+                {getDisplayName(user)
+                  || 'Usuário'}
+              </p>
+
+              <p className="truncate text-xs text-muted-foreground">
+                {user?.email || ''}
+              </p>
             </div>
           </div>
+
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-foreground/70 hover:bg-foreground/10 hover:text-foreground transition-colors"
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
           >
-            <LogOut className="w-4 h-4 shrink-0" />
+            <LogOut className="h-4 w-4" />
             Sair
           </button>
+
           <button
-            onClick={() => setDeleteOpen(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            onClick={() =>
+              setDeleteOpen(true)
+            }
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
           >
-            <Trash2 className="w-4 h-4 shrink-0" />
+            <Trash2 className="h-4 w-4" />
             Excluir Conta
           </button>
         </div>
       </aside>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir conta</AlertDialogTitle>
+            <AlertDialogTitle>
+              Excluir conta
+            </AlertDialogTitle>
+
             <AlertDialogDescription>
               Tem certeza? Esta ação removerá seus dados e encerrará sua sessão.
               Esta operação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>
+              Cancelar
+            </AlertDialogCancel>
+
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDeleteAccount}

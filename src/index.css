@@ -127,3 +127,1003 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+/* ============================================================
+   CADASTROS — LAYOUT ERP PROFISSIONAL
+   Mantém a identidade verde/clara existente e melhora hierarquia,
+   densidade e leitura sem alterar regras de negócio.
+   ============================================================ */
+@layer components {
+  .cadastros-page {
+    @apply px-3 py-4 sm:px-5 sm:py-5 lg:px-6;
+  }
+
+  .cadastros-shell {
+    @apply mx-auto grid max-w-[1600px] gap-5 lg:grid-cols-[230px_minmax(0,1fr)];
+  }
+
+  .cadastros-nav {
+    @apply sticky top-5 h-[calc(100vh-2.5rem)] min-h-[620px] flex-col overflow-hidden rounded-2xl border bg-card shadow-sm;
+  }
+
+  .cadastros-nav__brand {
+    @apply flex items-center gap-3 border-b px-4 py-4;
+  }
+
+  .cadastros-nav__brand-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm;
+  }
+
+  .cadastros-nav__eyebrow,
+  .cadastros-content-header__eyebrow {
+    @apply text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  .cadastros-nav__title {
+    @apply text-lg font-semibold leading-tight;
+  }
+
+  .cadastros-nav__description {
+    @apply px-4 pb-3 pt-3 text-xs leading-relaxed text-muted-foreground;
+  }
+
+  .cadastros-nav__groups {
+    @apply flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin;
+  }
+
+  .cadastros-nav__group {
+    @apply mt-3 first:mt-1;
+  }
+
+  .cadastros-nav__group-label {
+    @apply px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/80;
+  }
+
+  .cadastros-nav__items {
+    @apply space-y-1;
+  }
+
+  .cadastros-nav__item {
+    @apply flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground/75 transition-colors hover:bg-muted hover:text-foreground;
+  }
+
+  .cadastros-nav__item.is-active {
+    @apply bg-primary/10 font-semibold text-primary;
+    box-shadow: inset 3px 0 0 hsl(var(--primary));
+  }
+
+  .cadastros-nav__item-icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors;
+  }
+
+  .cadastros-nav__item.is-active .cadastros-nav__item-icon {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .cadastros-main {
+    @apply min-w-0;
+  }
+
+  .cadastros-mobile-select {
+    @apply mb-4 space-y-3 rounded-xl border bg-card p-4 shadow-sm;
+  }
+
+  .cadastros-content-card {
+    @apply min-h-[calc(100vh-2.5rem)] overflow-hidden rounded-2xl border bg-card shadow-sm;
+  }
+
+  .cadastros-content-header {
+    @apply flex items-start gap-3 border-b bg-gradient-to-r from-primary/[0.07] via-primary/[0.025] to-transparent px-4 py-4 sm:px-5;
+  }
+
+  .cadastros-content-header__icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary;
+  }
+
+  .cadastros-content-header__title {
+    @apply mt-0.5 text-xl font-semibold leading-tight;
+  }
+
+  .cadastros-content-header__description {
+    @apply mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground;
+  }
+
+  .cadastros-content {
+    @apply p-4 sm:p-5;
+  }
+
+  .cadastro-manager-grid {
+    @apply grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)];
+  }
+
+  .cadastro-form-card {
+    @apply h-fit rounded-xl border bg-card p-4 shadow-none xl:sticky xl:top-5;
+  }
+
+  .cadastro-form-card > h3,
+  .cadastro-form-card > div:first-child h3 {
+    @apply text-base font-semibold;
+  }
+
+  .cadastro-form-card form {
+    @apply mt-3;
+  }
+
+  .cadastro-form-card label {
+    @apply text-xs font-semibold text-foreground/80;
+  }
+
+  .cadastro-form-card input,
+  .cadastro-form-card textarea,
+  .cadastro-form-card button[role="combobox"] {
+    @apply bg-background;
+  }
+
+  .cadastro-list-panel {
+    @apply min-w-0 space-y-3;
+  }
+
+  .cadastro-toolbar {
+    @apply rounded-xl border bg-muted/25 p-2.5;
+  }
+
+  .cadastro-toolbar input {
+    @apply bg-background;
+  }
+
+  .cadastro-list-row {
+    @apply rounded-xl border bg-card p-3.5 shadow-none transition-all hover:border-primary/25 hover:bg-primary/[0.018] hover:shadow-sm;
+  }
+
+  .cadastro-list-row button[data-state],
+  .cadastro-list-row button {
+    @apply shrink-0;
+  }
+
+  .cadastro-dual-grid {
+    @apply grid gap-5 xl:grid-cols-2;
+  }
+
+  .cadastro-section-card {
+    @apply h-fit rounded-xl border bg-card p-4 shadow-none;
+  }
+
+  .cadastro-module-header {
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/20 px-4 py-3;
+  }
+
+  .cadastro-module-header__title-row {
+    @apply flex items-center gap-2;
+  }
+
+  .cadastro-filter-panel {
+    @apply flex flex-col gap-3 rounded-xl border bg-muted/20 p-3 lg:flex-row lg:items-center;
+  }
+
+  .cadastro-filter-panel > div:last-child {
+    @apply min-w-0;
+  }
+
+  .cadastro-table-card {
+    @apply overflow-hidden rounded-xl border bg-card p-0 shadow-none;
+  }
+
+  .cadastro-table-card > div {
+    @apply min-w-0;
+  }
+
+  .cadastro-product-dialog {
+    @apply bg-background;
+  }
+
+  .cadastro-product-dialog__header {
+    @apply border-b pb-4;
+  }
+
+  .cadastro-product-dialog__header h2 {
+    @apply text-xl font-semibold;
+  }
+
+  .cadastro-product-form {
+    @apply mx-auto w-full max-w-5xl space-y-5 py-1;
+  }
+
+  .cadastro-product-form > .space-y-2.rounded-lg,
+  .cadastro-product-form > .space-y-1\.5.rounded-lg {
+    @apply bg-muted/20;
+  }
+
+  .cadastro-product-dialog__footer {
+    @apply sticky bottom-0 z-10 border-t bg-background/95 py-3 backdrop-blur;
+  }
+}
+
+@media (max-width: 1279px) {
+  .cadastro-form-card {
+    position: static;
+  }
+}
+
+@media (max-width: 639px) {
+  .cadastros-content {
+    padding: 0.875rem;
+  }
+
+  .cadastros-content-header {
+    padding: 0.875rem;
+  }
+
+  .cadastro-form-card,
+  .cadastro-section-card {
+    padding: 0.875rem;
+  }
+
+  .cadastro-list-row {
+    padding: 0.75rem;
+  }
+}
+
+/* ============================================================
+   CADASTRO DE PRODUTO — LAYOUT ERP PROFISSIONAL
+   Referência visual aprovada pelo usuário.
+   Mantém regras de negócio e backend intactos.
+   ============================================================ */
+@layer components {
+  .cadastros-shell:has(.produto-editor-page) {
+    @apply max-w-[1760px] lg:grid-cols-1;
+  }
+
+  .cadastros-shell:has(.produto-editor-page) > .cadastros-nav {
+    display: none !important;
+  }
+
+  .cadastros-shell:has(.produto-editor-page) .cadastros-content-card {
+    @apply min-h-0 overflow-visible border-0 bg-transparent shadow-none;
+  }
+
+  .cadastros-shell:has(.produto-editor-page) .cadastros-content-header {
+    display: none;
+  }
+
+  .cadastros-shell:has(.produto-editor-page) .cadastros-content {
+    @apply p-0;
+  }
+
+  .produto-editor-page {
+    @apply min-w-0 space-y-4;
+  }
+
+  .produto-editor-header {
+    @apply flex flex-col gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm xl:flex-row xl:items-center xl:justify-between xl:px-5;
+  }
+
+  .produto-editor-header__main {
+    @apply flex min-w-0 items-center gap-3;
+  }
+
+  .produto-editor-back {
+    @apply h-10 w-10 shrink-0 rounded-xl;
+  }
+
+  .produto-editor-title {
+    @apply truncate text-2xl font-bold tracking-tight text-foreground;
+  }
+
+  .produto-editor-subtitle {
+    @apply mt-0.5 text-sm text-muted-foreground;
+  }
+
+  .produto-editor-header__right {
+    @apply flex min-w-0 flex-col gap-3 xl:items-end;
+  }
+
+  .produto-editor-breadcrumb {
+    @apply items-center gap-2 text-xs text-muted-foreground;
+  }
+
+  .produto-editor-breadcrumb strong {
+    @apply font-semibold text-foreground;
+  }
+
+  .produto-editor-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .produto-editor-actions .btn,
+  .produto-editor-actions button {
+    @apply min-w-[108px];
+  }
+
+  .produto-editor-grid {
+    @apply grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px];
+  }
+
+  .produto-editor-main {
+    @apply min-w-0 space-y-4;
+  }
+
+  .produto-editor-section,
+  .produto-side-card,
+  .produto-recent-card {
+    @apply rounded-2xl border bg-card shadow-sm;
+  }
+
+  .produto-editor-section {
+    @apply scroll-mt-5 p-4 sm:p-5;
+  }
+
+  .produto-editor-section__header,
+  .produto-side-card__header {
+    @apply mb-4 flex items-start gap-3;
+  }
+
+  .produto-editor-section__icon,
+  .produto-side-card__icon {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary;
+  }
+
+  .produto-editor-section__header h2,
+  .produto-side-card__header h2,
+  .produto-recent-card__header h2 {
+    @apply text-base font-semibold leading-tight text-foreground;
+  }
+
+  .produto-editor-section__header p,
+  .produto-side-card__header p,
+  .produto-recent-card__header p {
+    @apply mt-0.5 text-xs text-muted-foreground;
+  }
+
+  .produto-editor-fields {
+    @apply grid gap-x-5 gap-y-4;
+  }
+
+  .produto-editor-fields--2 {
+    @apply md:grid-cols-2;
+  }
+
+  .produto-field {
+    @apply min-w-0 space-y-1.5;
+  }
+
+  .produto-field > label {
+    @apply text-xs font-semibold text-foreground/80;
+  }
+
+  .produto-field input,
+  .produto-field button[role="combobox"] {
+    @apply h-10 bg-background;
+  }
+
+  .produto-readonly {
+    @apply flex h-10 items-center rounded-md border bg-muted/35 px-3 text-sm text-muted-foreground;
+  }
+
+  .produto-readonly--status span {
+    @apply inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground;
+  }
+
+  .produto-readonly--status span.is-positive {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+
+  .produto-readonly--quantity {
+    @apply justify-between gap-3 tabular-nums;
+  }
+
+  .produto-readonly--quantity span {
+    @apply font-medium text-foreground;
+  }
+
+  .produto-readonly--quantity small {
+    @apply text-xs font-semibold uppercase text-muted-foreground;
+  }
+
+  .produto-input-with-unit {
+    @apply relative;
+  }
+
+  .produto-input-with-unit input {
+    @apply pr-14;
+  }
+
+  .produto-input-with-unit span {
+    @apply pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase text-muted-foreground;
+  }
+
+  .produto-editor-help {
+    @apply mt-4 rounded-lg bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground;
+  }
+
+  .produto-editor-complements {
+    @apply grid gap-4;
+  }
+
+  .produto-editor-option,
+  .produto-editor-conversion,
+  .produto-editor-photo {
+    @apply rounded-xl border bg-muted/[0.16] p-4;
+  }
+
+  .produto-editor-option {
+    @apply flex items-center justify-between gap-4;
+  }
+
+  .produto-editor-option h3,
+  .produto-editor-conversion h3,
+  .produto-editor-photo h3 {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  .produto-editor-option p,
+  .produto-editor-conversion p,
+  .produto-editor-photo p {
+    @apply mt-0.5 text-xs leading-relaxed text-muted-foreground;
+  }
+
+  .produto-editor-conversion__row {
+    @apply mt-3 flex flex-wrap items-center gap-2;
+  }
+
+  .produto-editor-conversion__row input {
+    @apply h-9 w-28 bg-background;
+  }
+
+  .produto-editor-conversion__row > span {
+    @apply text-xs font-semibold text-muted-foreground;
+  }
+
+  .produto-editor-photo__header {
+    @apply mb-3 flex items-start gap-2.5;
+  }
+
+  .produto-editor-photo__icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary;
+  }
+
+  .produto-editor-side {
+    @apply space-y-4 xl:sticky xl:top-4;
+  }
+
+  .produto-side-card {
+    @apply p-4;
+  }
+
+  .produto-status-row {
+    @apply flex items-center gap-3 border-b pb-4;
+  }
+
+  .produto-status-indicator {
+    @apply relative h-8 w-14 shrink-0 rounded-full bg-muted transition-colors;
+  }
+
+  .produto-status-indicator span {
+    @apply absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform;
+  }
+
+  .produto-status-indicator.is-saved {
+    @apply bg-primary;
+  }
+
+  .produto-status-indicator.is-saved span {
+    transform: translateX(1.5rem);
+  }
+
+  .produto-status-indicator.is-new {
+    @apply bg-primary/45;
+  }
+
+  .produto-status-row strong {
+    @apply block text-sm font-semibold text-primary;
+  }
+
+  .produto-status-row p {
+    @apply mt-0.5 text-xs text-muted-foreground;
+  }
+
+  .produto-status-meta {
+    @apply mt-4 flex items-start gap-3 text-muted-foreground;
+  }
+
+  .produto-status-meta > svg {
+    @apply mt-0.5 shrink-0;
+  }
+
+  .produto-status-meta span {
+    @apply block text-[11px] uppercase tracking-wide;
+  }
+
+  .produto-status-meta strong {
+    @apply mt-0.5 block text-xs font-medium text-foreground;
+  }
+
+  .produto-summary {
+    @apply space-y-2 rounded-xl bg-primary/[0.035] p-3;
+  }
+
+  .produto-summary > div {
+    @apply grid grid-cols-[120px_minmax(0,1fr)] gap-3 text-xs;
+  }
+
+  .produto-summary dt {
+    @apply text-muted-foreground;
+  }
+
+  .produto-summary dd {
+    @apply truncate text-right font-medium text-foreground;
+  }
+
+  .produto-quick-actions {
+    @apply space-y-2;
+  }
+
+  .produto-quick-actions button {
+    @apply flex w-full items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left text-xs font-medium text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.035];
+  }
+
+  .produto-quick-actions button svg {
+    @apply shrink-0 text-primary;
+  }
+
+  .produto-location-mini {
+    @apply mt-4 grid gap-2 border-t pt-4;
+  }
+
+  .produto-location-mini > div {
+    @apply flex items-center justify-between gap-3 text-xs;
+  }
+
+  .produto-location-mini span {
+    @apply text-muted-foreground;
+  }
+
+  .produto-location-mini strong {
+    @apply max-w-[190px] truncate text-right font-medium text-foreground;
+  }
+
+  .produto-recent-card {
+    @apply overflow-hidden;
+  }
+
+  .produto-recent-card__header {
+    @apply flex items-center justify-between border-b px-4 py-3 sm:px-5;
+  }
+
+  .produto-recent-card__title {
+    @apply flex items-start gap-2.5;
+  }
+
+  .produto-recent-card__title > svg {
+    @apply mt-0.5 shrink-0;
+  }
+
+  .produto-recent-table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  .produto-recent-table {
+    @apply w-full min-w-[900px] border-collapse text-left text-xs;
+  }
+
+  .produto-recent-table thead {
+    @apply bg-muted/30;
+  }
+
+  .produto-recent-table th {
+    @apply border-b px-4 py-2.5 font-semibold text-muted-foreground;
+  }
+
+  .produto-recent-table td {
+    @apply border-b px-4 py-2.5 text-foreground/85;
+  }
+
+  .produto-recent-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .produto-recent-table tbody tr {
+    @apply transition-colors hover:bg-primary/[0.025];
+  }
+
+  .produto-recent-empty {
+    @apply py-8 text-center text-muted-foreground;
+  }
+}
+
+@media (max-width: 1279px) {
+  .produto-editor-side {
+    position: static;
+  }
+}
+
+@media (max-width: 767px) {
+  .produto-editor-header,
+  .produto-editor-section,
+  .produto-side-card {
+    border-radius: 0.875rem;
+  }
+
+  .produto-editor-title {
+    font-size: 1.25rem;
+  }
+
+  .produto-editor-actions {
+    width: 100%;
+  }
+
+  .produto-editor-actions button {
+    flex: 1 1 auto;
+  }
+
+  .produto-summary > div {
+    grid-template-columns: 105px minmax(0, 1fr);
+  }
+}
+/* ============================================================
+   NAVEGAÇÃO GLOBAL COMPACTA — RAIL + PAINEL CONTEXTUAL
+   ============================================================ */
+@layer components {
+  .cadastros-shell {
+    display: block;
+    max-width: 1760px;
+  }
+
+  .cadastros-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cadastros-content-card {
+    min-height: calc(100vh - 2.5rem);
+  }
+
+  .cadastros-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cadastros-page {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+/* ============================================================
+   NAVEGACAO PRINCIPAL HORIZONTAL ESCURA
+   ============================================================ */
+@layer components {
+  .top-nav-wrap {
+    position: relative;
+    z-index: 40;
+    flex: 0 0 auto;
+    background: #12362f;
+  }
+
+  .top-nav {
+    display: grid;
+    grid-template-columns: minmax(190px, auto) minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 72px;
+    padding: 0.55rem 1rem;
+    gap: 0.75rem;
+    color: #fff;
+    background:
+      linear-gradient(
+        90deg,
+        #12362f 0%,
+        #0f4438 52%,
+        #0b5a46 100%
+      );
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 18px rgba(12, 45, 38, 0.12);
+  }
+
+  .top-nav__brand {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
+    color: white;
+  }
+
+  .top-nav__brand:hover {
+    color: white;
+  }
+
+  .top-nav__brand-mark {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    color: #7cf1bf;
+    background: rgba(255, 255, 255, 0.11);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .top-nav__brand-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    line-height: 1.12;
+  }
+
+  .top-nav__brand-copy strong {
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 750;
+  }
+
+  .top-nav__brand-copy small {
+    margin-top: 0.24rem;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  .top-nav__main {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+  }
+
+  .top-nav__item {
+    display: inline-flex;
+    height: 42px;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 11px;
+    padding: 0 0.72rem;
+    font-size: 0.78rem;
+    font-weight: 620;
+    color: rgba(255, 255, 255, 0.76);
+    transition:
+      color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .top-nav__item:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  .top-nav__item.is-active {
+    color: white;
+    background:
+      linear-gradient(
+        180deg,
+        hsl(var(--primary)) 0%,
+        #087c5b 100%
+      );
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+
+  .top-nav__right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.55rem;
+  }
+
+  .top-nav__balance {
+    display: flex;
+    align-items: center;
+  }
+
+  .top-nav__balance > * {
+    max-width: 190px;
+  }
+
+  .top-nav__user-wrap {
+    position: relative;
+  }
+
+  .top-nav__user {
+    display: flex;
+    height: 44px;
+    align-items: center;
+    gap: 0.55rem;
+    border-radius: 13px;
+    padding: 0 0.55rem 0 0.4rem;
+    color: white;
+    transition: background 160ms ease;
+  }
+
+  .top-nav__user:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  .top-nav__avatar {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: #dff8ee;
+    color: #0a6f53;
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  .top-nav__user-name {
+    max-width: 110px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .top-nav__user-menu {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    right: 0;
+    z-index: 80;
+    width: 230px;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 18px 48px rgba(8, 34, 28, 0.18);
+  }
+
+  .top-nav__user-menu-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.85rem 0.9rem;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .top-nav__user-menu-head strong {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.82rem;
+  }
+
+  .top-nav__user-menu-head span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.7rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .top-nav__user-menu > button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    font-size: 0.78rem;
+    transition: background 150ms ease;
+  }
+
+  .top-nav__user-menu > button:hover {
+    background: hsl(var(--muted));
+  }
+
+  .top-nav__user-menu > button.is-danger {
+    color: hsl(var(--destructive));
+  }
+
+  .top-subnav {
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: 0 1px 3px rgba(9, 42, 34, 0.04);
+  }
+
+  .top-subnav__inner {
+    display: flex;
+    min-height: 58px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding: 0.5rem 1rem;
+    scrollbar-width: thin;
+  }
+
+  .top-subnav__item {
+    display: inline-flex;
+    height: 40px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 10px;
+    padding: 0 0.82rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+    transition:
+      color 150ms ease,
+      background 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .top-subnav__item:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--muted));
+  }
+
+  .top-subnav__item.is-active {
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.09);
+    box-shadow: inset 0 -2px 0 hsl(var(--primary));
+  }
+}
+
+@media (max-width: 1500px) {
+  .top-nav {
+    grid-template-columns: minmax(170px, auto) minmax(0, 1fr) auto;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+    gap: 0.45rem;
+  }
+
+  .top-nav__brand-copy strong {
+    font-size: 0.82rem;
+  }
+
+  .top-nav__item {
+    gap: 0.35rem;
+    padding-left: 0.52rem;
+    padding-right: 0.52rem;
+    font-size: 0.72rem;
+  }
+
+  .top-nav__user-name {
+    max-width: 84px;
+  }
+}
+
+@media (max-width: 1220px) {
+  .top-nav__brand-copy {
+    display: none;
+  }
+
+  .top-nav {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .top-nav__item span {
+    display: none;
+  }
+
+  .top-nav__item {
+    width: 42px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .top-nav__user-name {
+    display: none;
+  }
+
+  .top-nav__balance {
+    display: none;
+  }
+}
+
+/* A navegação horizontal substitui o rail/painel lateral anterior. */
+@media (min-width: 1024px) {
+  .cadastros-page {
+    padding-top: 1rem;
+  }
+}

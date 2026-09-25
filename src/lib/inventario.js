@@ -1,8 +1,8 @@
 // Utilitários do módulo de Inventário (conferência tete-a-tete).
-import { base44 } from '@/api/base44Client';
+import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
-import { entrarSaldo, sairSaldo } from '@/lib/saldos';
-import { maxNumeroMovimento, formatarNumeroMov } from '@/lib/movimentacoes';
+import { construirItensSaida } from '@/lib/estoqueOperacoes';
+import { invalidateEntidade } from '@/lib/useEntidades';
 
 // Gera o próximo número sequencial global de inventário (INV-000001).
 export function nextInventarioNumber(inventarios = []) {
@@ -40,68 +40,245 @@ export function qtdSistema(produto, lotes = []) {
 // `itens` = array consolidado (produto_id, qtd_sistema, qtd_contada, divergencia).
 // `produtos` e `setor` (objeto Setor) para resolver depósito/unidade/validade.
 // Retorna { aplicados, total }.
-export async function aplicarAjusteInventario({ inventario, itens, produtos, setor }) {
-  const divergentes = (itens || []).filter((it) => Math.abs(parseQtd(it.divergencia)) > 0.0001);
-  if (divergentes.length === 0) return { aplicados: 0, total: 0 };
+export async function aplicarAjusteInventario({
+  inventario,
+  itens,
+  produtos,
+  setor,
+}) {
+  const divergentes =
+    (itens || []).filter(
+      (item) =>
+        Math.abs(
+          parseQtd(item.divergencia)
+        ) > 0.0001
+    );
 
-  const movimentacoes = await base44.entities.Movimentacao.list('-created_date', 100);
-  let baseNum = maxNumeroMovimento(movimentacoes) + 1;
-  const now = new Date().toISOString();
-  const invLabel = inventario?.numero || '';
-  const controla = !!setor?.controla_validade;
+  if (divergentes.length === 0) {
+    return {
+      aplicados: 0,
+      total: 0,
+    };
+  }
+
+  const positivos = [];
+  const negativos = [];
   let aplicados = 0;
 
-  for (const it of divergentes) {
-    const produto = (produtos || []).find((p) => p.id === it.produto_id);
-    if (!produto) continue;
-    const diff = parseQtd(it.divergencia);
-    const abs = Math.abs(diff);
+  const invLabel =
+    inventario?.numero || '';
 
-    const saldos = await base44.entities.SaldoEstoque.filter({ produto_id: produto.id });
-    const depositoId = produto.deposito_id || saldos.find((s) => (s.quantidade || 0) > 0)?.deposito_id || '';
-    if (!depositoId) continue; // sem depósito: ignora o ajuste deste item
-    const gavetaId = produto.gaveta_id || '';
-    const lotesProduto = controla ? await base44.entities.Lote.filter({ produto_id: produto.id }) : [];
+  const origemBase =
+    inventario?.id ||
+    inventario?.numero;
 
-    const baseMov = {
-      data: now,
-      numero: formatarNumeroMov(baseNum++),
-      produto_id: produto.id,
-      codigo: produto.codigo,
-      nome_produto: produto.nome,
-      quantidade: abs,
-      setor_id: produto.setor_id,
-      deposito_id: depositoId,
-      maquina_id: produto.maquina_id || '',
-      gaveta_id: gavetaId,
-      observacao: `Ajuste de inventário — ${invLabel}`,
-    };
+  if (!origemBase) {
+    throw new Error(
+      'Inventário sem identificador.'
+    );
+  }
+
+  const controlaValidade =
+    !!setor?.controla_validade;
+
+  for (const item of divergentes) {
+    const produto =
+      (produtos || []).find(
+        (p) =>
+          p.id === item.produto_id
+      );
+
+    if (!produto) {
+      continue;
+    }
+
+    const diff =
+      parseQtd(item.divergencia);
+
+    const quantidade =
+      Math.abs(diff);
+
+    const saldos =
+      await estoqueApi.listarSaldos({
+        produto_id: produto.id,
+      });
+
+    const livres =
+      (saldos || []).filter(
+        (saldo) =>
+          (saldo.tipo_estoque || 'livre')
+            === 'livre'
+      );
+
+    const preferido =
+      livres.find(
+        (saldo) =>
+          saldo.deposito_id
+            === produto.deposito_id &&
+          (saldo.gaveta_id || '')
+            === (produto.gaveta_id || '')
+      )
+      ||
+      livres.find(
+        (saldo) =>
+          saldo.deposito_id
+            === produto.deposito_id
+      )
+      ||
+      livres[0];
+
+    const depositoId =
+      produto.deposito_id ||
+      preferido?.deposito_id ||
+      '';
+
+    if (!depositoId) {
+      continue;
+    }
+
+    const gavetaId =
+      produto.gaveta_id ||
+      preferido?.gaveta_id ||
+      '';
 
     if (diff > 0) {
-      await entrarSaldo({ produto, depositoId, gavetaId, quantidade: abs, unidade: produto.unidade || 'un', saldos });
-      await base44.entities.Movimentacao.create({ ...baseMov, tipo: 'entrada' });
-    } else {
-      const { consumidos } = await sairSaldo({ produto, depositoId, gavetaId, quantidade: abs, lotes: lotesProduto, saldos });
-      for (const c of consumidos) {
-        const l = lotesProduto.find((x) => x.id === c.lote_id);
-        if (l) {
-          const novaQtdLote = (l.quantidade || 0) - c.quantidade;
-          await base44.entities.Lote.update(l.id, { quantidade: novaQtdLote, ...(novaQtdLote <= 0 ? { gaveta_id: '' } : {}) });
+      let loteId = '';
+
+      if (controlaValidade) {
+        const posicaoLote =
+          livres.find(
+            (saldo) =>
+              saldo.deposito_id
+                === depositoId &&
+              (saldo.gaveta_id || '')
+                === (gavetaId || '') &&
+              !!saldo.lote_id
+          );
+
+        loteId =
+          posicaoLote?.lote_id ||
+          '';
+
+        if (!loteId) {
+          throw new Error(
+            `VALIDADE_OBRIGATORIA:${produto.nome}`
+          );
         }
       }
-      const primeiroLote = lotesProduto.find((l) => l.id === consumidos[0]?.lote_id);
-      await base44.entities.Movimentacao.create({
-        ...baseMov,
-        tipo: 'saida',
-        lote_id: consumidos[0]?.lote_id || '',
-        data_validade: primeiroLote?.data_validade || '',
-        lotes_consumidos: controla ? JSON.stringify(consumidos) : '',
+
+      positivos.push({
+        produto_id:
+          produto.id,
+        quantidade,
+        unidade:
+          produto.unidade || 'un',
+        deposito_destino_id:
+          depositoId,
+        gaveta_destino_id:
+          gavetaId,
+        lote_destino_id:
+          loteId || undefined,
+        custo_unitario:
+          Number(
+            produto.custo_unitario
+          ) || 0,
+        observacao:
+          `Ajuste de inventário — ${invLabel}`,
       });
+
+      aplicados++;
+      continue;
     }
+
+    const alocacao =
+      await construirItensSaida({
+        produto,
+        quantidadeBase:
+          quantidade,
+        depositoId,
+        gavetaId,
+        somenteDeposito: true,
+        somenteGaveta: false,
+        observacao:
+          `Ajuste de inventário — ${invLabel}`,
+      });
+
+    if (!alocacao.suficiente) {
+      throw new Error(
+        `SALDO_INSUFICIENTE:${alocacao.totalDisponivel}:${produto.nome}`
+      );
+    }
+
+    negativos.push(
+      ...alocacao.itens
+    );
+
     aplicados++;
   }
 
-  return { aplicados, total: divergentes.length };
+  const documentos = [];
+
+  if (positivos.length > 0) {
+    const resposta =
+      await estoqueApi.movimentar({
+        tipo_movimento:
+          'AJUSTE_POSITIVO',
+        origem_modulo:
+          'inventario',
+        documento_origem_id:
+          `${origemBase}:positivo`,
+        referencia_externa:
+          invLabel || undefined,
+        observacao:
+          `Ajuste positivo do inventário ${invLabel}`,
+        itens: positivos,
+      });
+
+    documentos.push(
+      resposta.documento
+    );
+  }
+
+  if (negativos.length > 0) {
+    const resposta =
+      await estoqueApi.movimentar({
+        tipo_movimento:
+          'AJUSTE_NEGATIVO',
+        origem_modulo:
+          'inventario',
+        documento_origem_id:
+          `${origemBase}:negativo`,
+        referencia_externa:
+          invLabel || undefined,
+        observacao:
+          `Ajuste negativo do inventário ${invLabel}`,
+        itens: negativos,
+      });
+
+    documentos.push(
+      resposta.documento
+    );
+  }
+
+  invalidateEntidade(
+    'SaldoEstoque'
+  );
+  invalidateEntidade(
+    'Movimentacao'
+  );
+  invalidateEntidade(
+    'Produto'
+  );
+  invalidateEntidade(
+    'Lote'
+  );
+
+  return {
+    aplicados,
+    total:
+      divergentes.length,
+    documentos,
+  };
 }
 
 // Descrição legível dos critérios usados.

@@ -6,8 +6,8 @@ export default function FilterBar({ filtros, setFiltros, setores, maquinas, gave
   const updateSingle = (key, value) => setFiltros({ ...filtros, [key]: value === 'all' ? '' : value });
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-      <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground shrink-0">
+    <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
         <Filter className="w-4 h-4" />
         <span className="hidden sm:inline">Filtros:</span>
       </div>

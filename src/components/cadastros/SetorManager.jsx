@@ -69,8 +69,8 @@ export default function SetorManager() {
   }
 
   return (
-    <div className="grid md:grid-cols-3 gap-6">
-      <Card className="p-5">
+    <div className="cadastro-manager-grid">
+      <Card className="cadastro-form-card">
         <h3 className="font-semibold mb-4">{editingId ? 'Editar Setor' : 'Novo Setor'}</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
@@ -145,13 +145,13 @@ export default function SetorManager() {
         </form>
       </Card>
 
-      <div className="md:col-span-2 space-y-3">
-        <SearchInput value={busca} onChange={setBusca} placeholder="Buscar setor por nome ou descrição..." />
+      <div className="cadastro-list-panel">
+        <SearchInput className="cadastro-toolbar" value={busca} onChange={setBusca} placeholder="Buscar setor por nome ou descrição..." />
         {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
         {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor encontrado.</p>}
         <div className="space-y-2">
           {filteredItems.map((item) => (
-            <Card key={item.id} className="p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+            <Card key={item.id} className="cadastro-list-row flex items-center gap-3">
               <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <SetorIcon setor={item} className="w-4 h-4" />
               </div>

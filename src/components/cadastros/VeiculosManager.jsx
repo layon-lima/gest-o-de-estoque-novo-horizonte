@@ -31,12 +31,17 @@ export default function VeiculosManager() {
 
   const { data } = useEntidades({
     Veiculo: { sort: '-created_date', limit: 500 },
-    Transportadora: { sort: '-created_date', limit: 500 },
     Pessoa: { sort: '-created_date', limit: 500 },
   });
   const veiculos = data.Veiculo || [];
-  const transportadoras = data.Transportadora || [];
-  const motoristas = (data.Pessoa || []).filter((p) => p.is_motorista);
+  const pessoas = data.Pessoa || [];
+
+  const transportadoras = pessoas.filter(
+    (p) => p.is_transportadora
+  );
+  const motoristas = pessoas.filter(
+    (p) => p.is_motorista
+  );
 
   const nomeTransp = (id) => transportadoras.find((t) => t.id === id)?.nome || '';
   const nomeMotorista = (id) => motoristas.find((m) => m.id === id)?.nome || '';
@@ -102,11 +107,11 @@ export default function VeiculosManager() {
   }
 
   return (
-    <div className="grid lg:grid-cols-3 gap-6">
-      <Card className="p-5 h-fit">
+    <div className="cadastro-manager-grid">
+      <Card className="cadastro-form-card">
         <h3 className="font-semibold mb-4 flex items-center gap-2"><Car className="w-4 h-4 text-primary" /> {editingId ? 'Editar Veículo' : 'Novo Veículo'}</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Placa *</Label>
               <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} className="font-mono uppercase" placeholder="ABC1D23" required />
@@ -116,7 +121,7 @@ export default function VeiculosManager() {
               <Input value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} placeholder="Scania R450" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Cor</Label>
               <Input value={form.cor} onChange={(e) => setForm({ ...form, cor: e.target.value })} placeholder="Branco" />
@@ -165,8 +170,8 @@ export default function VeiculosManager() {
         </form>
       </Card>
 
-      <div className="lg:col-span-2 space-y-3">
-        <div className="relative">
+      <div className="cadastro-list-panel">
+        <div className="cadastro-toolbar">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por placa, modelo, transportadora, motorista..." className="pl-9" />
         </div>
@@ -175,7 +180,7 @@ export default function VeiculosManager() {
         ) : (
           <div className="space-y-2 max-h-[60vh] overflow-auto scrollbar-thin pr-1">
             {filtered.map((v) => (
-              <Card key={v.id} className="p-3">
+              <Card key={v.id} className="cadastro-list-row">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
