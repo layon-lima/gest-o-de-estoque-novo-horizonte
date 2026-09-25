@@ -1,8 +1,22 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fuel,
+  Loader2,
+  Search,
+  Settings,
+  ShieldCheck,
+  Trash2,
+  UserCircle,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import SearchSelect from '@/components/SearchSelect';
 import {
   Table,
   TableHeader,
@@ -11,18 +25,6 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
-import {
-  Users,
-  UserPlus,
-  Search,
-  Loader2,
-  ShieldCheck,
-  UserCircle,
-  Trash2,
-  Fuel,
-  Settings,
-} from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -40,6 +42,27 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+function MiniStat({ icon: Icon, label, value, tone = 'default' }) {
+  const toneMap = {
+    default: 'bg-primary/10 text-primary',
+    blue: 'bg-blue-50 text-blue-700',
+    green: 'bg-emerald-50 text-emerald-700',
+    amber: 'bg-amber-50 text-amber-700',
+  };
+
+  return (
+    <div className="flex min-h-[62px] items-center gap-3 rounded-xl border bg-card px-3 py-2.5">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${toneMap[tone] || toneMap.default}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">{label}</p>
+        <p className="mt-1 text-lg font-semibold leading-none">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Usuarios() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -47,6 +70,7 @@ export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
+  const [roleFiltro, setRoleFiltro] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -57,21 +81,11 @@ export default function Usuarios() {
 
   const loadUsuarios = useCallback(async () => {
     setLoading(true);
-
     try {
-      const data =
-        await base44.entities.User.list(
-          '-created_date',
-          200
-        );
-
+      const data = await base44.entities.User.list('-created_date', 200);
       setUsuarios(data);
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao carregar usuários',
-        description: err?.message,
-      });
+      toast({ variant: 'destructive', title: 'Erro ao carregar usuários', description: err?.message });
     } finally {
       setLoading(false);
     }
@@ -81,119 +95,56 @@ export default function Usuarios() {
     loadUsuarios();
   }, [loadUsuarios]);
 
-  const filtered = usuarios.filter((u) => {
-    if (!busca.trim()) return true;
+  const filtered = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    return usuarios.filter((u) => {
+      if (roleFiltro && u.role !== roleFiltro) return false;
+      if (!q) return true;
+      return [u.display_name, u.username]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q));
+    });
+  }, [usuarios, busca, roleFiltro]);
 
-    const t = busca
-      .toLowerCase()
-      .trim();
-
-    return (
-      (u.display_name || '')
-        .toLowerCase()
-        .includes(t) ||
-      (u.username || '')
-        .toLowerCase()
-        .includes(t)
-    );
-  });
+  const stats = useMemo(() => ({
+    total: usuarios.length,
+    admins: usuarios.filter((u) => u.role === 'admin').length,
+    users: usuarios.filter((u) => u.role === 'user').length,
+    confirma: usuarios.filter((u) => u.role === 'admin' || u.pode_confirmar_abastecimento === true).length,
+  }), [usuarios]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-
     setDeleting(true);
 
     try {
-      await base44.entities.User.delete(
-        deleteTarget.id
-      );
-
-      setUsuarios((prev) =>
-        prev.filter(
-          (u) =>
-            u.id !== deleteTarget.id
-        )
-      );
-
+      await base44.entities.User.delete(deleteTarget.id);
+      setUsuarios((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       toast({
         title: 'Usuário removido',
-        description: `${
-          deleteTarget.display_name ||
-          deleteTarget.username
-        } foi removido.`,
+        description: `${deleteTarget.display_name || deleteTarget.username} foi removido.`,
       });
-
       setDeleteTarget(null);
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao remover',
-        description: err?.message,
-      });
+      toast({ variant: 'destructive', title: 'Erro ao remover', description: err?.message });
     } finally {
       setDeleting(false);
     }
   };
 
-  const adminCount = usuarios.filter(
-    (u) => u.role === 'admin'
-  ).length;
-
-  const userCount = usuarios.filter(
-    (u) => u.role === 'user'
-  ).length;
-
-  const confirmCount = usuarios.filter(
-    (u) =>
-      u.role === 'admin' ||
-      u.pode_confirmar_abastecimento === true
-  ).length;
-
-  const handleToggleConfirmar = async (
-    u,
-    value
-  ) => {
+  const handleToggleConfirmar = async (u, value) => {
     setTogglingId(u.id);
-
     try {
-      await base44.entities.User.update(
-        u.id,
-        {
-          pode_confirmar_abastecimento:
-            value,
-        }
-      );
-
-      setUsuarios((prev) =>
-        prev.map((x) =>
-          x.id === u.id
-            ? {
-                ...x,
-                pode_confirmar_abastecimento:
-                  value,
-              }
-            : x
-        )
-      );
-
+      await base44.entities.User.update(u.id, { pode_confirmar_abastecimento: value });
+      setUsuarios((prev) => prev.map((item) => (
+        item.id === u.id ? { ...item, pode_confirmar_abastecimento: value } : item
+      )));
       toast({
-        title: value
-          ? 'Permissão concedida'
-          : 'Permissão removida',
-        description: `${
-          u.display_name || u.username
-        } ${
-          value
-            ? 'pode confirmar abastecimentos'
-            : 'não confirma mais abastecimentos'
-        }.`,
+        title: value ? 'Permissão concedida' : 'Permissão removida',
+        description: `${u.display_name || u.username} ${value ? 'pode confirmar abastecimentos' : 'não confirma mais abastecimentos'}.`,
       });
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao atualizar',
-        description: err?.message,
-      });
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: err?.message });
     } finally {
       setTogglingId(null);
     }
@@ -201,332 +152,188 @@ export default function Usuarios() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-muted" />
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
-      <header className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" />
-            Gestão de Usuários
-          </h1>
-
-          <p className="text-sm text-muted-foreground mt-1">
-            Crie usuários locais e controle seus acessos
-          </p>
+    <>
+      <div className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniStat icon={Users} label="Usuários" value={stats.total} />
+          <MiniStat icon={ShieldCheck} label="Administradores" value={stats.admins} tone="blue" />
+          <MiniStat icon={UserCircle} label="Usuários padrão" value={stats.users} tone="green" />
+          <MiniStat icon={Fuel} label="Confirmam abastecimento" value={stats.confirma} tone="amber" />
         </div>
 
-        {isAdmin && (
-          <Button
-            onClick={() =>
-              setInviteOpen(true)
-            }
-            className="gap-2"
-          >
-            <UserPlus className="w-4 h-4" />
-            Novo Usuário
-          </Button>
-        )}
-      </header>
+        <Card className="overflow-hidden rounded-2xl border shadow-none">
+          <div className="flex flex-col gap-3 border-b p-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar por nome ou usuário..."
+                  className="pl-9"
+                />
+              </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-primary/10 text-primary">
-            <Users className="w-6 h-6" />
+              <div className="w-full sm:w-[220px]">
+                <SearchSelect
+                  value={roleFiltro || 'all'}
+                  onChange={(value) => setRoleFiltro(value === 'all' ? '' : value)}
+                  allLabel="Todos os perfis"
+                  placeholder="Filtrar perfil"
+                  options={[
+                    { value: 'admin', label: 'Administradores' },
+                    { value: 'user', label: 'Usuários' },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {isAdmin ? (
+              <Button onClick={() => setInviteOpen(true)} className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Novo usuário
+              </Button>
+            ) : null}
           </div>
 
-          <div>
-            <p className="text-2xl font-bold">
-              {usuarios.length}
-            </p>
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <Users className="mx-auto mb-3 h-10 w-10 opacity-35" />
+              <p className="text-sm">Nenhum usuário encontrado.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead>Perfil</TableHead>
+                    {isAdmin ? <TableHead>Confirma abastecimento</TableHead> : null}
+                    {isAdmin ? <TableHead>Permissões</TableHead> : null}
+                    {isAdmin ? <TableHead className="w-[90px] text-right">Ações</TableHead> : null}
+                  </TableRow>
+                </TableHeader>
 
-            <p className="text-sm text-muted-foreground">
-              Total de Usuários
-            </p>
-          </div>
-        </Card>
+                <TableBody>
+                  {filtered.map((u) => {
+                    const isSelf = u.id === currentUser?.id;
+                    return (
+                      <TableRow key={u.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                              {(u.display_name || u.username || '?').slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <UsuarioNomeEditor user={u} onSaved={loadUsuarios} />
+                                {isSelf ? <Badge variant="outline" className="text-[10px]">Você</Badge> : null}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
 
-        <Card className="p-5 flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-blue-100 text-blue-600">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
+                        <TableCell className="font-mono text-xs">{u.username || '—'}</TableCell>
 
-          <div>
-            <p className="text-2xl font-bold">
-              {adminCount}
-            </p>
+                        <TableCell>
+                          {u.role === 'admin' ? (
+                            <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">Administrador</Badge>
+                          ) : (
+                            <Badge variant="secondary">Usuário</Badge>
+                          )}
+                        </TableCell>
 
-            <p className="text-sm text-muted-foreground">
-              Administradores
-            </p>
-          </div>
-        </Card>
+                        {isAdmin ? (
+                          <TableCell>
+                            {u.role === 'admin' ? (
+                              <span className="text-xs text-muted-foreground">Sempre habilitado</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={u.pode_confirmar_abastecimento === true}
+                                  disabled={togglingId === u.id}
+                                  onCheckedChange={(value) => handleToggleConfirmar(u, value)}
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {u.pode_confirmar_abastecimento === true ? 'Permitido' : 'Bloqueado'}
+                                </span>
+                              </div>
+                            )}
+                          </TableCell>
+                        ) : null}
 
-        <Card className="p-5 flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600">
-            <UserCircle className="w-6 h-6" />
-          </div>
+                        {isAdmin ? (
+                          <TableCell>
+                            {u.role === 'admin' ? (
+                              <Badge variant="outline">Acesso total</Badge>
+                            ) : (
+                              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPermTarget(u)}>
+                                <Settings className="h-3.5 w-3.5" />
+                                Configurar
+                              </Button>
+                            )}
+                          </TableCell>
+                        ) : null}
 
-          <div>
-            <p className="text-2xl font-bold">
-              {userCount}
-            </p>
-
-            <p className="text-sm text-muted-foreground">
-              Usuários
-            </p>
-          </div>
-        </Card>
-
-        <Card className="p-5 flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-amber-100 text-amber-600">
-            <Fuel className="w-6 h-6" />
-          </div>
-
-          <div>
-            <p className="text-2xl font-bold">
-              {confirmCount}
-            </p>
-
-            <p className="text-sm text-muted-foreground">
-              Confirmam Abastec.
-            </p>
-          </div>
+                        {isAdmin ? (
+                          <TableCell>
+                            <div className="flex justify-end">
+                              {!isSelf ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteTarget(u)}
+                                  title="Remover usuário"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
       </div>
 
-      <Card className="p-5">
-        <div className="relative flex-1 min-w-[220px] max-w-sm mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} onInvited={loadUsuarios} />
 
-          <Input
-            value={busca}
-            onChange={(e) =>
-              setBusca(e.target.value)
-            }
-            placeholder="Buscar por nome ou usuário…"
-            className="pl-9"
-          />
-        </div>
+      <PermissoesDialog user={permTarget} onClose={() => setPermTarget(null)} onSaved={loadUsuarios} />
 
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
-            <p>Nenhum usuário encontrado.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>Cargo</TableHead>
-
-                  {isAdmin && (
-                    <TableHead>
-                      Confirma Abastec.
-                    </TableHead>
-                  )}
-
-                  {isAdmin && (
-                    <TableHead>
-                      Permissões
-                    </TableHead>
-                  )}
-
-                  {isAdmin && (
-                    <TableHead className="text-right">
-                      Ações
-                    </TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {filtered.map((u) => {
-                  const isSelf =
-                    u.id === currentUser?.id;
-
-                  return (
-                    <TableRow key={u.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <UsuarioNomeEditor
-                            user={u}
-                            onSaved={
-                              loadUsuarios
-                            }
-                          />
-
-                          {isSelf && (
-                            <span className="text-xs text-muted-foreground">
-                              (você)
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="font-mono text-sm">
-                        {u.username || '—'}
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge
-                          variant={
-                            u.role === 'admin'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                        >
-                          {u.role === 'admin'
-                            ? 'Administrador'
-                            : 'Usuário'}
-                        </Badge>
-                      </TableCell>
-
-                      {isAdmin && (
-                        <TableCell>
-                          {u.role === 'admin' ? (
-                            <span className="text-xs text-muted-foreground">
-                              Sempre (admin)
-                            </span>
-                          ) : (
-                            <Switch
-                              checked={
-                                u.pode_confirmar_abastecimento ===
-                                true
-                              }
-                              disabled={
-                                togglingId === u.id
-                              }
-                              onCheckedChange={(
-                                value
-                              ) =>
-                                handleToggleConfirmar(
-                                  u,
-                                  value
-                                )
-                              }
-                            />
-                          )}
-                        </TableCell>
-                      )}
-
-                      {isAdmin && (
-                        <TableCell>
-                          {u.role === 'admin' ? (
-                            <span className="text-xs text-muted-foreground">
-                              Total
-                            </span>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1"
-                              onClick={() =>
-                                setPermTarget(u)
-                              }
-                            >
-                              <Settings className="w-3.5 h-3.5" />
-                              Permissões
-                            </Button>
-                          )}
-                        </TableCell>
-                      )}
-
-                      {isAdmin && (
-                        <TableCell className="text-right">
-                          {!isSelf && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:bg-destructive/10"
-                              onClick={() =>
-                                setDeleteTarget(
-                                  u
-                                )
-                              }
-                              title="Remover usuário"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Card>
-
-      <InviteUserDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        onInvited={loadUsuarios}
-      />
-
-      <PermissoesDialog
-        user={permTarget}
-        onClose={() =>
-          setPermTarget(null)
-        }
-        onSaved={loadUsuarios}
-      />
-
-      <AlertDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) =>
-          !open &&
-          setDeleteTarget(null)
-        }
-      >
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Remover usuário?
-            </AlertDialogTitle>
-
+            <AlertDialogTitle>Remover usuário?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover{' '}
-              <strong>
-                {deleteTarget?.display_name ||
-                  deleteTarget?.username}
-              </strong>{' '}
-              do sistema? Esta ação não pode ser
-              desfeita.
+              Tem certeza que deseja remover <strong>{deleteTarget?.display_name || deleteTarget?.username}</strong> do sistema? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
           <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={deleting}
-            >
-              Cancelar
-            </AlertDialogCancel>
-
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                'Remover'
-              )}
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remover'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

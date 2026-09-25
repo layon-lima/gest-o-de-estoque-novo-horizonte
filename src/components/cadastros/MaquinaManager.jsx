@@ -1,26 +1,169 @@
-import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Fuel } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  Box,
+  Check,
+  Database,
+  Fuel,
+  Pencil,
+  Search,
+  Tractor,
+  Trash2,
+  Warehouse,
+  Wrench,
+  X,
+} from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
 import { findSetorCombustivel, produtosCombustivel } from '@/lib/abastecimento';
-import SearchInput from './SearchInput';
 import { nextMaquinaCodigo } from '@/lib/maquinas';
 
-const emptyForm = { codigo: '', nome: '', descricao: '', deposito_id: '', permite_abastecimento: false, combustivel_id: '', combustivel_nome: '' };
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+const emptyForm = {
+  codigo: '',
+  nome: '',
+  descricao: '',
+  deposito_id: '',
+  permite_abastecimento: false,
+  combustivel_id: '',
+  combustivel_nome: '',
+};
+
+const QUICK_FILTERS = [
+  { key: 'todos', label: 'Todos' },
+  { key: 'com_deposito', label: 'Com depósito' },
+  { key: 'sem_deposito', label: 'Sem depósito' },
+  { key: 'abastecimento', label: 'Abastecimento' },
+];
+
+function SectionTitle({ number, title, description }) {
+  return (
+    <div className="mb-3 flex items-start gap-2.5">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+        {number}
+      </span>
+
+      <div className="min-w-0">
+        <h4 className="text-sm font-semibold leading-5">{title}</h4>
+
+        {description && (
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, tone = 'default' }) {
+  const tones = {
+    default: 'bg-muted/40 text-foreground',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    blue: 'bg-blue-50 text-blue-700 border-blue-100',
+    amber: 'bg-amber-50 text-amber-700 border-amber-100',
+  };
+
+  return (
+    <div className={`rounded-xl border p-3 ${tones[tone] || tones.default}`}>
+      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-background/80 text-current shadow-sm">
+        <Icon className="h-[18px] w-[18px]" />
+      </div>
+
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+
+      <p className="mt-1 text-2xl font-semibold leading-none">{value}</p>
+    </div>
+  );
+}
+
+function FeatureCard({ enabled, onToggle, combustivelNome }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(!enabled)}
+      aria-pressed={enabled}
+      className={`w-full rounded-xl border p-4 text-left transition-all ${
+        enabled
+          ? 'border-primary bg-primary/[0.055] shadow-[0_0_0_1px_hsl(var(--primary)/0.08)]'
+          : 'border-border bg-background hover:border-primary/35 hover:bg-muted/25'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div
+            className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${
+              enabled ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            <Fuel className="h-5 w-5" />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">Permite abastecimento</span>
+            {enabled && (
+              <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                <Check className="mr-1 h-3.5 w-3.5" />
+                Ativo
+              </Badge>
+            )}
+          </div>
+
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Libera esta máquina para aparecer na operação de abastecimento e permite
+            definir um combustível preferencial.
+          </p>
+
+          {enabled && combustivelNome && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Combustível padrão: <span className="font-semibold">{combustivelNome}</span>
+            </div>
+          )}
+        </div>
+
+        <Switch checked={enabled} onCheckedChange={onToggle} />
+      </div>
+    </button>
+  );
+}
 
 export default function MaquinaManager() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [busca, setBusca] = useState('');
+  const [quickFilter, setQuickFilter] = useState('todos');
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const { toast } = useToast();
 
   const { data } = useEntidades({ Maquina: {}, Deposito: {}, Produto: {}, Setor: {} });
@@ -28,169 +171,525 @@ export default function MaquinaManager() {
   const depositos = data.Deposito || [];
   const produtos = data.Produto || [];
   const setores = data.Setor || [];
+
   const combustiveis = useMemo(
     () => produtosCombustivel(produtos, findSetorCombustivel(setores)?.id),
     [produtos, setores]
   );
+
   const loading = false;
 
+  const currentCode = editingId ? form.codigo : nextMaquinaCodigo(items);
+
   const depositoLabel = (id) => {
-    const d = depositos.find((x) => x.id === id);
-    return d ? (d.nome ? `${d.numero} · ${d.nome}` : d.numero) : null;
+    const deposito = depositos.find((x) => x.id === id);
+    return deposito ? (deposito.nome ? `${deposito.numero} · ${deposito.nome}` : deposito.numero) : '—';
   };
 
   const combustivelLabel = (id) => {
-    const c = combustiveis.find((x) => x.id === id);
-    return c ? c.nome : null;
+    const combustivel = combustiveis.find((x) => x.id === id);
+    return combustivel ? combustivel.nome : '—';
   };
 
+  const counters = useMemo(() => {
+    const total = items.length;
+    const comDeposito = items.filter((item) => !!item.deposito_id).length;
+    const permiteAbastecimento = items.filter((item) => item.permite_abastecimento === true).length;
+
+    return {
+      total,
+      comDeposito,
+      permiteAbastecimento,
+    };
+  }, [items]);
+
   const filteredItems = useMemo(() => {
-    const q = busca.toLowerCase().trim();
-    if (!q) return items;
-    return items.filter((m) =>
-      (m.codigo || '').toLowerCase().includes(q) ||
-      (m.nome || '').toLowerCase().includes(q) ||
-      (m.descricao || '').toLowerCase().includes(q)
-    );
-  }, [items, busca]);
+    const query = busca.toLowerCase().trim();
+
+    return items
+      .filter((item) => {
+        if (!query) return true;
+
+        return [item.codigo, item.nome, item.descricao]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      })
+      .filter((item) => {
+        if (quickFilter === 'com_deposito') return !!item.deposito_id;
+        if (quickFilter === 'sem_deposito') return !item.deposito_id;
+        if (quickFilter === 'abastecimento') return item.permite_abastecimento === true;
+        return true;
+      })
+      .sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || '')));
+  }, [items, busca, quickFilter]);
+
+  const combustivelSelecionado = combustiveis.find((c) => c.id === form.combustivel_id) || null;
+
+  function resetForm() {
+    setForm(emptyForm);
+    setEditingId(null);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const combustivel = combustiveis.find((c) => c.id === form.combustivel_id) || null;
-    const combustivelPayload = form.permite_abastecimento
-      ? { combustivel_id: combustivel?.id || '', combustivel_nome: combustivel?.nome || '' }
-      : { combustivel_id: '', combustivel_nome: '' };
 
-    let salva;
-    if (editingId) {
-      salva = await base44.entities.Maquina.update(editingId, {
-        nome: form.nome,
-        descricao: form.descricao,
-        deposito_id: form.deposito_id,
-        permite_abastecimento: form.permite_abastecimento,
-        ...combustivelPayload,
-      });
-      salva = { ...form, id: editingId, ...salva };
-    } else {
-      const codigo = nextMaquinaCodigo(items);
-      salva = await base44.entities.Maquina.create({ ...form, codigo, ...combustivelPayload });
-      toast({ title: 'Máquina cadastrada', description: `Código gerado: ${codigo}` });
-    }
-    setForm(emptyForm);
-    setEditingId(null);
-    invalidateEntidade('Maquina');
-  }
-
-  async function handleDelete(id) {
     try {
-      await safeDelete('Maquina', id);
+      const combustivelPayload = form.permite_abastecimento
+        ? {
+            combustivel_id: combustivelSelecionado?.id || '',
+            combustivel_nome: combustivelSelecionado?.nome || '',
+          }
+        : {
+            combustivel_id: '',
+            combustivel_nome: '',
+          };
+
+      if (editingId) {
+        await base44.entities.Maquina.update(editingId, {
+          nome: form.nome,
+          descricao: form.descricao,
+          deposito_id: form.deposito_id,
+          permite_abastecimento: form.permite_abastecimento,
+          ...combustivelPayload,
+        });
+
+        toast({
+          title: 'Máquina atualizada',
+          description: `${form.codigo || 'Máquina'} foi atualizada com sucesso.`,
+        });
+      } else {
+        const codigo = nextMaquinaCodigo(items);
+
+        await base44.entities.Maquina.create({
+          ...form,
+          codigo,
+          ...combustivelPayload,
+        });
+
+        toast({
+          title: 'Máquina cadastrada',
+          description: `Código gerado: ${codigo}`,
+        });
+      }
+
+      resetForm();
+      invalidateEntidade('Maquina');
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao excluir', description: String(err?.message || err) });
+      toast({
+        variant: 'destructive',
+        title: editingId ? 'Erro ao atualizar máquina' : 'Erro ao cadastrar máquina',
+        description: String(err?.message || err),
+      });
     }
   }
 
   function handleEdit(item) {
     setForm({
-      codigo: item.codigo,
-      nome: item.nome,
+      codigo: item.codigo || '',
+      nome: item.nome || '',
       descricao: item.descricao || '',
       deposito_id: item.deposito_id || '',
       permite_abastecimento: item.permite_abastecimento === true,
       combustivel_id: item.combustivel_id || '',
       combustivel_nome: item.combustivel_nome || '',
     });
+
     setEditingId(item.id);
   }
 
-  return (
-    <div className="cadastro-manager-grid">
-      <Card className="cadastro-form-card">
-        <h3 className="font-semibold mb-4">{editingId ? 'Editar Máquina' : 'Nova Máquina'}</h3>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="m-cod">Código {editingId ? '(gerado)' : '(automático)'}</Label>
-            <Input
-              id="m-cod"
-              readOnly
-              value={editingId ? form.codigo : nextMaquinaCodigo(items)}
-              className="bg-muted/50 font-mono cursor-not-allowed"
-              placeholder="Será gerado ao salvar"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-nome">Nome / Descrição *</Label>
-            <Input id="m-nome" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-desc">Descrição</Label>
-            <Input id="m-desc" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Depósito <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
-            <SearchSelect
-              value={form.deposito_id}
-              onChange={(v) => setForm({ ...form, deposito_id: v === 'all' ? '' : v })}
-              allLabel="— Nenhum —"
-              placeholder="Buscar depósito..."
-              options={depositos.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="m-abast" className="cursor-pointer">Permite abastecimento</Label>
-              <p className="text-xs text-muted-foreground">Marcada, a máquina aparece na tela de Abastecimento e o QR Code libera o registro de combustível.</p>
-            </div>
-            <Switch id="m-abast" checked={form.permite_abastecimento} onCheckedChange={(v) => setForm({ ...form, permite_abastecimento: v })} />
-          </div>
-          {form.permite_abastecimento && (
-            <div className="space-y-1.5">
-              <Label>Combustível <span className="text-xs font-normal text-muted-foreground">(predefinido)</span></Label>
-              <SearchSelect
-                value={form.combustivel_id}
-                onChange={(v) => setForm({ ...form, combustivel_id: v === 'all' ? '' : v })}
-                allLabel="— Nenhum —"
-                placeholder="Buscar combustível..."
-                options={combustiveis.map((c) => ({ value: c.id, label: c.nome }))}
-              />
-              <p className="text-xs text-muted-foreground">Definido, o combustível é selecionado automaticamente ao abastecer esta máquina.</p>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Button type="submit" className="flex-1">{editingId ? 'Atualizar' : 'Adicionar'}</Button>
-            {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); }}>Cancelar</Button>}
-          </div>
-        </form>
-      </Card>
+  async function confirmDelete() {
+    if (!deleteTarget?.id) return;
 
-      <div className="cadastro-list-panel">
-        <SearchInput className="cadastro-toolbar" value={busca} onChange={setBusca} placeholder="Buscar máquina por código, nome ou descrição..." />
-        {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
-        {!loading && filteredItems.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma máquina encontrada.</p>}
-        <div className="space-y-2">
-          {filteredItems.map((item) => (
-            <Card key={item.id} className="cadastro-list-row flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{item.codigo}</span>
-                  <p className="font-medium truncate">{item.nome}</p>
-                  {item.permite_abastecimento === true && (
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100"><Fuel className="w-3 h-3 mr-1" />Abastece</Badge>
-                  )}
-                  {item.permite_abastecimento === true && combustivelLabel(item.combustivel_id) && (
-                    <Badge variant="outline" className="text-amber-700 border-amber-300"><Fuel className="w-3 h-3 mr-1" />{combustivelLabel(item.combustivel_id)}</Badge>
-                  )}
-                  {depositoLabel(item.deposito_id) && (
-                    <Badge variant="outline" className="font-mono">{depositoLabel(item.deposito_id)}</Badge>
-                  )}
-                </div>
-                {item.descricao && <p className="text-sm text-muted-foreground truncate mt-0.5">{item.descricao}</p>}
+    try {
+      await safeDelete('Maquina', deleteTarget.id);
+      toast({
+        title: 'Máquina excluída',
+        description: `${deleteTarget.codigo || deleteTarget.nome || 'Registro'} foi removido.`,
+      });
+
+      if (editingId === deleteTarget.id) {
+        resetForm();
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir',
+        description: String(err?.message || err),
+      });
+    } finally {
+      setDeleteTarget(null);
+    }
+  }
+
+  return (
+    <>
+      <div className="space-y-4">
+        <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <div className="border-b bg-muted/20 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                <Tractor className="h-5 w-5" />
               </div>
-              <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
-              <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="w-4 h-4" /></Button>
-            </Card>
-          ))}
-        </div>
+
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Operação
+                </p>
+                <h3 className="text-[30px] font-semibold leading-none tracking-tight">Máquinas</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Máquinas e equipamentos utilizados pela operação.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 px-5 py-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="space-y-4">
+              <Card className="rounded-2xl border shadow-none">
+                <div className="border-b px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-lg font-semibold">
+                        {editingId ? 'Editar máquina' : 'Nova máquina'}
+                      </h4>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Cadastro mestre de máquinas e equipamentos.
+                      </p>
+                    </div>
+
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      {editingId ? <Pencil className="h-4.5 w-4.5" /> : <Wrench className="h-4.5 w-4.5" />}
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5 p-4">
+                  <section>
+                    <SectionTitle
+                      number="1"
+                      title="Identificação"
+                      description="Código automático e informações principais da máquina."
+                    />
+
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="maq-codigo">Código</Label>
+                        <Input
+                          id="maq-codigo"
+                          readOnly
+                          value={currentCode}
+                          className="bg-muted/40 font-mono text-sm cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="maq-nome">Nome / descrição principal *</Label>
+                        <Input
+                          id="maq-nome"
+                          value={form.nome}
+                          onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                          placeholder="Ex.: Trator John Deere 6110J"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="maq-descricao">Descrição complementar</Label>
+                        <Textarea
+                          id="maq-descricao"
+                          value={form.descricao}
+                          onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                          placeholder="Detalhes adicionais, aplicação, implemento ou observações técnicas."
+                          className="min-h-[92px] resize-none"
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <SectionTitle
+                      number="2"
+                      title="Vínculo operacional"
+                      description="Depósito padrão utilizado pela máquina, quando houver."
+                    />
+
+                    <div className="space-y-1.5">
+                      <Label>Depósito</Label>
+                      <SearchSelect
+                        value={form.deposito_id}
+                        onChange={(value) => setForm({ ...form, deposito_id: value === 'all' ? '' : value })}
+                        allLabel="— Nenhum depósito —"
+                        placeholder="Buscar depósito..."
+                        options={depositos
+                          .map((deposito) => ({
+                            value: deposito.id,
+                            label: `${deposito.numero}${deposito.nome ? ` · ${deposito.nome}` : ''}`,
+                          }))
+                          .sort((a, b) => a.label.localeCompare(b.label))}
+                      />
+                    </div>
+                  </section>
+
+                  <section>
+                    <SectionTitle
+                      number="3"
+                      title="Configuração de abastecimento"
+                      description="Defina se a máquina pode abastecer e um combustível padrão opcional."
+                    />
+
+                    <div className="space-y-3">
+                      <FeatureCard
+                        enabled={form.permite_abastecimento}
+                        onToggle={(enabled) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            permite_abastecimento: enabled,
+                            combustivel_id: enabled ? prev.combustivel_id : '',
+                            combustivel_nome: enabled ? prev.combustivel_nome : '',
+                          }))
+                        }
+                        combustivelNome={combustivelSelecionado?.nome || ''}
+                      />
+
+                      {form.permite_abastecimento && (
+                        <div className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                          <Label>Combustível padrão</Label>
+                          <SearchSelect
+                            value={form.combustivel_id}
+                            onChange={(value) => setForm({ ...form, combustivel_id: value === 'all' ? '' : value })}
+                            allLabel="— Nenhum combustível —"
+                            placeholder="Buscar combustível..."
+                            options={combustiveis
+                              .map((combustivel) => ({
+                                value: combustivel.id,
+                                label: combustivel.nome,
+                              }))
+                              .sort((a, b) => a.label.localeCompare(b.label))}
+                          />
+                          <p className="text-xs text-amber-800">
+                            Quando definido, o produto é pré-selecionado na tela de abastecimento.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+                    <Button type="submit" className="flex-1 gap-2">
+                      {editingId ? <Pencil className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                      {editingId ? 'Salvar alterações' : 'Adicionar máquina'}
+                    </Button>
+
+                    <Button type="button" variant="outline" onClick={resetForm} className="gap-2">
+                      <X className="h-4 w-4" />
+                      {editingId ? 'Cancelar' : 'Limpar'}
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <StatCard icon={Tractor} label="Total de máquinas" value={counters.total} tone="default" />
+                <StatCard icon={Warehouse} label="Com depósito" value={counters.comDeposito} tone="blue" />
+                <StatCard icon={Fuel} label="Liberadas p/ abastecimento" value={counters.permiteAbastecimento} tone="amber" />
+              </div>
+
+              <Card className="rounded-2xl border shadow-none">
+                <div className="space-y-4 p-4">
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="relative w-full xl:max-w-2xl">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                        placeholder="Buscar máquina por código, nome ou descrição..."
+                        className="pl-9"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {QUICK_FILTERS.map((filter) => (
+                        <button
+                          key={filter.key}
+                          type="button"
+                          onClick={() => setQuickFilter(filter.key)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            quickFilter === filter.key
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border">
+                    <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-3">
+                      <div>
+                        <h4 className="text-sm font-semibold">Máquinas cadastradas</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {filteredItems.length} registro(s) encontrado(s)
+                        </p>
+                      </div>
+
+                      {editingId && (
+                        <Badge className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/10">
+                          Edição em andamento
+                        </Badge>
+                      )}
+                    </div>
+
+                    {loading ? (
+                      <div className="px-4 py-10 text-sm text-muted-foreground">Carregando máquinas...</div>
+                    ) : filteredItems.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                          <Database className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h5 className="text-sm font-semibold">Nenhuma máquina encontrada</h5>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Ajuste a busca ou cadastre uma nova máquina para iniciar a frota.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[140px]">Código</TableHead>
+                              <TableHead>Máquina</TableHead>
+                              <TableHead>Depósito</TableHead>
+                              <TableHead>Abastecimento</TableHead>
+                              <TableHead>Combustível padrão</TableHead>
+                              <TableHead className="w-[140px] text-right">Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+
+                          <TableBody>
+                            {filteredItems.map((item) => {
+                              const isEditing = editingId === item.id;
+
+                              return (
+                                <TableRow key={item.id} className={isEditing ? 'bg-primary/[0.045]' : ''}>
+                                  <TableCell>
+                                    <Badge variant="outline" className="font-mono text-[11px]">
+                                      {item.codigo || '—'}
+                                    </Badge>
+                                  </TableCell>
+
+                                  <TableCell className="min-w-[260px]">
+                                    <div className="flex items-start gap-3">
+                                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                                        <Tractor className="h-4.5 w-4.5" />
+                                      </div>
+
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold">{item.nome}</p>
+                                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                          {item.descricao || 'Sem descrição complementar.'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {item.deposito_id ? (
+                                      <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">
+                                        <Warehouse className="mr-1 h-3.5 w-3.5" />
+                                        {depositoLabel(item.deposito_id)}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">Não vinculado</span>
+                                    )}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {item.permite_abastecimento === true ? (
+                                      <Badge className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
+                                        <Fuel className="mr-1 h-3.5 w-3.5" />
+                                        Liberado
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-muted-foreground">
+                                        Bloqueado
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {item.permite_abastecimento === true && item.combustivel_id ? (
+                                      <span className="text-sm text-foreground">{combustivelLabel(item.combustivel_id)}</span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">Não definido</span>
+                                    )}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => handleEdit(item)}
+                                        className="h-9 w-9"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => setDeleteTarget(item)}
+                                        className="h-9 w-9 text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </Card>
       </div>
-    </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir máquina?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá{' '}
+              <span className="font-semibold text-foreground">
+                {deleteTarget?.nome || deleteTarget?.codigo || 'a máquina selecionada'}
+              </span>
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
