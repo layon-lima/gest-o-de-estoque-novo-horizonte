@@ -1,72 +1,272 @@
-// Quantidade física de um produto em um depósito (opcionalmente por gaveta),
-// somada a partir dos saldos reais (SaldoEstoque). Modelo SAP.
-export function getQtdNoDeposito(produtoId, depositoId, gavetaId = '', saldos = []) {
+function normalizeText(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function parseNumeroFiltro(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+
+  const normalized = raw
+    .replace(/\s/g, '')
+    .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+    .replace(',', '.');
+
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
+function asArr(value) {
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+export function getQtdNoDeposito(
+  produtoId,
+  depositoId,
+  gavetaId = '',
+  saldos = []
+) {
   if (!depositoId) return 0;
+
   return (saldos || [])
     .filter(
       (s) =>
         s.produto_id === produtoId &&
         s.deposito_id === depositoId &&
-        (s.quantidade || 0) > 0 &&
         (!gavetaId || (s.gaveta_id || '') === gavetaId)
     )
-    .reduce((sum, s) => sum + (s.quantidade || 0), 0);
+    .reduce((sum, s) => sum + (Number(s.quantidade) || 0), 0);
+}
+
+export function getStatusEstoque(qtd, media) {
+  const quantidade = Number(qtd) || 0;
+
+  if (quantidade <= 0) return 'ZERADO';
+  if (quantidade >= media) return 'ALTO';
+  return 'BAIXO';
 }
 
 export function filterProdutos(produtos, filtros, saldos = []) {
-  // SAP: se NENHUM depósito/gaveta estiver filtrado (Todos), mostra UMA linha
-  // por produto com o saldo total e marca "_todos" p/ a coluna exibir "Todos".
-  // Se um depósito/gaveta estiver selecionado, expande em uma linha por parcela
-  // (saldo) dentro do filtro, cada uma com sua quantidade.
-  const asArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
   const setorFilter = asArr(filtros.setor_id);
   const depFilter = asArr(filtros.deposito_id);
   const gavFilter = asArr(filtros.gaveta_id);
   const maqFilter = asArr(filtros.maquina_id);
+  const unidadeFilter = asArr(filtros.unidade);
 
-  const hasSaldos = (saldos || []).length > 0;
+  const codigo = normalizeText(filtros.codigo);
+  const referencia = normalizeText(filtros.referencia);
 
-  let rows;
-  if (hasSaldos) {
-    rows = [];
-    for (const p of produtos) {
-      const parcelas = (saldos || []).filter(
-        (s) => s.produto_id === p.id && (s.quantidade || 0) > 0
-      );
-      for (const s of parcelas) {
+  const qtdMin = parseNumeroFiltro(filtros.quantidade_min);
+  const qtdMax = parseNumeroFiltro(filtros.quantidade_max);
+  const valorUnitMin = parseNumeroFiltro(filtros.valor_unit_min);
+  const valorUnitMax = parseNumeroFiltro(filtros.valor_unit_max);
+  const valorTotalMin = parseNumeroFiltro(filtros.valor_total_min);
+  const valorTotalMax = parseNumeroFiltro(filtros.valor_total_max);
+
+  let base = [...(produtos || [])];
+
+  if (setorFilter.length) {
+    base = base.filter((p) => setorFilter.includes(p.setor_id));
+  }
+
+  if (maqFilter.length) {
+    base = base.filter((p) => maqFilter.includes(p.maquina_id));
+  }
+
+  if (unidadeFilter.length) {
+    base = base.filter((p) => unidadeFilter.includes(p.unidade));
+  }
+
+  if (codigo) {
+    base = base.filter((p) =>
+      normalizeText(p.codigo).includes(codigo)
+    );
+  }
+
+  if (referencia) {
+    base = base.filter((p) =>
+      normalizeText(p.codigo_referencia).includes(referencia)
+    );
+  }
+
+  const temSaldos = (saldos || []).length > 0;
+  const filtraPosicao = depFilter.length > 0 || gavFilter.length > 0;
+
+  let rows = [];
+
+  for (const produto of base) {
+    const posicoes = temSaldos
+      ? (saldos || []).filter((s) => s.produto_id === produto.id)
+      : [];
+
+    if (filtraPosicao) {
+      const filtradas = posicoes.filter((s) => {
+        if (depFilter.length && !depFilter.includes(s.deposito_id)) {
+          return false;
+        }
+
+        if (gavFilter.length && !gavFilter.includes(s.gaveta_id || '')) {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (filtradas.length > 0) {
+        for (const saldo of filtradas) {
+          rows.push({
+            ...produto,
+            quantidade: Number(saldo.quantidade) || 0,
+            quantidade_reservada: Number(saldo.quantidade_reservada) || 0,
+            quantidade_disponivel:
+              saldo.quantidade_disponivel !== undefined
+                ? Number(saldo.quantidade_disponivel) || 0
+                : (Number(saldo.quantidade) || 0) -
+                  (Number(saldo.quantidade_reservada) || 0),
+            custo_medio: Number(saldo.custo_medio) || 0,
+            valor_total: Number(saldo.valor_total) || 0,
+            tipo_estoque: saldo.tipo_estoque || 'livre',
+            deposito_id: saldo.deposito_id || produto.deposito_id || '',
+            gaveta_id: saldo.gaveta_id || '',
+            lote_id: saldo.lote_id || '',
+            _deposito_ids: unique([saldo.deposito_id]),
+            _gaveta_ids: unique([saldo.gaveta_id]),
+            _lote_ids: unique([saldo.lote_id]),
+            _rowKey: `${produto.id}:${saldo.id || ''}`,
+          });
+        }
+      } else if (
+        !temSaldos &&
+        (!depFilter.length || depFilter.includes(produto.deposito_id)) &&
+        (!gavFilter.length || gavFilter.includes(produto.gaveta_id))
+      ) {
         rows.push({
-          ...p,
-          quantidade: s.quantidade,
-          unidade: s.unidade || p.unidade,
-          deposito_id: s.deposito_id || p.deposito_id,
-          gaveta_id: s.gaveta_id || '',
-          lote_id: s.lote_id || '',
-          _rowKey: `${p.id}:${s.deposito_id || ''}:${s.gaveta_id || ''}:${s.lote_id || ''}:${s.id}`,
+          ...produto,
+          quantidade: Number(produto.quantidade) || 0,
+          _deposito_ids: unique([produto.deposito_id]),
+          _gaveta_ids: unique([produto.gaveta_id]),
+          _lote_ids: [],
+          _rowKey: `${produto.id}:LEGACY`,
         });
       }
+
+      continue;
     }
-  } else {
-    rows = produtos.map((p) => ({ ...p, _rowKey: p.id }));
+
+    if (temSaldos) {
+      const quantidade = posicoes.reduce(
+        (sum, s) => sum + (Number(s.quantidade) || 0),
+        0
+      );
+      const reservada = posicoes.reduce(
+        (sum, s) => sum + (Number(s.quantidade_reservada) || 0),
+        0
+      );
+      const disponivel = posicoes.reduce(
+        (sum, s) =>
+          sum +
+          (
+            s.quantidade_disponivel !== undefined
+              ? Number(s.quantidade_disponivel) || 0
+              : (Number(s.quantidade) || 0) -
+                (Number(s.quantidade_reservada) || 0)
+          ),
+        0
+      );
+      const valorTotal = posicoes.reduce(
+        (sum, s) => sum + (Number(s.valor_total) || 0),
+        0
+      );
+
+      const custoMedio =
+        quantidade !== 0 && valorTotal !== 0
+          ? valorTotal / quantidade
+          : Number(produto.custo_unitario) || 0;
+
+      rows.push({
+        ...produto,
+        quantidade,
+        quantidade_reservada: reservada,
+        quantidade_disponivel: disponivel,
+        custo_medio: custoMedio,
+        valor_total: valorTotal,
+        _deposito_ids: unique(posicoes.map((s) => s.deposito_id)),
+        _gaveta_ids: unique(posicoes.map((s) => s.gaveta_id)),
+        _lote_ids: unique(posicoes.map((s) => s.lote_id)),
+        _rowKey: `${produto.id}:TOTAL`,
+      });
+    } else {
+      rows.push({
+        ...produto,
+        quantidade: Number(produto.quantidade) || 0,
+        _deposito_ids: unique([produto.deposito_id]),
+        _gaveta_ids: unique([produto.gaveta_id]),
+        _lote_ids: [],
+        _rowKey: `${produto.id}:LEGACY`,
+      });
+    }
   }
 
-  let result = rows;
-  if (setorFilter.length) result = result.filter((p) => setorFilter.includes(p.setor_id));
-  if (depFilter.length) result = result.filter((p) => depFilter.includes(p.deposito_id));
-  if (gavFilter.length) result = result.filter((p) => gavFilter.includes(p.gaveta_id));
-  if (maqFilter.length) result = result.filter((p) => maqFilter.includes(p.maquina_id));
-
-  if (filtros.estoque === 'ZERADO') {
-    result = result.filter((p) => (p.quantidade || 0) === 0);
-  } else if (filtros.estoque === 'ALTO' || filtros.estoque === 'BAIXO') {
-    const nonZero = result.filter((p) => (p.quantidade || 0) > 0);
-    const avg = nonZero.reduce((s, p) => s + (p.quantidade || 0), 0) / (nonZero.length || 1);
-    result =
-      filtros.estoque === 'ALTO'
-        ? nonZero.filter((p) => (p.quantidade || 0) >= avg)
-        : nonZero.filter((p) => (p.quantidade || 0) < avg);
+  if (qtdMin !== null) {
+    rows = rows.filter((p) => (Number(p.quantidade) || 0) >= qtdMin);
   }
 
-  return result;
+  if (qtdMax !== null) {
+    rows = rows.filter((p) => (Number(p.quantidade) || 0) <= qtdMax);
+  }
+
+  if (valorUnitMin !== null || valorUnitMax !== null) {
+    rows = rows.filter((p) => {
+      const value =
+        Number(p.custo_medio) ||
+        Number(p.custo_unitario) ||
+        0;
+
+      if (valorUnitMin !== null && value < valorUnitMin) return false;
+      if (valorUnitMax !== null && value > valorUnitMax) return false;
+      return true;
+    });
+  }
+
+  if (valorTotalMin !== null || valorTotalMax !== null) {
+    rows = rows.filter((p) => {
+      const unit =
+        Number(p.custo_medio) ||
+        Number(p.custo_unitario) ||
+        0;
+
+      const value =
+        Number(p.valor_total) ||
+        (Number(p.quantidade) || 0) * unit;
+
+      if (valorTotalMin !== null && value < valorTotalMin) return false;
+      if (valorTotalMax !== null && value > valorTotalMax) return false;
+      return true;
+    });
+  }
+
+  if (filtros.estoque) {
+    const positivos = rows.filter((p) => (Number(p.quantidade) || 0) > 0);
+    const media =
+      positivos.reduce(
+        (sum, p) => sum + (Number(p.quantidade) || 0),
+        0
+      ) / (positivos.length || 1);
+
+    rows = rows.filter(
+      (p) =>
+        getStatusEstoque(p.quantidade, media) === filtros.estoque
+    );
+  }
+
+  return rows;
 }
 
 export function getNome(id, lista, field = 'nome') {
@@ -74,75 +274,155 @@ export function getNome(id, lista, field = 'nome') {
   return item?.[field] || '—';
 }
 
-export function matchTerm(produto, termo, maquinas, gavetas, depositos, saldos = []) {
-  const t = termo.toLowerCase().trim();
-  if (!t) return false;
-
+function collectRelatedText(
+  produto,
+  maquinas,
+  gavetas,
+  depositos,
+  saldos,
+  setores,
+  lotes
+) {
   const maquina = maquinas?.find((m) => m.id === produto.maquina_id);
-  const nomeMaquina = (maquina?.nome || '').toLowerCase();
-  const gaveta = gavetas?.find((g) => g.id === produto.gaveta_id);
-  const codigoGaveta = (gaveta?.codigo || '').toLowerCase();
-  const descGaveta = (gaveta?.descricao || '').toLowerCase();
+  const setor = setores?.find((s) => s.id === produto.setor_id);
 
-  // SAP: depósitos onde o produto REALMENTE tem saldo físico.
-  // Fallback: sem saldos carregados, usa o depósito "casa" do produto.
-  const homeDep = depositos?.find((d) => d.id === produto.deposito_id);
-  const depsComSaldo =
-    (saldos || []).length > 0
-      ? (saldos || [])
-          .filter((s) => s.produto_id === produto.id && (s.quantidade || 0) > 0)
-          .map((s) => depositos?.find((d) => d.id === s.deposito_id))
-          .filter(Boolean)
-      : homeDep
-      ? [homeDep]
-      : [];
-  const depMatch = (rest) =>
-    depsComSaldo.some((dep) => {
-      const num = (dep.numero || '').toLowerCase();
-      const nome = (dep.nome || '').toLowerCase();
-      if (!rest) return Boolean(num || nome);
-      if (rest.endsWith('*')) {
-        const exato = rest.slice(0, -1).trim();
-        return num === exato || nome === exato;
-      }
-      return num.includes(rest) || nome.includes(rest);
-    });
+  const depIds = produto._deposito_ids?.length
+    ? produto._deposito_ids
+    : unique([
+        produto.deposito_id,
+        ...(saldos || [])
+          .filter((s) => s.produto_id === produto.id)
+          .map((s) => s.deposito_id),
+      ]);
 
-  // "gaveta <num>" → busca por gaveta; "*" no final = correspondência exata
-  if (t.startsWith('gaveta')) {
-    const rest = t.replace(/^gaveta\s*/, '').trim();
-    if (!rest) return Boolean(codigoGaveta || descGaveta);
-    if (rest.endsWith('*')) {
-      const exato = rest.slice(0, -1).trim();
-      return codigoGaveta === exato || descGaveta === exato;
-    }
-    return codigoGaveta.includes(rest) || descGaveta.includes(rest);
-  }
+  const gavIds = produto._gaveta_ids?.length
+    ? produto._gaveta_ids
+    : unique([
+        produto.gaveta_id,
+        ...(saldos || [])
+          .filter((s) => s.produto_id === produto.id)
+          .map((s) => s.gaveta_id),
+      ]);
 
-  // "deposito <num>" → busca por depósito (baseado nos saldos reais)
-  if (t.startsWith('deposito') || t.startsWith('depósito')) {
-    const rest = t.replace(/^dep[oó]sito\s*/, '').trim();
-    return depMatch(rest);
-  }
+  const loteIds = produto._lote_ids?.length
+    ? produto._lote_ids
+    : unique([
+        produto.lote_id,
+        ...(saldos || [])
+          .filter((s) => s.produto_id === produto.id)
+          .map((s) => s.lote_id),
+      ]);
 
-  return (
-    (produto.nome || '').toLowerCase().includes(t) ||
-    (produto.codigo || '').toLowerCase().includes(t) ||
-    (produto.codigo_referencia || '').toLowerCase().includes(t) ||
-    nomeMaquina.includes(t) ||
-    codigoGaveta.includes(t) ||
-    descGaveta.includes(t) ||
-    // corresponde se o produto tiver saldo em algum depósito cujo nº/nome bata
-    depsComSaldo.some((dep) => (dep.numero || '').toLowerCase().includes(t) || (dep.nome || '').toLowerCase().includes(t))
-  );
+  const deps = depIds
+    .map((id) => depositos?.find((d) => d.id === id))
+    .filter(Boolean);
+
+  const gavs = gavIds
+    .map((id) => gavetas?.find((g) => g.id === id))
+    .filter(Boolean);
+
+  const lotesRelacionados = loteIds
+    .map((id) => lotes?.find((l) => l.id === id))
+    .filter(Boolean);
+
+  const related = [
+    setor?.nome,
+    setor?.descricao,
+    maquina?.codigo,
+    maquina?.nome,
+    maquina?.descricao,
+    ...deps.flatMap((d) => [d.numero, d.nome, d.descricao]),
+    ...gavs.flatMap((g) => [g.codigo, g.descricao]),
+    ...lotesRelacionados.flatMap((l) => [
+      l.codigo_lote,
+      l.codigo_referencia,
+      l.data_validade,
+      l.tipo_estoque,
+    ]),
+  ];
+
+  return related.filter((value) => value !== null && value !== undefined);
 }
 
-export function getEstoqueStatus(produto, avg, produtosDoSetor) {
-  const qtd = produto.quantidade || 0;
-  if (qtd === 0) return 'zerado';
-  const setorAvg =
-    produtosDoSetor.filter((p) => (p.quantidade || 0) > 0).reduce((s, p) => s + (p.quantidade || 0), 0) /
-      (produtosDoSetor.filter((p) => (p.quantidade || 0) > 0).length || 1) || 0;
-  if (qtd >= setorAvg) return 'alto';
-  return 'baixo';
+export function matchTerm(
+  produto,
+  termo,
+  maquinas,
+  gavetas,
+  depositos,
+  saldos = [],
+  setores = [],
+  lotes = []
+) {
+  const t = normalizeText(termo);
+  if (!t) return false;
+
+  const related = collectRelatedText(
+    produto,
+    maquinas,
+    gavetas,
+    depositos,
+    saldos,
+    setores,
+    lotes
+  );
+
+  const rawValues = Object.entries(produto || {})
+    .filter(([key, value]) => {
+      if (key.startsWith('_')) return false;
+      return ['string', 'number', 'boolean'].includes(typeof value);
+    })
+    .flatMap(([, value]) => {
+      const normal = String(value);
+      const comma =
+        typeof value === 'number'
+          ? String(value).replace('.', ',')
+          : normal;
+
+      return [normal, comma];
+    });
+
+  const blob = normalizeText(
+    [...rawValues, ...related]
+      .filter((value) => value !== null && value !== undefined)
+      .join(' | ')
+  );
+
+  if (t.startsWith('deposito ') || t.startsWith('depósito ')) {
+    const rest = normalizeText(t.replace(/^dep[oó]sito\s*/, ''));
+    const depBlob = normalizeText(
+      collectRelatedText(
+        produto,
+        [],
+        [],
+        depositos,
+        saldos,
+        [],
+        []
+      ).join(' | ')
+    );
+    return depBlob.includes(rest);
+  }
+
+  if (t.startsWith('gaveta ')) {
+    const rest = normalizeText(t.replace(/^gaveta\s*/, ''));
+    const gavBlob = normalizeText(
+      collectRelatedText(
+        produto,
+        [],
+        gavetas,
+        [],
+        saldos,
+        [],
+        []
+      ).join(' | ')
+    );
+    return gavBlob.includes(rest);
+  }
+
+  return blob.includes(t);
+}
+
+export function getEstoqueStatus(produto, avg) {
+  return getStatusEstoque(produto?.quantidade || 0, avg).toLowerCase();
 }

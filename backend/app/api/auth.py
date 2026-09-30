@@ -1,13 +1,17 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
+from collections import defaultdict, deque
+from threading import Lock
+from time import monotonic
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.access_control import paginas_publicas
 from app.core.security import (
     create_access_token,
     decode_access_token,
@@ -17,8 +21,25 @@ from app.db.database import get_db
 from app.models import User
 
 
-router = APIRouter(prefix="/api/auth", tags=["Autenticação"])
-bearer_scheme = HTTPBearer(auto_error=False)
+router = APIRouter(
+    prefix="/api/auth",
+    tags=["Autenticação"],
+)
+
+bearer_scheme = HTTPBearer(
+    auto_error=False
+)
+
+
+LOGIN_WINDOW_SECONDS = 10 * 60
+LOGIN_MAX_FAILURES = 8
+
+_login_failures: dict[
+    str,
+    deque[float],
+] = defaultdict(deque)
+
+_login_lock = Lock()
 
 
 class LoginRequest(BaseModel):
@@ -39,9 +60,105 @@ def _lista_json(valor):
 
     try:
         resultado = json.loads(valor)
-        return resultado if isinstance(resultado, list) else []
+        return (
+            resultado
+            if isinstance(
+                resultado,
+                list,
+            )
+            else []
+        )
     except Exception:
         return []
+
+
+def _login_key(
+    request: Request,
+    username: str,
+) -> str:
+    host = (
+        request.client.host
+        if request.client
+        else "local"
+    )
+
+    return (
+        f"{host}:"
+        f"{username.strip().lower()}"
+    )
+
+
+def _limpar_tentativas_antigas(
+    fila: deque[float],
+    agora: float,
+):
+    limite = (
+        agora
+        - LOGIN_WINDOW_SECONDS
+    )
+
+    while (
+        fila
+        and fila[0] < limite
+    ):
+        fila.popleft()
+
+
+def _verificar_rate_limit(
+    chave: str,
+):
+    agora = monotonic()
+
+    with _login_lock:
+        fila = _login_failures[chave]
+
+        _limpar_tentativas_antigas(
+            fila,
+            agora,
+        )
+
+        if (
+            len(fila)
+            >= LOGIN_MAX_FAILURES
+        ):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Muitas tentativas de login. "
+                    "Aguarde alguns minutos e tente novamente."
+                ),
+                headers={
+                    "Retry-After": str(
+                        LOGIN_WINDOW_SECONDS
+                    )
+                },
+            )
+
+
+def _registrar_falha_login(
+    chave: str,
+):
+    agora = monotonic()
+
+    with _login_lock:
+        fila = _login_failures[chave]
+
+        _limpar_tentativas_antigas(
+            fila,
+            agora,
+        )
+
+        fila.append(agora)
+
+
+def _limpar_falhas_login(
+    chave: str,
+):
+    with _login_lock:
+        _login_failures.pop(
+            chave,
+            None,
+        )
 
 
 def user_publico(user: User) -> dict:
@@ -50,10 +167,31 @@ def user_publico(user: User) -> dict:
         "username": user.username,
         "display_name": user.display_name,
         "role": user.role,
-        "pode_confirmar_abastecimento": user.pode_confirmar_abastecimento,
-        "pode_digitar_peso": user.pode_digitar_peso,
-        "paginas_permitidas": _lista_json(user.paginas_permitidas),
-        "setores_permitidos": _lista_json(user.setores_permitidos),
+        "pode_confirmar_abastecimento": (
+            user.pode_confirmar_abastecimento
+        ),
+        "pode_digitar_peso": (
+            user.pode_digitar_peso
+        ),
+        "pode_baixar_mobile": (
+            user.pode_baixar_mobile
+        ),
+        "pode_mudar_gaveta_mobile": (
+            user.pode_mudar_gaveta_mobile
+        ),
+        "pode_mudar_deposito_mobile": (
+            user.pode_mudar_deposito_mobile
+        ),
+        "paginas_permitidas": (
+            paginas_publicas(
+                user.paginas_permitidas
+            )
+        ),
+        "setores_permitidos": (
+            _lista_json(
+                user.setores_permitidos
+            )
+        ),
         "ativo": user.ativo,
         "created_date": user.created_date,
         "updated_date": user.updated_date,
@@ -61,36 +199,62 @@ def user_publico(user: User) -> dict:
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: (
+        HTTPAuthorizationCredentials
+        | None
+    ) = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
     if credentials is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
             detail="Não autenticado.",
         )
 
     try:
-        payload = decode_access_token(credentials.credentials)
+        payload = decode_access_token(
+            credentials.credentials
+        )
+
         user_id = payload.get("sub")
+
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sessão inválida ou expirada.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Sessão inválida ou expirada."
+            ),
         )
 
     if not user_id:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
             detail="Sessão inválida.",
         )
 
-    user = db.get(User, user_id)
+    user = db.get(
+        User,
+        user_id,
+    )
 
-    if user is None or not user.ativo:
+    if (
+        user is None
+        or not user.ativo
+    ):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário inexistente ou desativado.",
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Usuário inexistente "
+                "ou desativado."
+            ),
         )
 
     return user
@@ -99,12 +263,27 @@ def get_current_user(
 @router.post("/login")
 def login(
     dados: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    username = dados.username.strip()
+    username = (
+        dados.username.strip()
+    )
+
+    chave = _login_key(
+        request,
+        username,
+    )
+
+    _verificar_rate_limit(
+        chave
+    )
 
     stmt = select(User).where(
-        func.lower(User.username) == username.lower()
+        func.lower(
+            User.username
+        )
+        == username.lower()
     )
 
     user = db.scalar(stmt)
@@ -112,12 +291,27 @@ def login(
     if (
         user is None
         or not user.ativo
-        or not verify_password(dados.password, user.password_hash)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário ou senha inválidos.",
+        or not verify_password(
+            dados.password,
+            user.password_hash,
         )
+    ):
+        _registrar_falha_login(
+            chave
+        )
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "Usuário ou senha inválidos."
+            ),
+        )
+
+    _limpar_falhas_login(
+        chave
+    )
 
     token = create_access_token(
         user_id=user.id,
@@ -134,18 +328,26 @@ def login(
 
 @router.get("/me")
 def me(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
-    return user_publico(current_user)
+    return user_publico(
+        current_user
+    )
 
 
 @router.patch("/me")
 def atualizar_me(
     dados: UpdateMeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ):
-    nome = dados.display_name.strip()
+    nome = (
+        dados.display_name.strip()
+    )
 
     if not nome:
         raise HTTPException(
@@ -156,6 +358,10 @@ def atualizar_me(
     current_user.display_name = nome
 
     db.commit()
-    db.refresh(current_user)
+    db.refresh(
+        current_user
+    )
 
-    return user_publico(current_user)
+    return user_publico(
+        current_user
+    )

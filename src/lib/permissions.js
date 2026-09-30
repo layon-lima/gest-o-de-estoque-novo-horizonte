@@ -1,14 +1,13 @@
 // Definição das páginas do app e helpers de controle de acesso por usuário.
 export const PAGES = [
   { key: 'dashboard', label: 'Pesquisa', path: '/' },
-  { key: 'movimentacoes', label: 'Entradas e Saídas', path: '/movimentacoes' },
+  { key: 'movimentacoes', label: 'Movimentos', path: '/movimentacoes' },
   { key: 'abastecimento', label: 'Abastecimento', path: '/abastecimento' },
   { key: 'pesagem', label: 'Pesagem', path: '/pesagem' },
   { key: 'aplicacao', label: 'Aplicação', path: '/aplicacao' },
   { key: 'cadastros', label: 'Cadastros', path: '/cadastros' },
   { key: 'relatorios', label: 'Relatórios', path: '/relatorios' },
   { key: 'inventario', label: 'Inventário', path: '/inventario' },
-  { key: 'portaria', label: 'Portaria', path: '/portaria' },
 ];
 
 export const USUARIOS_PATH = '/usuarios';

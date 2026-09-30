@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatQtd } from '@/lib/format';
 import { custoPorLavoura } from '@/lib/osAplicacao';
 
-// Relatório de custo detalhado por lavoura: agrega todas as OS executadas.
+// Relatório de custo detalhado por lavoura: agrega todas as aplicação baixadas.
 export default function CustoLavouraDialog({ open, onOpenChange, lavoura, ordens }) {
   const dados = useMemo(() => {
     if (!lavoura) return null;
@@ -26,7 +26,7 @@ export default function CustoLavouraDialog({ open, onOpenChange, lavoura, ordens
           <div className="flex flex-wrap gap-3">
             {lavoura.numero && <Badge variant="secondary">Nº {lavoura.numero}</Badge>}
             <Badge variant="secondary">{formatQtd(lavoura.hectares || 0)} ha</Badge>
-            <Badge variant="secondary">{dados.qtdOS} OS executada(s)</Badge>
+            <Badge variant="secondary">{dados.qtdOS} aplicação(ões) baixada(s)</Badge>
             <Badge className="bg-primary text-primary-foreground">Custo Total: R$ {dados.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Badge>
             {lavoura.hectares > 0 && (
               <Badge className="bg-primary/15 text-primary border-transparent">
@@ -36,7 +36,7 @@ export default function CustoLavouraDialog({ open, onOpenChange, lavoura, ordens
           </div>
 
           {dados.produtos.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nenhuma OS executada para esta lavoura ainda.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">Nenhuma aplicação baixada para esta lavoura ainda.</p>
           ) : (
             <div className="border rounded-lg overflow-x-auto scrollbar-thin">
               <table className="min-w-full w-auto text-sm">

@@ -80,7 +80,6 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
         const setor = setores.find((s) => s.id === p.setor_id);
         return /defensivo|adubo/i.test(setor?.nome || '');
       })
-      .filter((p) => saldoProduto(p.id, saldos) > 0)
       .filter((p) => !itens.some((it) => it.produto_id === p.id))
       .filter((p) => !q || (p.nome || '').toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q));
   }, [produtos, saldos, itens, busca, setores]);
@@ -162,6 +161,24 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
       toast({ variant: 'destructive', title: 'Lavoura sem hectares definidos' });
       return false;
     }
+    const semDeposito = itens.find((it) => !it.deposito_id);
+    if (semDeposito) {
+      toast({
+        variant: 'destructive',
+        title: 'Depósito obrigatório',
+        description: `Defina o depósito para ${semDeposito.nome}.`,
+      });
+      return false;
+    }
+    const semPrevisto = itens.find((it) => (Number(it.previsto) || 0) <= 0);
+    if (semPrevisto) {
+      toast({
+        variant: 'destructive',
+        title: 'Quantidade prevista obrigatória',
+        description: `Informe a dose/ha ou o total para ${semPrevisto.nome}.`,
+      });
+      return false;
+    }
     return true;
   }
 
@@ -182,7 +199,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           itens: stringifyItens(itens),
           observacao: form.observacao,
         });
-        toast({ title: 'OS atualizada', description: os.numero });
+        toast({ title: 'Aplicação atualizada', description: os.numero });
         invalidateEntidade('OrdemServicoAplicacao');
         onSaved?.({
           ...os,
@@ -207,13 +224,13 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           lavoura_nome: lavoura?.nome || '',
           hectares,
           itens: stringifyItens(itens),
-          status: 'aberta',
+          status: 'pendente',
           data: new Date().toISOString(),
           responsavel: user?.full_name || user?.email || '',
           observacao: form.observacao,
           custo_total: 0,
         });
-        toast({ title: 'OS criada', description: numero });
+        toast({ title: 'Aplicação criada', description: numero });
         invalidateEntidade('OrdemServicoAplicacao');
         onSaved?.(created);
         onOpenChange(false);
@@ -233,10 +250,10 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent fullscreen>
         <DialogHeader>
-          <DialogTitle>{editing ? `Editar OS ${os.numero}` : 'Nova Ordem de Serviço de Aplicação'}</DialogTitle>
+          <DialogTitle>{editing ? `Editar Aplicação ${os.numero}` : 'Nova Aplicação'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 max-w-6xl mx-auto w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 max-w-[1500px] mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 rounded-2xl border bg-card p-4">
             <div className="space-y-1.5">
               <Label>Cultura *</Label>
               <SearchSelect
@@ -280,9 +297,9 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
           )}
 
           {/* Seleção de produtos */}
-          <div className="space-y-2 rounded-lg border p-3">
-            <Label>Adicionar produtos (defensivos/adubos com saldo)</Label>
-            <p className="text-xs text-muted-foreground -mt-1">Aparecem apenas produtos dos setores Defensivos e Adubos.</p>
+          <div className="space-y-3 rounded-2xl border bg-card p-4">
+            <Label>Adicionar insumos</Label>
+            <p className="text-xs text-muted-foreground -mt-1">Planeje os insumos agora; o saldo será validado no depósito escolhido no momento da baixa.</p>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou código..." className="pl-9" />
@@ -303,7 +320,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
 
           {/* Tabela de itens */}
           {itens.length > 0 && (
-            <div className="border rounded-lg overflow-x-auto scrollbar-thin">
+            <div className="border rounded-xl overflow-x-auto scrollbar-thin">
               <table className="min-w-full w-auto text-sm">
                 <thead className="bg-muted/50">
                   <tr>
@@ -354,7 +371,6 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
                             allLabel="— Selecione —"
                             placeholder="Depósito..."
                             options={depositos
-                              .filter((d) => saldoProduto(it.produto_id, saldos.filter((s) => s.deposito_id === d.id)) > 0)
                               .map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
                           />
                         </td>
@@ -376,7 +392,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="button" onClick={handleSubmit} disabled={saving}>{saving ? 'Salvando…' : editing ? 'Salvar Alterações' : 'Criar OS'}</Button>
+            <Button type="button" onClick={handleSubmit} disabled={saving}>{saving ? 'Salvando…' : editing ? 'Salvar Alterações' : 'Criar Aplicação'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -388,13 +404,13 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
             <AlertDialogDescription>
               {editing
                 ? <>Você está editando a OS <b className="font-mono">{os?.numero}</b>. Os produtos, doses e depósitos serão atualizados. Deseja confirmar?</>
-                : 'Será criada uma nova Ordem de Serviço de Aplicação com os produtos e doses informados. Deseja confirmar?'}
+                : 'Será criada uma nova Aplicação com os produtos e doses informados. Deseja confirmar?'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={persist} disabled={saving}>
-              {saving ? 'Salvando…' : editing ? 'Confirmar alterações' : 'Criar OS'}
+              {saving ? 'Salvando…' : editing ? 'Confirmar alterações' : 'Criar Aplicação'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -7,7 +7,6 @@ import {
   FileBarChart,
   Fuel,
   Scale,
-  IdCard,
   Sprout,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -23,7 +22,6 @@ const allItems = [
   { key: 'pesagem', to: '/pesagem', label: 'Pesagem', icon: Scale, end: false },
   { key: 'aplicacao', to: '/aplicacao', label: 'Aplicação', icon: Sprout, end: false },
   { key: 'cadastros', to: '/cadastros', label: 'Cadastros', icon: Settings, end: false },
-  { key: 'portaria', to: '/portaria', label: 'Portaria', icon: IdCard, end: false },
   { key: 'relatorios', to: '/relatorios', label: 'Relatórios', icon: FileBarChart, end: false },
 ];
 

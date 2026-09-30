@@ -1,9 +1,20 @@
-// Retorna os setores visíveis para o usuário no mobile (tem_aba_mobile + setores_permitidos).
-// O admin também respeita setores_permitidos (igual aos usuários comuns).
+// Define quais setores aparecem no mobile.
+// Administradores enxergam todos os setores.
+// Usuários padrão enxergam somente os IDs gravados em setores_permitidos.
 export function setoresAcessiveis(setores, user) {
   if (!user) return [];
-  const permitidos = Array.isArray(user.setores_permitidos) ? user.setores_permitidos : [];
-  return (setores || [])
-    .filter((s) => s.tem_aba_mobile === true)
-    .filter((s) => permitidos.includes(s.id));
+
+  const lista = Array.isArray(setores) ? setores : [];
+
+  if (user.role === 'admin') {
+    return lista;
+  }
+
+  const permitidos = Array.isArray(user.setores_permitidos)
+    ? user.setores_permitidos
+    : [];
+
+  const idsPermitidos = new Set(permitidos);
+
+  return lista.filter((setor) => idsPermitidos.has(setor.id));
 }

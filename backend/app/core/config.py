@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     SECRET_KEY: str
+
+    APP_HOST: str = "0.0.0.0"
+    APP_PORT: int = 8000
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",

@@ -134,7 +134,7 @@ class OrdemServicoAplicacao(Base44CompatMixin, Base):
     lavoura_nome = mapped_column(String(255), nullable=True)
     hectares = mapped_column(Float, nullable=False, default=0)
     itens = mapped_column(Text, nullable=True)
-    status = mapped_column(String(30), nullable=False, default="aberta", index=True)
+    status = mapped_column(String(30), nullable=False, default="pendente", index=True)
     data = mapped_column(DateTime(timezone=True), nullable=False)
     data_execucao = mapped_column(DateTime(timezone=True), nullable=True)
     responsavel = mapped_column(String(255), nullable=True)
@@ -252,6 +252,9 @@ class TicketPesagem(Base44CompatMixin, Base):
     nfe_produto = mapped_column(String(255), nullable=True)
     nfe_motorista = mapped_column(String(255), nullable=True)
     nfe_chave = mapped_column(String(100), nullable=True, index=True)
+    nfe_cliente = mapped_column(String(255), nullable=True)
+    nfe_quantidade = mapped_column(Float, nullable=True, default=0)
+    nfe_valor = mapped_column(Float, nullable=True, default=0)
 
 
 
@@ -265,6 +268,9 @@ class User(Base44CompatMixin, Base):
 
     pode_confirmar_abastecimento = mapped_column(Boolean, nullable=False, default=False)
     pode_digitar_peso = mapped_column(Boolean, nullable=False, default=False)
+    pode_baixar_mobile = mapped_column(Boolean, nullable=False, default=False)
+    pode_mudar_gaveta_mobile = mapped_column(Boolean, nullable=False, default=False)
+    pode_mudar_deposito_mobile = mapped_column(Boolean, nullable=False, default=False)
 
     paginas_permitidas = mapped_column(Text, nullable=True)
     setores_permitidos = mapped_column(Text, nullable=True)
@@ -284,3 +290,45 @@ class Veiculo(Base44CompatMixin, Base):
     transportadora_id = mapped_column(String(100), nullable=True, index=True)
     motorista_id = mapped_column(String(100), nullable=True, index=True)
     observacao = mapped_column(Text, nullable=True)
+
+
+class AuditoriaERP(Base44CompatMixin, Base):
+    __tablename__ = "auditoria_erp"
+
+    usuario_id = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    usuario_nome = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
+    acao = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+    entidade = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+    registro_id = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    antes_json = mapped_column(
+        Text,
+        nullable=True,
+    )
+    depois_json = mapped_column(
+        Text,
+        nullable=True,
+    )
+    detalhe = mapped_column(
+        Text,
+        nullable=True,
+    )

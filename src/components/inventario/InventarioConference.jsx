@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,164 +16,244 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import SearchSelect from '@/components/SearchSelect';
 import {
-  ClipboardList,
-  CheckCircle2,
   AlertTriangle,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  FileCheck2,
+  FolderOpen,
+  Package,
+  RefreshCw,
   Save,
   Search,
-  Package,
-  ChevronRight,
-  Check,
-  FolderOpen,
-  Users,
+  Warehouse,
   X,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { getDisplayName } from '@/lib/userName';
 import {
-  nextInventarioNumber,
-  filterProdutosParaInventario,
-  qtdSistema,
-  buildCriteriosDescricao,
   aplicarAjusteInventario,
+  buildCriteriosDescricao,
+  criteriosKey,
+  filterProdutosParaInventario,
+  nextInventarioNumber,
+  parseInventarioCriterios,
+  qtdSistema,
 } from '@/lib/inventario';
 
-const emptyCriterios = { deposito_id: '', gaveta_id: '', maquina_id: '' };
+const emptyCriterios = {
+  deposito_id: '',
+  setor_id: '',
+  gaveta_id: '',
+  maquina_id: '',
+};
 
-function criteriosKey(c) {
-  return JSON.stringify({
-    deposito_id: c.deposito_id || '',
-    gaveta_id: c.gaveta_id || '',
-    maquina_id: c.maquina_id || '',
-  });
+function depositoLabel(deposito) {
+  if (!deposito) return '—';
+  return `${deposito.numero || ''}${deposito.numero && deposito.nome ? ' · ' : ''}${deposito.nome || ''}` || '—';
+}
+
+function maquinaLabel(maquina) {
+  if (!maquina) return '—';
+  return `${maquina.codigo || ''}${maquina.codigo && maquina.nome ? ' · ' : ''}${maquina.nome || ''}` || '—';
 }
 
 export default function InventarioConference({
   open,
   onOpenChange,
-  setor,
-  produtos,
-  depositos,
-  maquinas,
-  gavetas,
-  lotes,
+  setores = [],
+  produtos = [],
+  depositos = [],
+  maquinas = [],
+  gavetas = [],
+  saldos = [],
   user,
   onSaved,
   initialInventarioId,
-  onInventarioAberto,
 }) {
   const { toast } = useToast();
-  const [step, setStep] = usePersistentState(`inv:step:${setor?.id}`, 'criterios');
-  const [inventarioId, setInventarioId] = usePersistentState(`inv:id:${setor?.id}`, null);
+  const [step, setStep] = useState('criterios');
   const [criterios, setCriterios] = useState(emptyCriterios);
   const [inventario, setInventario] = useState(null);
   const [items, setItems] = useState([]);
+  const [abertos, setAbertos] = useState([]);
   const [busca, setBusca] = useState('');
   const [ativoId, setAtivoId] = useState(null);
   const [qtdInput, setQtdInput] = useState('');
-  const [abertos, setAbertos] = useState([]);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [concluindo, setConcluindo] = useState(false);
-  const [resultado, setResultado] = useState(null);
   const [confirmConcluir, setConfirmConcluir] = useState(false);
+  const [resultado, setResultado] = useState(null);
   const [aplicando, setAplicando] = useState(false);
   const [aplicado, setAplicado] = useState(null);
   const inputRef = useRef(null);
 
-  // Voltar do sistema (mobile) caminha pelos passos na ordem inversa antes de fechar.
   useBackHandler(open && step === 'criterios', () => handleClose(false));
-  useBackHandler(open && step === 'documento', () => setStep('criterios'));
+  useBackHandler(open && step === 'documento', () => handleClose(false));
   useBackHandler(open && step === 'resultado', () => setStep('documento'));
   useBackHandler(open && !!confirmConcluir, () => setConfirmConcluir(false));
   useBackHandler(open && !!aviso, () => setAviso(null));
 
   useEffect(() => {
-    if (open && (initialInventarioId || inventarioId) && !inventario) {
-      abrirDocumento(initialInventarioId || inventarioId);
+    if (!open) return;
+
+    if (initialInventarioId) {
+      abrirDocumento(initialInventarioId);
+      return;
     }
-  }, [open, initialInventarioId, inventarioId]);
+
+    setStep('criterios');
+    carregarAbertos();
+  }, [open, initialInventarioId]);
 
   useEffect(() => {
-    if (open && step === 'criterios' && setor) {
-      base44.entities.Inventario.filter({ setor_id: setor.id, status: 'aberto' })
-        .then((r) => setAbertos(r))
-        .catch(() => setAbertos([]));
-    }
-  }, [open, step, setor]);
+    if (!inventario) return undefined;
 
-  useEffect(() => {
-    if (!inventario) return;
     let active = true;
     base44.entities.InventarioItem.filter({ inventario_id: inventario.id })
-      .then((r) => { if (active) setItems(r); })
+      .then((rows) => {
+        if (active) setItems(rows || []);
+      })
       .catch(() => {});
+
     const unsub = base44.entities.InventarioItem.subscribe((event) => {
       const rec = event.data;
       if (rec && rec.inventario_id !== inventario.id) return;
+
       setItems((prev) => {
-        if (event.type === 'delete') return prev.filter((i) => i.id !== event.id);
-        const exists = prev.some((i) => i.id === event.id);
-        return exists ? prev.map((i) => (i.id === event.id ? rec : i)) : [...prev, rec];
+        if (event.type === 'delete') return prev.filter((item) => item.id !== event.id);
+        const exists = prev.some((item) => item.id === event.id);
+        return exists
+          ? prev.map((item) => (item.id === event.id ? rec : item))
+          : [...prev, rec];
       });
     });
-    return () => { active = false; unsub?.(); };
-  }, [inventario]);
 
-  const criteriosDoc = useMemo(() => {
-    if (inventario?.criterios) {
-      try { return JSON.parse(inventario.criterios); } catch { return emptyCriterios; }
-    }
-    return criterios;
-  }, [inventario, criterios]);
+    return () => {
+      active = false;
+      unsub?.();
+    };
+  }, [inventario?.id]);
 
-  const alvo = useMemo(
-    () => filterProdutosParaInventario(produtos || [], setor?.id, criteriosDoc, lotes || []),
-    [produtos, setor, criteriosDoc, lotes]
+  const criteriosDoc = useMemo(
+    () => (inventario ? parseInventarioCriterios(inventario) : criterios),
+    [inventario, criterios]
   );
 
-  const contadosIds = useMemo(() => new Set(items.map((i) => i.produto_id)), [items]);
-  const pendentes = useMemo(() => alvo.filter((p) => !contadosIds.has(p.id)), [alvo, contadosIds]);
+  const depositoAtual = useMemo(
+    () => depositos.find((d) => d.id === criteriosDoc.deposito_id) || null,
+    [depositos, criteriosDoc.deposito_id]
+  );
+
+  const setorAtual = useMemo(
+    () => setores.find((s) => s.id === criteriosDoc.setor_id) || null,
+    [setores, criteriosDoc.setor_id]
+  );
+
+  const alvo = useMemo(
+    () => filterProdutosParaInventario(produtos, saldos, criteriosDoc),
+    [produtos, saldos, criteriosDoc]
+  );
+
+  const previewAlvo = useMemo(
+    () => filterProdutosParaInventario(produtos, saldos, criterios),
+    [produtos, saldos, criterios]
+  );
+
+  const itemMap = useMemo(() => new Map(items.map((item) => [item.produto_id, item])), [items]);
+  const contadosIds = useMemo(() => new Set(items.map((item) => item.produto_id)), [items]);
+  const pendentes = useMemo(() => alvo.filter((produto) => !contadosIds.has(produto.id)), [alvo, contadosIds]);
   const conferidosCount = alvo.length - pendentes.length;
   const total = alvo.length;
   const pct = total ? Math.round((conferidosCount / total) * 100) : 0;
 
-  const produtoAtivo = useMemo(() => {
-    if (!ativoId) return null;
-    return alvo.find((p) => p.id === ativoId) || null;
-  }, [ativoId, alvo]);
+  const produtoAtivo = useMemo(
+    () => alvo.find((produto) => produto.id === ativoId) || null,
+    [alvo, ativoId]
+  );
+
+  const sistAtivo = produtoAtivo ? qtdSistema(produtoAtivo, saldos, criteriosDoc) : 0;
+  const diffLive =
+    qtdInput.trim() !== '' && produtoAtivo
+      ? parseQtd(qtdInput) - sistAtivo
+      : null;
 
   const resultadosBusca = useMemo(() => {
-    const q = busca.toLowerCase().trim();
-    if (!q) return [];
-    return pendentes.filter((p) =>
-      (p.nome || '').toLowerCase().includes(q) ||
-      (p.codigo || '').toLowerCase().includes(q) ||
-      (p.codigo_referencia || '').toLowerCase().includes(q)
+    const termo = busca.trim().toLowerCase();
+    const base = termo
+      ? alvo.filter((produto) =>
+          [produto.nome, produto.codigo, produto.codigo_referencia]
+            .filter(Boolean)
+            .some((valor) => String(valor).toLowerCase().includes(termo))
+        )
+      : pendentes.slice(0, 30);
+
+    return [...base].sort((a, b) => {
+      const aContado = contadosIds.has(a.id) ? 1 : 0;
+      const bContado = contadosIds.has(b.id) ? 1 : 0;
+      if (aContado !== bContado) return aContado - bContado;
+      return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
+    });
+  }, [alvo, busca, pendentes, contadosIds]);
+
+  const gavetasDisponiveis = useMemo(
+    () => gavetas.filter((gaveta) => !criterios.deposito_id || gaveta.deposito_id === criterios.deposito_id),
+    [gavetas, criterios.deposito_id]
+  );
+
+  const maquinasDisponiveis = useMemo(
+    () =>
+      maquinas.filter(
+        (maquina) =>
+          !criterios.deposito_id ||
+          !maquina.deposito_id ||
+          maquina.deposito_id === criterios.deposito_id
+      ),
+    [maquinas, criterios.deposito_id]
+  );
+
+  const abertosVisiveis = useMemo(() => {
+    if (!criterios.deposito_id) return abertos.slice(0, 8);
+    return abertos.filter(
+      (doc) => parseInventarioCriterios(doc).deposito_id === criterios.deposito_id
     );
-  }, [pendentes, busca]);
+  }, [abertos, criterios.deposito_id]);
 
-  const sistAtivo = produtoAtivo ? qtdSistema(produtoAtivo, lotes || []) : 0;
-  const diffLive = qtdInput.trim() !== '' && produtoAtivo ? parseQtd(qtdInput) - sistAtivo : null;
-
-  // Foco automático + limpa o campo ao trocar de produto
   useEffect(() => {
     if (step === 'documento' && produtoAtivo) {
       setQtdInput('');
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => inputRef.current?.focus(), 80);
+      return () => clearTimeout(timer);
     }
+    return undefined;
   }, [produtoAtivo?.id, step]);
+
+  async function carregarAbertos() {
+    try {
+      const rows = await base44.entities.Inventario.filter({ status: 'aberto' }, '-data', 100);
+      setAbertos(rows || []);
+    } catch {
+      setAbertos([]);
+    }
+  }
 
   function reset() {
     setStep('criterios');
-    setInventarioId(null);
     setCriterios(emptyCriterios);
     setInventario(null);
     setItems([]);
@@ -183,49 +263,104 @@ export default function InventarioConference({
     setAviso(null);
     setResultado(null);
     setAplicado(null);
+    setConfirmConcluir(false);
   }
 
-  function handleClose(o) {
-    if (!o) reset();
-    onOpenChange?.(o);
+  function handleClose(value) {
+    if (!value) reset();
+    onOpenChange?.(value);
   }
 
   async function abrirDocumento(id) {
     setLoadingDoc(true);
     try {
       const doc = await base44.entities.Inventario.get(id);
+      const escopo = parseInventarioCriterios(doc);
+
+      if (!escopo.deposito_id) {
+        setCriterios({ ...emptyCriterios, setor_id: escopo.setor_id || '' });
+        setInventario(null);
+        setStep('criterios');
+        toast({
+          variant: 'destructive',
+          title: 'Inventário antigo sem depósito',
+          description: 'A nova estrutura exige um depósito. Selecione o depósito e abra um novo documento.',
+        });
+        return;
+      }
+
+      setCriterios(escopo);
       setInventario(doc);
-      setInventarioId(doc.id);
-      onInventarioAberto?.(doc.id);
       setItems([]);
-      setBusca(''); setAtivoId(null); setQtdInput(''); setAviso(null); setResultado(null);
+      setBusca('');
+      setAtivoId(null);
+      setQtdInput('');
+      setAviso(null);
+      setResultado(null);
+      setAplicado(null);
       setStep('documento');
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Erro ao abrir documento', description: e?.message });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao abrir inventário',
+        description: error?.message,
+      });
     } finally {
       setLoadingDoc(false);
     }
   }
 
+  function atualizarCriterio(campo, valor) {
+    setCriterios((prev) => {
+      const next = { ...prev, [campo]: valor === 'all' ? '' : valor };
+      if (campo === 'deposito_id') {
+        next.gaveta_id = '';
+        next.maquina_id = '';
+      }
+      return next;
+    });
+  }
+
   async function iniciar() {
+    if (!criterios.deposito_id) {
+      toast({
+        variant: 'destructive',
+        title: 'Depósito obrigatório',
+        description: 'Selecione o depósito que será contado.',
+      });
+      return;
+    }
+
     setLoadingDoc(true);
     try {
       const key = criteriosKey(criterios);
-      const abertosSetor = await base44.entities.Inventario.filter({ setor_id: setor.id, status: 'aberto' });
-      const existente = abertosSetor.find((a) => (a.criterios || '') === key);
-      let doc;
+      const documentosAbertos = await base44.entities.Inventario.filter({ status: 'aberto' }, '-data', 200);
+      const existente = (documentosAbertos || []).find(
+        (doc) => criteriosKey(parseInventarioCriterios(doc)) === key
+      );
+
+      let doc = existente;
       if (existente) {
-        doc = existente;
-        toast({ title: 'Documento em aberto', description: 'Entrando no inventário já existente para este setor/critério.' });
+        toast({
+          title: 'Documento em aberto',
+          description: 'Retomando o inventário já existente para este mesmo escopo.',
+        });
       } else {
         const todos = await base44.entities.Inventario.list('-data', 500);
+        const setorSelecionado = setores.find((s) => s.id === criterios.setor_id);
         doc = await base44.entities.Inventario.create({
           numero: nextInventarioNumber(todos),
           data: new Date().toISOString(),
-          setor_id: setor.id,
-          setor_nome: setor.nome,
+          setor_id: criterios.setor_id || '',
+          setor_nome: setorSelecionado?.nome || '',
           criterios: key,
-          criterios_descricao: buildCriteriosDescricao(criterios, depositos, maquinas, gavetas),
+          criterios_descricao: buildCriteriosDescricao(
+            criterios,
+            depositos,
+            setores,
+            maquinas,
+            gavetas
+          ),
           status: 'aberto',
           responsavel: getDisplayName(user),
           total_itens: 0,
@@ -234,31 +369,51 @@ export default function InventarioConference({
           resultado: 'consistente',
         });
       }
+
       setInventario(doc);
-      setInventarioId(doc.id);
-      onInventarioAberto?.(doc.id);
       setItems([]);
-      setBusca(''); setAtivoId(null); setQtdInput(''); setAviso(null); setResultado(null);
+      setBusca('');
+      setAtivoId(null);
+      setQtdInput('');
+      setResultado(null);
+      setAplicado(null);
       setStep('documento');
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Erro ao iniciar', description: e?.message });
+      onSaved?.();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao iniciar inventário',
+        description: error?.message,
+      });
     } finally {
       setLoadingDoc(false);
     }
   }
 
+  function selecionarProduto(produto) {
+    const itemExistente = itemMap.get(produto.id);
+    if (itemExistente) {
+      setAviso({ item: itemExistente, produto, qty: String(itemExistente.qtd_contada ?? '') });
+      return;
+    }
+
+    setAtivoId(produto.id);
+    setBusca('');
+  }
+
   async function confirmar() {
     if (!produtoAtivo || !inventario) return;
+
     if (qtdInput.trim() === '') {
-      toast({ variant: 'destructive', title: 'Informe a quantidade', description: 'Digite a quantidade contada para confirmar.' });
+      toast({
+        variant: 'destructive',
+        title: 'Informe a quantidade',
+        description: 'Digite a quantidade física encontrada.',
+      });
       return;
     }
+
     const val = parseQtd(qtdInput);
-    if (contadosIds.has(produtoAtivo.id)) {
-      const item = items.find((i) => i.produto_id === produtoAtivo.id);
-      setAviso({ item, produto: produtoAtivo, qty: '' });
-      return;
-    }
     try {
       await base44.entities.InventarioItem.create({
         inventario_id: inventario.id,
@@ -266,73 +421,89 @@ export default function InventarioConference({
         codigo: produtoAtivo.codigo,
         nome: produtoAtivo.nome,
         unidade: produtoAtivo.unidade || 'un',
-        qtd_sistema: qtdSistema(produtoAtivo, lotes || []),
+        qtd_sistema: qtdSistema(produtoAtivo, saldos, criteriosDoc),
         qtd_contada: val,
         responsavel: getDisplayName(user),
         data: new Date().toISOString(),
       });
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Erro ao registrar contagem', description: e?.message });
-      return;
+      setAtivoId(null);
+      setQtdInput('');
+      setBusca('');
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao registrar contagem',
+        description: error?.message,
+      });
     }
-    setAtivoId(null);
-    setQtdInput('');
-    setBusca('');
   }
 
   async function aplicarAviso(modo) {
     if (!aviso) return;
-    if (aviso.qty.trim() === '') {
+    if (String(aviso.qty || '').trim() === '') {
       toast({ variant: 'destructive', title: 'Informe a quantidade' });
       return;
     }
+
     const val = parseQtd(aviso.qty);
-    const item = aviso.item;
     try {
-      const nova = modo === 'add' ? (Number(item.qtd_contada) || 0) + val : val;
-      await base44.entities.InventarioItem.update(item.id, {
+      const nova = modo === 'add'
+        ? (Number(aviso.item.qtd_contada) || 0) + val
+        : val;
+
+      await base44.entities.InventarioItem.update(aviso.item.id, {
         qtd_contada: nova,
         responsavel: getDisplayName(user),
         data: new Date().toISOString(),
       });
-      toast({ title: modo === 'add' ? 'Quantidade adicionada' : 'Quantidade recontada' });
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: e?.message });
+
+      toast({ title: modo === 'add' ? 'Quantidade adicionada' : 'Contagem atualizada' });
+      setAviso(null);
+      setAtivoId(null);
+      setQtdInput('');
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar contagem',
+        description: error?.message,
+      });
     }
-    setAviso(null);
-    setQtdInput('');
-    setBusca('');
   }
 
   async function concluir() {
     if (!inventario) return;
     setConcluindo(true);
+
     try {
       const itensDb = await base44.entities.InventarioItem.filter({ inventario_id: inventario.id });
-      const contagemMap = {};
-      itensDb.forEach((it) => { contagemMap[it.produto_id] = it; });
-      const itens = alvo.map((p) => {
-        const sist = qtdSistema(p, lotes || []);
-        const it = contagemMap[p.id];
-        const cont = it ? (Number(it.qtd_contada) || 0) : 0;
+      const contagemMap = new Map((itensDb || []).map((item) => [item.produto_id, item]));
+
+      const itensResultado = alvo.map((produto) => {
+        const sist = qtdSistema(produto, saldos, criteriosDoc);
+        const item = contagemMap.get(produto.id);
+        const cont = item ? Number(item.qtd_contada) || 0 : sist;
+        const divergencia = cont - sist;
+
         return {
-          produto_id: p.id,
-          codigo: p.codigo,
-          nome: p.nome,
-          unidade: p.unidade || 'un',
+          produto_id: produto.id,
+          codigo: produto.codigo,
+          nome: produto.nome,
+          unidade: produto.unidade || 'un',
           qtd_sistema: sist,
           qtd_contada: cont,
-          divergencia: cont - sist,
-          status: cont === sist ? 'acerto' : 'divergencia',
-          responsavel: it?.responsavel || '',
+          divergencia,
+          status: Math.abs(divergencia) < 0.0001 ? 'acerto' : 'divergencia',
+          responsavel: item?.responsavel || '',
         };
       });
-      const total_itens = itens.length;
-      const total_acertos = itens.filter((i) => i.status === 'acerto').length;
+
+      const total_itens = itensResultado.length;
+      const total_acertos = itensResultado.filter((item) => item.status === 'acerto').length;
       const total_divergencias = total_itens - total_acertos;
       const resultadoCalc = total_divergencias === 0 ? 'consistente' : 'divergente';
+
       await base44.entities.Inventario.update(inventario.id, {
-        itens: JSON.stringify(itens),
+        itens: JSON.stringify(itensResultado),
         total_itens,
         total_acertos,
         total_divergencias,
@@ -340,11 +511,23 @@ export default function InventarioConference({
         status: 'concluido',
         data_fechamento: new Date().toISOString(),
       });
-      setResultado({ itens, total_itens, total_acertos, total_divergencias, resultado: resultadoCalc });
+
+      setResultado({
+        itens: itensResultado,
+        total_itens,
+        total_acertos,
+        total_divergencias,
+        resultado: resultadoCalc,
+      });
+      setConfirmConcluir(false);
       setStep('resultado');
       onSaved?.();
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Erro ao concluir', description: e?.message });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao concluir inventário',
+        description: error?.message,
+      });
     } finally {
       setConcluindo(false);
     }
@@ -353,336 +536,584 @@ export default function InventarioConference({
   async function aplicarAjustes() {
     if (!inventario || !resultado) return;
     setAplicando(true);
+
     try {
-      const { aplicados, total } = await aplicarAjusteInventario({
+      const resposta = await aplicarAjusteInventario({
         inventario,
         itens: resultado.itens,
         produtos,
-        setor,
+        setores,
+        criterios: criteriosDoc,
       });
-      setAplicado({ aplicados, total });
-      toast({ title: 'Saldo atualizado', description: `${aplicados} de ${total} divergências aplicadas ao estoque.` });
+
+      setAplicado(resposta);
+      toast({
+        title: 'Ajustes postados',
+        description: `${resposta.aplicados} de ${resposta.total} divergências foram enviadas ao motor de estoque.`,
+      });
       onSaved?.();
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Erro ao aplicar ajuste', description: e?.message });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao postar ajustes',
+        description: error?.message,
+      });
     } finally {
       setAplicando(false);
     }
   }
 
-  const depositosSetor = useMemo(
-    () => (depositos || []).filter((d) => d.setor_id === setor?.id),
-    [depositos, setor]
-  );
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex flex-col gap-0 p-0 max-sm:!h-[100dvh] max-sm:!max-h-none max-sm:!max-w-none max-sm:!w-screen max-sm:!inset-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none sm:max-w-2xl sm:max-h-[92vh]">
-        {/* Header fixo */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card px-4 pt-safe pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <ClipboardList className="w-5 h-5 text-primary shrink-0" />
+      <DialogContent className="flex max-h-[94vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1180px] max-sm:!h-[100dvh] max-sm:!max-h-none max-sm:!w-screen max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none">
+        <div className="flex items-center justify-between gap-3 border-b bg-muted/20 px-5 py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700">
+              <ClipboardList className="h-4 w-4" />
+            </div>
             <div className="min-w-0">
-              <DialogTitle className="font-semibold leading-tight truncate text-sm">
-                Inventário — {setor?.nome}
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Inventário físico
+              </p>
+              <DialogTitle className="truncate text-base font-semibold">
+                {inventario ? inventario.numero : 'Novo documento'}
               </DialogTitle>
-              {inventario && (
-                <span className="text-[11px] font-mono text-primary">{inventario.numero}</span>
-              )}
+              {inventario ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  {depositoLabel(depositoAtual)} · {setorAtual?.nome || 'Todos os setores'}
+                </p>
+              ) : null}
             </div>
           </div>
-          <button
-            onClick={() => handleClose(false)}
-            className="p-2 -mr-2 rounded-md hover:bg-accent shrink-0"
-            aria-label="Fechar"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {step === 'documento' && inventario ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setConfirmConcluir(true)}
+                disabled={concluindo || total === 0}
+              >
+                <FileCheck2 className="h-4 w-4" />
+                Concluir
+              </Button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => handleClose(false)}
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Fechar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Corpo rolável */}
-        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-4 py-4 space-y-4">
-          {step === 'criterios' && (
-            <div className="space-y-4">
-              {abertos.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold flex items-center gap-1.5">
-                    <FolderOpen className="w-4 h-4" /> Documentos em aberto deste setor
-                  </p>
-                  {abertos.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => abrirDocumento(d.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent text-left transition-colors"
-                    >
-                      <FolderOpen className="w-4 h-4 text-amber-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">{d.numero}</span>
-                        <p className="text-xs text-muted-foreground truncate mt-1">{d.criterios_descricao || 'Sem critérios'}</p>
-                      </div>
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-700">Em aberto</Badge>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Selecione critérios para filtrar quais produtos serão conferidos (opcional). Sem critérios, todos os produtos do setor serão listados.
-              </p>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>Depósito</Label>
-                  <SearchSelect
-                    value={criterios.deposito_id}
-                    onChange={(v) => setCriterios({ ...criterios, deposito_id: v === 'all' ? '' : v })}
-                    allLabel="— Qualquer —"
-                    placeholder="Buscar depósito..."
-                    options={depositosSetor.map((d) => ({ value: d.id, label: `${d.numero}${d.nome ? ' · ' + d.nome : ''}` }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Gaveta</Label>
-                  <SearchSelect
-                    value={criterios.gaveta_id}
-                    onChange={(v) => setCriterios({ ...criterios, gaveta_id: v === 'all' ? '' : v })}
-                    allLabel="— Qualquer —"
-                    placeholder="Buscar gaveta..."
-                    options={gavetas.map((g) => ({ value: g.id, label: g.codigo }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Máquina</Label>
-                  <SearchSelect
-                    value={criterios.maquina_id}
-                    onChange={(v) => setCriterios({ ...criterios, maquina_id: v === 'all' ? '' : v })}
-                    allLabel="— Qualquer —"
-                    placeholder="Buscar máquina..."
-                    options={maquinas.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nome}` }))}
-                  />
-                </div>
-              </div>
-              <Button onClick={iniciar} disabled={loadingDoc} className="w-full h-12 text-base">
-                {loadingDoc ? 'Abrindo…' : 'Abrir / Criar documento'}
-              </Button>
-            </div>
-          )}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5 scrollbar-thin">
+          {step === 'criterios' ? (
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="space-y-4">
+                <Card className="overflow-hidden rounded-2xl border shadow-none">
+                  <div className="border-b bg-muted/20 px-4 py-3">
+                    <h3 className="text-sm font-semibold">Dados do documento</h3>
+                    <p className="text-xs text-muted-foreground">
+                      O depósito define o estoque físico a ser contado. O setor apenas restringe o escopo.
+                    </p>
+                  </div>
 
-          {step === 'documento' && inventario && (
-            <div className="space-y-4">
-              {total === 0 ? (
-                <div className="text-center py-10 text-sm text-muted-foreground">
-                  Nenhum produto encontrado com esses critérios.
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-end">
-                    <Button variant="outline" size="sm" onClick={() => setConfirmConcluir(true)} disabled={concluindo} className="gap-1.5">
-                      <Save className="w-4 h-4" /> Concluir inventário
+                  <div className="grid gap-4 p-4 md:grid-cols-2">
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label>Depósito *</Label>
+                      <SearchSelect
+                        value={criterios.deposito_id}
+                        onChange={(value) => atualizarCriterio('deposito_id', value)}
+                        allLabel="— Selecione o depósito —"
+                        placeholder="Buscar depósito..."
+                        options={depositos
+                          .map((d) => ({ value: d.id, label: depositoLabel(d) }))
+                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Setor <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                      <SearchSelect
+                        value={criterios.setor_id}
+                        onChange={(value) => atualizarCriterio('setor_id', value)}
+                        allLabel="Todos os setores"
+                        placeholder="Filtrar setor..."
+                        options={setores
+                          .map((s) => ({ value: s.id, label: s.nome }))
+                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Gaveta <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                      <SearchSelect
+                        value={criterios.gaveta_id}
+                        onChange={(value) => atualizarCriterio('gaveta_id', value)}
+                        allLabel="Todas as gavetas"
+                        placeholder="Filtrar gaveta..."
+                        options={gavetasDisponiveis
+                          .map((g) => ({ value: g.id, label: g.codigo || g.descricao || 'Gaveta' }))
+                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label>Máquina <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                      <SearchSelect
+                        value={criterios.maquina_id}
+                        onChange={(value) => atualizarCriterio('maquina_id', value)}
+                        allLabel="Todas as máquinas"
+                        placeholder="Filtrar máquina..."
+                        options={maquinasDisponiveis
+                          .map((m) => ({ value: m.id, label: maquinaLabel(m) }))
+                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
+                      />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="rounded-2xl border p-4 shadow-none">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                        <Warehouse className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Escopo calculado</p>
+                        <p className="font-semibold">
+                          {criterios.deposito_id
+                            ? `${previewAlvo.length} produto(s) para contagem`
+                            : 'Selecione um depósito'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={iniciar}
+                      disabled={loadingDoc || !criterios.deposito_id}
+                      className="gap-2 sm:min-w-[210px]"
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                      {loadingDoc ? 'Abrindo...' : 'Abrir inventário'}
                     </Button>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{conferidosCount} de {total}</span>
-                      <span className="font-semibold tabular-nums">{pct}%</span>
-                    </div>
-                    <Progress value={pct} className="h-2.5" />
+                </Card>
+              </div>
+
+              <Card className="h-fit overflow-hidden rounded-2xl border shadow-none">
+                <div className="border-b bg-muted/20 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-amber-600" />
+                    <h3 className="text-sm font-semibold">Inventários em aberto</h3>
                   </div>
+                  <p className="mt-1 text-xs text-muted-foreground">Retome uma contagem sem criar outro documento.</p>
+                </div>
 
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      className="pl-9 h-11"
-                      placeholder="Buscar produto para conferir..."
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                    />
-                  </div>
-
-                  {busca.trim() && (
-                    <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin">
-                      {resultadosBusca.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum produto pendente encontrado.</p>
-                      ) : (
-                        resultadosBusca.map((p) => (
-                          <button
-                            key={p.id}
-                            onClick={() => { setAtivoId(p.id); setBusca(''); }}
-                            className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-accent text-left transition-colors"
-                          >
-                            <Package className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{p.nome}</p>
-                              <p className="text-xs text-muted-foreground font-mono truncate">{p.codigo}</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        ))
-                      )}
+                <div className="max-h-[420px] space-y-2 overflow-y-auto p-3 scrollbar-thin">
+                  {abertosVisiveis.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-muted-foreground">
+                      Nenhum inventário em aberto neste escopo.
                     </div>
-                  )}
-
-                  {produtoAtivo && (
-                    <Card className="p-4 space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          <Package className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold leading-tight break-words">{produtoAtivo.nome}</p>
-                          <p className="text-xs text-muted-foreground font-mono truncate">{produtoAtivo.codigo}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2.5">
-                        <span className="text-xs text-muted-foreground">Saldo do sistema</span>
-                        <span className="text-lg font-bold tabular-nums">
-                          {formatQtd(sistAtivo)} <span className="text-xs font-normal text-muted-foreground">{produtoAtivo.unidade || 'un'}</span>
-                        </span>
-                      </div>
-                    </Card>
-                  )}
-
-                  {items.length > 0 && (
-                    <details className="text-sm">
-                      <summary className="cursor-pointer text-muted-foreground select-none">
-                        Já conferidos ({items.length})
-                      </summary>
-                      <div className="mt-2 space-y-1 max-h-48 overflow-y-auto scrollbar-thin">
-                        {items.map((it) => (
-                          <div key={it.id} className="flex items-center gap-2 p-2 rounded bg-muted/40">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm truncate">{it.nome}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{it.responsavel || ''}</p>
-                            </div>
-                            <span className="text-sm font-semibold tabular-nums">{formatQtd(it.qtd_contada)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-
-                </>
-              )}
-            </div>
-          )}
-
-          {step === 'resultado' && resultado && (
-            <div className="space-y-4">
-              <Card className={`p-4 ${resultado.resultado === 'consistente' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-                <div className="flex items-center gap-3">
-                  {resultado.resultado === 'consistente' ? (
-                    <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
                   ) : (
-                    <AlertTriangle className="w-8 h-8 text-amber-600 shrink-0" />
+                    abertosVisiveis.map((doc) => {
+                      const escopo = parseInventarioCriterios(doc);
+                      const dep = depositos.find((d) => d.id === escopo.deposito_id);
+                      const set = setores.find((s) => s.id === escopo.setor_id);
+                      return (
+                        <button
+                          type="button"
+                          key={doc.id}
+                          onClick={() => abrirDocumento(doc.id)}
+                          className="w-full rounded-xl border p-3 text-left transition-colors hover:bg-accent"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-xs font-semibold text-primary">{doc.numero}</span>
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                              Aberto
+                            </Badge>
+                          </div>
+                          <p className="mt-2 truncate text-sm font-medium">{depositoLabel(dep)}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {set?.nome || 'Todos os setores'}
+                          </p>
+                        </button>
+                      );
+                    })
                   )}
-                  <div className="min-w-0">
-                    <p className="font-bold leading-tight">
-                      {resultado.resultado === 'consistente' ? 'Sem divergências' : 'Com divergências'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {resultado.total_acertos} de {resultado.total_itens} conferem · {resultado.total_divergencias} diverg.
-                    </p>
-                  </div>
                 </div>
               </Card>
-              <div className="space-y-1.5">
-                {resultado.itens.map((it) => (
-                  <div key={it.produto_id} className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/40">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{it.nome}</p>
-                      <p className="text-[11px] text-muted-foreground font-mono truncate">{it.codigo}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] text-muted-foreground">Sist. / Contado</p>
-                      <p className="text-xs tabular-nums">{formatQtd(it.qtd_sistema)} → {formatQtd(it.qtd_contada)}</p>
-                    </div>
-                    <Badge variant={it.status === 'acerto' ? 'secondary' : 'destructive'} className="tabular-nums shrink-0">
-                      {it.divergencia > 0 ? '+' : ''}{formatQtd(it.divergencia)}
-                    </Badge>
-                  </div>
-                ))}
+            </div>
+          ) : null}
+
+          {step === 'documento' && inventario ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border bg-card px-3 py-2.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Depósito</p>
+                  <p className="mt-1 truncate text-sm font-semibold">{depositoLabel(depositoAtual)}</p>
+                </div>
+                <div className="rounded-xl border bg-card px-3 py-2.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Setor</p>
+                  <p className="mt-1 truncate text-sm font-semibold">{setorAtual?.nome || 'Todos os setores'}</p>
+                </div>
+                <div className="rounded-xl border bg-card px-3 py-2.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Progresso</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums">{conferidosCount} / {total} itens</p>
+                </div>
+                <div className="rounded-xl border bg-card px-3 py-2.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Conclusão</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums">{pct}%</p>
+                </div>
               </div>
-              {resultado.total_divergencias > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm text-amber-800">
-                    {aplicado
-                      ? `✓ ${aplicado.aplicados} de ${aplicado.total} divergências aplicadas ao saldo real.`
-                      : 'Deseja atualizar o saldo real (SaldoEstoque) com as quantidades contadas? Isso criará movimentações de ajuste.'}
+
+              <Progress value={pct} className="h-2" />
+
+              {total === 0 ? (
+                <Card className="rounded-2xl border p-10 text-center shadow-none">
+                  <Package className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                  <p className="mt-3 font-medium">Nenhum produto neste escopo</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Feche o documento e revise depósito/setor/filtros antes de continuar.
                   </p>
-                  {!aplicado && (
-                    <Button onClick={aplicarAjustes} disabled={aplicando} variant="outline" className="w-full h-11 gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-100">
-                      <Save className="w-4 h-4" /> {aplicando ? 'Aplicando…' : 'Atualizar saldo pelo inventário'}
-                    </Button>
-                  )}
+                </Card>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+                  <div className="space-y-4">
+                    <Card className="overflow-hidden rounded-2xl border shadow-none">
+                      <div className="border-b bg-muted/20 px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Search className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="text-sm font-semibold">Selecionar produto</h3>
+                        </div>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="relative">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            value={busca}
+                            onChange={(e) => setBusca(e.target.value)}
+                            placeholder="Nome, código ou referência..."
+                            className="pl-9"
+                          />
+                        </div>
+
+                        <div className="mt-3 max-h-[260px] overflow-y-auto rounded-xl border scrollbar-thin">
+                          {resultadosBusca.length === 0 ? (
+                            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                              Nenhum produto encontrado.
+                            </p>
+                          ) : (
+                            resultadosBusca.map((produto) => {
+                              const contado = contadosIds.has(produto.id);
+                              return (
+                                <button
+                                  type="button"
+                                  key={produto.id}
+                                  onClick={() => selecionarProduto(produto)}
+                                  className="flex w-full items-center gap-3 border-b px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-accent"
+                                >
+                                  <div className={
+                                    contado
+                                      ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700'
+                                      : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground'
+                                  }>
+                                    {contado ? <Check className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">{produto.nome}</p>
+                                    <p className="truncate font-mono text-[11px] text-muted-foreground">
+                                      {produto.codigo || 'sem código'}
+                                    </p>
+                                  </div>
+                                  {contado ? (
+                                    <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                                      Conferido
+                                    </Badge>
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="overflow-hidden rounded-2xl border shadow-none">
+                      <div className="border-b bg-muted/20 px-4 py-3">
+                        <h3 className="text-sm font-semibold">Contagem física</h3>
+                        <p className="text-xs text-muted-foreground">Selecione um produto e informe a quantidade encontrada.</p>
+                      </div>
+
+                      {!produtoAtivo ? (
+                        <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+                          Selecione um produto na lista acima para iniciar a contagem.
+                        </div>
+                      ) : (
+                        <div className="space-y-4 p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                              <Package className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold leading-tight">{produtoAtivo.nome}</p>
+                              <p className="mt-1 font-mono text-xs text-muted-foreground">{produtoAtivo.codigo || '—'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Saldo sistema</p>
+                              <p className="text-xl font-semibold tabular-nums">
+                                {formatQtd(sistAtivo)} <span className="text-xs font-normal text-muted-foreground">{produtoAtivo.unidade || 'un'}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                            <Input
+                              ref={inputRef}
+                              type="text"
+                              inputMode="decimal"
+                              value={qtdInput}
+                              onChange={(e) => setQtdInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') confirmar();
+                              }}
+                              placeholder="Quantidade contada"
+                              className="h-12 text-center text-lg font-semibold"
+                            />
+                            <Button onClick={confirmar} className="h-12 gap-2 px-6">
+                              <Check className="h-4 w-4" />
+                              Registrar
+                            </Button>
+                          </div>
+
+                          {diffLive !== null ? (
+                            <div className={
+                              diffLive === 0
+                                ? 'rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-700'
+                                : 'rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-700'
+                            }>
+                              {diffLive === 0
+                                ? 'Contagem confere com o saldo do sistema'
+                                : `Diferença prevista: ${diffLive > 0 ? '+' : ''}${formatQtd(diffLive)} ${produtoAtivo.unidade || 'un'}`}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+
+                  <Card className="h-fit overflow-hidden rounded-2xl border shadow-none">
+                    <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-3">
+                      <div>
+                        <h3 className="text-sm font-semibold">Itens conferidos</h3>
+                        <p className="text-xs text-muted-foreground">Clique em uma linha para recontar.</p>
+                      </div>
+                      <Badge variant="outline">{items.length}</Badge>
+                    </div>
+
+                    <div className="max-h-[570px] overflow-auto scrollbar-thin">
+                      {items.length === 0 ? (
+                        <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+                          Nenhum item contado ainda.
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Produto</TableHead>
+                              <TableHead className="text-right">Sistema</TableHead>
+                              <TableHead className="text-right">Contado</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {items.map((item) => {
+                              const produto = alvo.find((p) => p.id === item.produto_id);
+                              const sist = produto ? qtdSistema(produto, saldos, criteriosDoc) : Number(item.qtd_sistema) || 0;
+                              const diff = (Number(item.qtd_contada) || 0) - sist;
+                              return (
+                                <TableRow
+                                  key={item.id}
+                                  className="cursor-pointer"
+                                  onClick={() => produto && selecionarProduto(produto)}
+                                >
+                                  <TableCell>
+                                    <p className="max-w-[210px] truncate text-sm font-medium">{item.nome}</p>
+                                    <p className={
+                                      Math.abs(diff) < 0.0001
+                                        ? 'text-[10px] text-emerald-700'
+                                        : 'text-[10px] text-amber-700'
+                                    }>
+                                      {Math.abs(diff) < 0.0001
+                                        ? 'Confere'
+                                        : `Dif. ${diff > 0 ? '+' : ''}${formatQtd(diff)}`}
+                                    </p>
+                                  </TableCell>
+                                  <TableCell className="text-right text-xs tabular-nums">{formatQtd(sist)}</TableCell>
+                                  <TableCell className="text-right text-sm font-semibold tabular-nums">{formatQtd(item.qtd_contada)}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+                  </Card>
                 </div>
               )}
-              <Button onClick={() => handleClose(false)} className="w-full h-12">Fechar</Button>
             </div>
-          )}
+          ) : null}
+
+          {step === 'resultado' && resultado ? (
+            <div className="space-y-4">
+              <Card className="overflow-hidden rounded-2xl border shadow-none">
+                <div className={
+                  resultado.resultado === 'consistente'
+                    ? 'flex items-center gap-3 border-b border-emerald-200 bg-emerald-50 px-4 py-3'
+                    : 'flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3'
+                }>
+                  {resultado.resultado === 'consistente' ? (
+                    <CheckCircle2 className="h-7 w-7 shrink-0 text-emerald-700" />
+                  ) : (
+                    <AlertTriangle className="h-7 w-7 shrink-0 text-amber-700" />
+                  )}
+                  <div>
+                    <p className="font-semibold">
+                      {resultado.resultado === 'consistente' ? 'Inventário consistente' : 'Inventário com divergências'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {resultado.total_acertos} de {resultado.total_itens} itens conferem · {resultado.total_divergencias} divergência(s)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="max-h-[52vh] overflow-auto scrollbar-thin">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[260px]">Produto</TableHead>
+                        <TableHead className="text-right">Sistema</TableHead>
+                        <TableHead className="text-right">Contado</TableHead>
+                        <TableHead className="text-right">Diferença</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {resultado.itens.map((item) => (
+                        <TableRow key={item.produto_id}>
+                          <TableCell>
+                            <p className="text-sm font-medium">{item.nome}</p>
+                            <p className="font-mono text-[11px] text-muted-foreground">{item.codigo || '—'}</p>
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums">{formatQtd(item.qtd_sistema)}</TableCell>
+                          <TableCell className="text-right text-sm font-medium tabular-nums">{formatQtd(item.qtd_contada)}</TableCell>
+                          <TableCell className="text-right">
+                            <span className={
+                              item.status === 'acerto'
+                                ? 'text-sm text-muted-foreground'
+                                : 'text-sm font-semibold text-amber-700'
+                            }>
+                              {item.divergencia > 0 ? '+' : ''}{formatQtd(item.divergencia)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+
+              {resultado.total_divergencias > 0 ? (
+                <Card className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-none">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <Save className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-900">Postagem das divergências</p>
+                        <p className="mt-0.5 text-xs text-amber-800">
+                          {aplicado
+                            ? `${aplicado.aplicados} de ${aplicado.total} ajustes já foram enviados ao motor oficial de estoque.`
+                            : 'A contagem está concluída. Poste os ajustes para atualizar o saldo oficial do depósito.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {!aplicado ? (
+                      <Button
+                        onClick={aplicarAjustes}
+                        disabled={aplicando}
+                        variant="outline"
+                        className="gap-2 border-amber-300 bg-background text-amber-900 hover:bg-amber-100"
+                      >
+                        <RefreshCw className={aplicando ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+                        {aplicando ? 'Postando...' : 'Postar ajustes'}
+                      </Button>
+                    ) : (
+                      <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Postado
+                      </Badge>
+                    )}
+                  </div>
+                </Card>
+              ) : null}
+
+              <div className="flex justify-end">
+                <Button onClick={() => handleClose(false)} className="min-w-[140px]">Fechar</Button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        {/* Barra fixa inferior (contagem) */}
-        {step === 'documento' && inventario && total > 0 && produtoAtivo && (
-          <div className="sticky bottom-0 z-10 border-t bg-card px-4 py-3 pb-safe space-y-2">
-            <>
-              <div className="flex gap-2">
-                  <Input
-                    ref={inputRef}
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Qtd. contada"
-                    value={qtdInput}
-                    onChange={(e) => setQtdInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') confirmar(); }}
-                    className="h-12 flex-1 text-center text-lg font-semibold"
-                  />
-                  <Button onClick={confirmar} className="h-12 px-6 gap-1.5">
-                    <Check className="w-5 h-5" /> OK
-                  </Button>
+        {aviso ? (
+          <div className="absolute inset-0 z-50 flex items-end justify-center sm:items-center">
+            <button
+              type="button"
+              aria-label="Fechar recontagem"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setAviso(null)}
+            />
+            <Card className="relative z-10 w-full rounded-b-none rounded-t-2xl border p-4 shadow-xl sm:max-w-md sm:rounded-2xl">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                  <RefreshCw className="h-4 w-4" />
                 </div>
-                {diffLive !== null && (
-                  <p className={`text-center text-xs font-medium ${diffLive === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {diffLive === 0
-                      ? '✓ Confere com o sistema'
-                      : `Diferença: ${diffLive > 0 ? '+' : ''}${formatQtd(diffLive)} ${produtoAtivo.unidade || 'un'}`}
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">Produto já conferido</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {aviso.produto?.nome} · atual {formatQtd(aviso.item?.qtd_contada)} {aviso.produto?.unidade || 'un'}
                   </p>
-                )}
-            </>
-          </div>
-        )}
-
-        {/* Aviso: produto já contado (bottom sheet) */}
-        {aviso && (
-          <div className="absolute inset-0 z-50 flex items-end">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setAviso(null)} />
-            <div className="relative w-full bg-card rounded-t-2xl p-4 pt-3 pb-safe space-y-3">
-              <div className="w-10 h-1 bg-muted rounded-full mx-auto" />
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                <p className="font-semibold">Produto já conferido</p>
+                </div>
               </div>
-              <p className="text-sm">
-                <strong className="break-words">{aviso.produto?.nome}</strong> já foi contado com{' '}
-                <strong>{formatQtd(aviso.item?.qtd_contada)}</strong> {aviso.produto?.unidade || 'un'} por{' '}
-                {aviso.item?.responsavel || 'outro usuário'}.
-              </p>
+
               <Input
                 type="text"
                 inputMode="decimal"
                 autoFocus
-                placeholder="Nova quantidade"
                 value={aviso.qty}
                 onChange={(e) => setAviso({ ...aviso, qty: e.target.value })}
-                onKeyDown={(e) => { if (e.key === 'Enter') aplicarAviso('recontar'); }}
-                className="h-12 text-center text-lg font-semibold"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') aplicarAviso('recontar');
+                }}
+                placeholder="Nova quantidade"
+                className="mt-4 h-12 text-center text-lg font-semibold"
               />
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 h-11" onClick={() => aplicarAviso('add')}>Adicionar a mais</Button>
-                <Button className="flex-1 h-11" onClick={() => aplicarAviso('recontar')}>Recontar</Button>
+
+              <div className="mt-3 flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => aplicarAviso('add')}>
+                  Somar quantidade
+                </Button>
+                <Button className="flex-1" onClick={() => aplicarAviso('recontar')}>
+                  Recontar
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
-        )}
+        ) : null}
 
         <AlertDialog open={confirmConcluir} onOpenChange={setConfirmConcluir}>
           <AlertDialogContent>
@@ -690,14 +1121,14 @@ export default function InventarioConference({
               <AlertDialogTitle>Concluir inventário?</AlertDialogTitle>
               <AlertDialogDescription>
                 {conferidosCount < total
-                  ? `Você conferiu ${conferidosCount} de ${total} produtos. Os itens restantes serão registrados com o saldo do sistema. Deseja finalizar mesmo assim?`
-                  : 'Todos os produtos foram conferidos. Deseja finalizar e registrar o inventário?'}
+                  ? `Foram conferidos ${conferidosCount} de ${total} produtos. Os ${total - conferidosCount} itens não contados serão mantidos com o saldo do sistema, sem gerar divergência.`
+                  : 'Todos os produtos do escopo foram conferidos. O documento será fechado para revisão das divergências.'}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={concluindo}>Cancelar</AlertDialogCancel>
               <AlertDialogAction disabled={concluindo} onClick={concluir}>
-                {concluindo ? 'Concluindo…' : 'Sim, concluir'}
+                {concluindo ? 'Concluindo...' : 'Concluir documento'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -1,300 +1,296 @@
-// Utilitários do módulo de Inventário (conferência tete-a-tete).
 import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
 import { construirItensSaida } from '@/lib/estoqueOperacoes';
 import { invalidateEntidade } from '@/lib/useEntidades';
 
-// Gera o próximo número sequencial global de inventário (INV-000001).
 export function nextInventarioNumber(inventarios = []) {
   let max = 0;
   inventarios.forEach((i) => {
     const m = String(i.numero || '').match(/INV-(\d+)/i);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (n > max) max = n;
-    }
+    if (!m) return;
+    const n = parseInt(m[1], 10);
+    if (n > max) max = n;
   });
   return `INV-${String(max + 1).padStart(6, '0')}`;
 }
 
-// Filtra os produtos de um setor pelos critérios selecionados (ao menos 1 obrigatório).
-export function filterProdutosParaInventario(produtos, setorId, criterios, lotes = []) {
-  return produtos
-    .filter((p) => p.setor_id === setorId)
-    .filter((p) => !criterios.deposito_id || p.deposito_id === criterios.deposito_id)
-    .filter((p) => !criterios.gaveta_id || p.gaveta_id === criterios.gaveta_id)
-    .filter((p) => !criterios.maquina_id || p.maquina_id === criterios.maquina_id);
-}
-
-// Estoque do sistema para um produto: soma dos lotes (FEFO) quando houver, senão quantidade direta.
-export function qtdSistema(produto, lotes = []) {
-  const lotesProd = (lotes || []).filter((l) => l.produto_id === produto.id && (Number(l.quantidade) || 0) > 0);
-  if (lotesProd.length > 0) {
-    return lotesProd.reduce((acc, l) => acc + (Number(l.quantidade) || 0), 0);
+export function parseInventarioCriterios(inventario) {
+  if (!inventario?.criterios) {
+    return {
+      deposito_id: '',
+      setor_id: inventario?.setor_id || '',
+      gaveta_id: '',
+      maquina_id: '',
+    };
   }
-  return Number(produto.quantidade) || 0;
+
+  try {
+    const parsed = JSON.parse(inventario.criterios);
+    return {
+      deposito_id: parsed?.deposito_id || '',
+      setor_id: parsed?.setor_id || inventario?.setor_id || '',
+      gaveta_id: parsed?.gaveta_id || '',
+      maquina_id: parsed?.maquina_id || '',
+    };
+  } catch {
+    return {
+      deposito_id: '',
+      setor_id: inventario?.setor_id || '',
+      gaveta_id: '',
+      maquina_id: '',
+    };
+  }
 }
 
-// Aplica as divergências do inventário ao saldo real (SaldoEstoque), criando
-// movimentações de ajuste (entrada para acréscimo, saída para baixa). Autocontida.
-// `itens` = array consolidado (produto_id, qtd_sistema, qtd_contada, divergencia).
-// `produtos` e `setor` (objeto Setor) para resolver depósito/unidade/validade.
-// Retorna { aplicados, total }.
+export function criteriosKey(criterios = {}) {
+  return JSON.stringify({
+    deposito_id: criterios.deposito_id || '',
+    setor_id: criterios.setor_id || '',
+    gaveta_id: criterios.gaveta_id || '',
+    maquina_id: criterios.maquina_id || '',
+  });
+}
+
+function saldoPertenceAoEscopo(saldo, criterios = {}) {
+  if (!saldo) return false;
+  if ((saldo.tipo_estoque || 'livre') !== 'livre') return false;
+  if (criterios.deposito_id && saldo.deposito_id !== criterios.deposito_id) return false;
+  if (criterios.gaveta_id && (saldo.gaveta_id || '') !== criterios.gaveta_id) return false;
+  return true;
+}
+
+export function filterProdutosParaInventario(produtos = [], saldos = [], criterios = {}) {
+  if (!criterios.deposito_id) return [];
+
+  const idsComSaldo = new Set(
+    (saldos || [])
+      .filter((saldo) => saldoPertenceAoEscopo(saldo, criterios))
+      .map((saldo) => saldo.produto_id)
+      .filter(Boolean)
+  );
+
+  return (produtos || [])
+    .filter((produto) => {
+      const pertenceAoDeposito =
+        produto.deposito_id === criterios.deposito_id || idsComSaldo.has(produto.id);
+
+      if (!pertenceAoDeposito) return false;
+      if (criterios.setor_id && produto.setor_id !== criterios.setor_id) return false;
+      if (criterios.maquina_id && produto.maquina_id !== criterios.maquina_id) return false;
+
+      if (criterios.gaveta_id) {
+        const saldoNaGaveta = (saldos || []).some(
+          (saldo) =>
+            saldo.produto_id === produto.id &&
+            saldoPertenceAoEscopo(saldo, criterios)
+        );
+        if (!saldoNaGaveta && (produto.gaveta_id || '') !== criterios.gaveta_id) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+}
+
+export function qtdSistema(produto, saldos = [], criterios = {}) {
+  if (!produto?.id || !criterios.deposito_id) return 0;
+
+  return (saldos || [])
+    .filter(
+      (saldo) =>
+        saldo.produto_id === produto.id &&
+        saldoPertenceAoEscopo(saldo, criterios)
+    )
+    .reduce((acc, saldo) => acc + (Number(saldo.quantidade) || 0), 0);
+}
+
+export function buildCriteriosDescricao(
+  criterios,
+  depositos = [],
+  setores = [],
+  maquinas = [],
+  gavetas = []
+) {
+  const parts = [];
+
+  if (criterios?.deposito_id) {
+    const d = depositos.find((x) => x.id === criterios.deposito_id);
+    parts.push(`Depósito: ${d ? (d.nome ? `${d.numero || ''} · ${d.nome}`.trim() : d.numero || '—') : '—'}`);
+  }
+
+  if (criterios?.setor_id) {
+    const s = setores.find((x) => x.id === criterios.setor_id);
+    parts.push(`Setor: ${s?.nome || '—'}`);
+  }
+
+  if (criterios?.gaveta_id) {
+    const g = gavetas.find((x) => x.id === criterios.gaveta_id);
+    parts.push(`Gaveta: ${g?.codigo || '—'}`);
+  }
+
+  if (criterios?.maquina_id) {
+    const m = maquinas.find((x) => x.id === criterios.maquina_id);
+    parts.push(`Máquina: ${m ? `${m.codigo || ''}${m.codigo && m.nome ? ' · ' : ''}${m.nome || ''}` : '—'}`);
+  }
+
+  return parts.join(' | ') || 'Escopo não informado';
+}
+
+function escolherGavetaDestino({ produto, criterios, livres, depositoId }) {
+  if (criterios?.gaveta_id) return criterios.gaveta_id;
+
+  if (produto?.deposito_id === depositoId && produto?.gaveta_id) {
+    return produto.gaveta_id;
+  }
+
+  const posicaoExistente = (livres || []).find(
+    (saldo) => saldo.deposito_id === depositoId && !!saldo.gaveta_id
+  );
+
+  return posicaoExistente?.gaveta_id || '';
+}
+
 export async function aplicarAjusteInventario({
   inventario,
   itens,
   produtos,
-  setor,
+  setores = [],
+  criterios,
 }) {
-  const divergentes =
-    (itens || []).filter(
-      (item) =>
-        Math.abs(
-          parseQtd(item.divergencia)
-        ) > 0.0001
-    );
+  const escopo = criterios || parseInventarioCriterios(inventario);
+
+  if (!escopo.deposito_id) {
+    throw new Error('DEPÓSITO_OBRIGATÓRIO:Inventário sem depósito definido.');
+  }
+
+  const divergentes = (itens || []).filter(
+    (item) => Math.abs(parseQtd(item.divergencia)) > 0.0001
+  );
 
   if (divergentes.length === 0) {
-    return {
-      aplicados: 0,
-      total: 0,
-    };
+    return { aplicados: 0, total: 0, documentos: [] };
   }
 
   const positivos = [];
   const negativos = [];
   let aplicados = 0;
 
-  const invLabel =
-    inventario?.numero || '';
-
-  const origemBase =
-    inventario?.id ||
-    inventario?.numero;
+  const invLabel = inventario?.numero || '';
+  const origemBase = inventario?.id || inventario?.numero;
 
   if (!origemBase) {
-    throw new Error(
-      'Inventário sem identificador.'
-    );
+    throw new Error('Inventário sem identificador.');
   }
 
-  const controlaValidade =
-    !!setor?.controla_validade;
-
   for (const item of divergentes) {
-    const produto =
-      (produtos || []).find(
-        (p) =>
-          p.id === item.produto_id
-      );
+    const produto = (produtos || []).find((p) => p.id === item.produto_id);
+    if (!produto) continue;
 
-    if (!produto) {
-      continue;
-    }
+    const diff = parseQtd(item.divergencia);
+    const quantidade = Math.abs(diff);
+    const depositoId = escopo.deposito_id;
 
-    const diff =
-      parseQtd(item.divergencia);
+    const saldos = await estoqueApi.listarSaldos({ produto_id: produto.id });
+    const livres = (saldos || []).filter(
+      (saldo) =>
+        (saldo.tipo_estoque || 'livre') === 'livre' &&
+        saldo.deposito_id === depositoId
+    );
 
-    const quantidade =
-      Math.abs(diff);
+    const gavetaId = escolherGavetaDestino({
+      produto,
+      criterios: escopo,
+      livres,
+      depositoId,
+    });
 
-    const saldos =
-      await estoqueApi.listarSaldos({
-        produto_id: produto.id,
-      });
-
-    const livres =
-      (saldos || []).filter(
-        (saldo) =>
-          (saldo.tipo_estoque || 'livre')
-            === 'livre'
-      );
-
-    const preferido =
-      livres.find(
-        (saldo) =>
-          saldo.deposito_id
-            === produto.deposito_id &&
-          (saldo.gaveta_id || '')
-            === (produto.gaveta_id || '')
-      )
-      ||
-      livres.find(
-        (saldo) =>
-          saldo.deposito_id
-            === produto.deposito_id
-      )
-      ||
-      livres[0];
-
-    const depositoId =
-      produto.deposito_id ||
-      preferido?.deposito_id ||
-      '';
-
-    if (!depositoId) {
-      continue;
-    }
-
-    const gavetaId =
-      produto.gaveta_id ||
-      preferido?.gaveta_id ||
-      '';
+    const setorProduto = (setores || []).find((s) => s.id === produto.setor_id);
+    const controlaValidade = !!setorProduto?.controla_validade;
 
     if (diff > 0) {
       let loteId = '';
 
       if (controlaValidade) {
-        const posicaoLote =
-          livres.find(
-            (saldo) =>
-              saldo.deposito_id
-                === depositoId &&
-              (saldo.gaveta_id || '')
-                === (gavetaId || '') &&
-              !!saldo.lote_id
-          );
+        const posicaoLote = livres.find(
+          (saldo) =>
+            (!gavetaId || (saldo.gaveta_id || '') === gavetaId) &&
+            !!saldo.lote_id
+        );
 
-        loteId =
-          posicaoLote?.lote_id ||
-          '';
+        loteId = posicaoLote?.lote_id || '';
 
         if (!loteId) {
-          throw new Error(
-            `VALIDADE_OBRIGATORIA:${produto.nome}`
-          );
+          throw new Error(`VALIDADE_OBRIGATORIA:${produto.nome}`);
         }
       }
 
       positivos.push({
-        produto_id:
-          produto.id,
+        produto_id: produto.id,
         quantidade,
-        unidade:
-          produto.unidade || 'un',
-        deposito_destino_id:
-          depositoId,
-        gaveta_destino_id:
-          gavetaId,
-        lote_destino_id:
-          loteId || undefined,
-        custo_unitario:
-          Number(
-            produto.custo_unitario
-          ) || 0,
-        observacao:
-          `Ajuste de inventário — ${invLabel}`,
+        unidade: produto.unidade || 'un',
+        deposito_destino_id: depositoId,
+        gaveta_destino_id: gavetaId,
+        lote_destino_id: loteId || undefined,
+        custo_unitario: Number(produto.custo_unitario) || 0,
+        observacao: `Ajuste de inventário — ${invLabel}`,
       });
 
       aplicados++;
       continue;
     }
 
-    const alocacao =
-      await construirItensSaida({
-        produto,
-        quantidadeBase:
-          quantidade,
-        depositoId,
-        gavetaId,
-        somenteDeposito: true,
-        somenteGaveta: false,
-        observacao:
-          `Ajuste de inventário — ${invLabel}`,
-      });
+    const alocacao = await construirItensSaida({
+      produto,
+      quantidadeBase: quantidade,
+      depositoId,
+      gavetaId: escopo.gaveta_id || '',
+      somenteDeposito: true,
+      somenteGaveta: !!escopo.gaveta_id,
+      observacao: `Ajuste de inventário — ${invLabel}`,
+    });
 
     if (!alocacao.suficiente) {
-      throw new Error(
-        `SALDO_INSUFICIENTE:${alocacao.totalDisponivel}:${produto.nome}`
-      );
+      throw new Error(`SALDO_INSUFICIENTE:${alocacao.totalDisponivel}:${produto.nome}`);
     }
 
-    negativos.push(
-      ...alocacao.itens
-    );
-
+    negativos.push(...alocacao.itens);
     aplicados++;
   }
 
   const documentos = [];
 
   if (positivos.length > 0) {
-    const resposta =
-      await estoqueApi.movimentar({
-        tipo_movimento:
-          'AJUSTE_POSITIVO',
-        origem_modulo:
-          'inventario',
-        documento_origem_id:
-          `${origemBase}:positivo`,
-        referencia_externa:
-          invLabel || undefined,
-        observacao:
-          `Ajuste positivo do inventário ${invLabel}`,
-        itens: positivos,
-      });
-
-    documentos.push(
-      resposta.documento
-    );
+    const resposta = await estoqueApi.movimentar({
+      tipo_movimento: 'AJUSTE_POSITIVO',
+      origem_modulo: 'inventario',
+      documento_origem_id: `${origemBase}:positivo`,
+      referencia_externa: invLabel || undefined,
+      observacao: `Ajuste positivo do inventário ${invLabel}`,
+      itens: positivos,
+    });
+    documentos.push(resposta.documento);
   }
 
   if (negativos.length > 0) {
-    const resposta =
-      await estoqueApi.movimentar({
-        tipo_movimento:
-          'AJUSTE_NEGATIVO',
-        origem_modulo:
-          'inventario',
-        documento_origem_id:
-          `${origemBase}:negativo`,
-        referencia_externa:
-          invLabel || undefined,
-        observacao:
-          `Ajuste negativo do inventário ${invLabel}`,
-        itens: negativos,
-      });
-
-    documentos.push(
-      resposta.documento
-    );
+    const resposta = await estoqueApi.movimentar({
+      tipo_movimento: 'AJUSTE_NEGATIVO',
+      origem_modulo: 'inventario',
+      documento_origem_id: `${origemBase}:negativo`,
+      referencia_externa: invLabel || undefined,
+      observacao: `Ajuste negativo do inventário ${invLabel}`,
+      itens: negativos,
+    });
+    documentos.push(resposta.documento);
   }
 
-  invalidateEntidade(
-    'SaldoEstoque'
-  );
-  invalidateEntidade(
-    'Movimentacao'
-  );
-  invalidateEntidade(
-    'Produto'
-  );
-  invalidateEntidade(
-    'Lote'
-  );
+  invalidateEntidade('SaldoEstoque');
+  invalidateEntidade('Movimentacao');
+  invalidateEntidade('Produto');
+  invalidateEntidade('Lote');
 
   return {
     aplicados,
-    total:
-      divergentes.length,
+    total: divergentes.length,
     documentos,
   };
-}
-
-// Descrição legível dos critérios usados.
-export function buildCriteriosDescricao(criterios, depositos = [], maquinas = [], gavetas = []) {
-  const parts = [];
-  if (criterios.deposito_id) {
-    const d = depositos.find((x) => x.id === criterios.deposito_id);
-    parts.push(`Depósito: ${d ? (d.nome ? `${d.numero} · ${d.nome}` : d.numero) : '—'}`);
-  }
-  if (criterios.gaveta_id) {
-    const g = gavetas.find((x) => x.id === criterios.gaveta_id);
-    parts.push(`Gaveta: ${g?.codigo || '—'}`);
-  }
-  if (criterios.maquina_id) {
-    const m = maquinas.find((x) => x.id === criterios.maquina_id);
-    parts.push(`Máquina: ${m ? `${m.codigo} · ${m.nome}` : '—'}`);
-  }
-  return parts.join(' | ') || 'Sem critérios';
 }

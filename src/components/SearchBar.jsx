@@ -1,116 +1,184 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { matchTerm } from '@/lib/estoqueFilters';
+import { formatQtd } from '@/lib/format';
 
-export default function SearchBar({ value, onChange, produtos, maquinas, gavetas, depositos, saldos = [] }) {
+export default function SearchBar({
+  value,
+  onChange,
+  produtos = [],
+  maquinas = [],
+  gavetas = [],
+  depositos = [],
+  saldos = [],
+  setores = [],
+  lotes = [],
+}) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const containerRef = useRef(null);
 
-  const termos = value.split(',').map((t) => t.trim()).filter(Boolean);
+  const termos = value
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
 
   const suggestions = useMemo(() => {
     if (termos.length === 0) return [];
-    const matches = produtos.filter((p) => termos.every((termo) => matchTerm(p, termo, maquinas, gavetas, depositos, saldos)));
-    return matches.slice(0, 8);
-  }, [produtos, value, maquinas, gavetas, depositos, saldos]);
+
+    return produtos
+      .filter((p) =>
+        termos.every((termo) =>
+          matchTerm(
+            p,
+            termo,
+            maquinas,
+            gavetas,
+            depositos,
+            saldos,
+            setores,
+            lotes
+          )
+        )
+      )
+      .slice(0, 8);
+  }, [
+    produtos,
+    termos,
+    maquinas,
+    gavetas,
+    depositos,
+    saldos,
+    setores,
+    lotes,
+  ]);
 
   useEffect(() => {
     setHighlightIndex(-1);
   }, [value]);
 
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+    function handleClickOutside(event) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
         setShowSuggestions(false);
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getMaquinaNome = (p) => {
-    const m = maquinas?.find((m) => m.id === p.maquina_id);
-    return m?.nome || '';
-  };
+  function depositoResumo(produto) {
+    const ids = produto._deposito_ids?.length
+      ? produto._deposito_ids
+      : produto.deposito_id
+        ? [produto.deposito_id]
+        : [];
 
-  const getGavetaNome = (p) => {
-    const g = gavetas?.find((g) => g.id === p.gaveta_id);
-    return g?.codigo || '';
-  };
+    if (ids.length > 1) return `${ids.length} depósitos`;
 
-  const getDepositoNome = (p) => {
-    const d = depositos?.find((d) => d.id === p.deposito_id);
-    return d?.numero || '';
-  };
+    const dep = depositos.find((d) => d.id === ids[0]);
+    if (!dep) return '';
 
-  const handleSelect = (produto) => {
+    return `${dep.numero || ''}${dep.nome ? ` — ${dep.nome}` : ''}`.trim();
+  }
+
+  function handleSelect(produto) {
     onChange(produto.nome);
     setShowSuggestions(false);
-  };
+  }
 
-  const handleKeyDown = (e) => {
+  function handleKeyDown(event) {
     if (!showSuggestions || suggestions.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
       setHighlightIndex((i) => (i + 1) % suggestions.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlightIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-    } else if (e.key === 'Enter' && highlightIndex >= 0) {
-      e.preventDefault();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightIndex(
+        (i) => (i - 1 + suggestions.length) % suggestions.length
+      );
+    } else if (event.key === 'Enter' && highlightIndex >= 0) {
+      event.preventDefault();
       handleSelect(suggestions[highlightIndex]);
-    } else if (e.key === 'Escape') {
+    } else if (event.key === 'Escape') {
       setShowSuggestions(false);
     }
-  };
+  }
 
   return (
-    <div className="relative flex-1 min-w-0 w-full sm:w-auto sm:min-w-[280px]" ref={containerRef}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none z-10" />
+    <div
+      ref={containerRef}
+      className="relative w-full"
+    >
+      <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+
       <Input
         value={value}
-        onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setShowSuggestions(true);
+        }}
         onFocus={() => setShowSuggestions(true)}
         onKeyDown={handleKeyDown}
-        placeholder="Buscar por nome, código ou referência… (vírgulas combinam)"
-        className="pl-10 pr-10 h-10 text-sm font-medium bg-background"
+        placeholder="Pesquisar por nome, código, referência, setor, depósito, máquina, gaveta, lote, unidade, quantidade, valor ou qualquer outro dado..."
+        className="h-12 bg-background pl-12 pr-11 text-sm"
       />
+
       {value && (
         <Button
           size="icon"
           variant="ghost"
-          onClick={() => { onChange(''); setShowSuggestions(false); }}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8"
+          onClick={() => {
+            onChange('');
+            setShowSuggestions(false);
+          }}
+          className="absolute right-1.5 top-1/2 h-9 w-9 -translate-y-1/2"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </Button>
       )}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-          {suggestions.map((p, idx) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => handleSelect(p)}
-              className={`w-full text-left px-4 py-2.5 flex flex-col gap-0.5 border-b border-border/50 last:border-0 hover:bg-accent transition-colors ${
-                idx === highlightIndex ? 'bg-accent' : ''
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-sm truncate">{p.nome}</span>
-                <span className="text-xs text-muted-foreground shrink-0">{p.codigo}</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                {p.codigo_referencia && <span>Ref: {p.codigo_referencia}</span>}
-                {getDepositoNome(p) && <span>Dep: {getDepositoNome(p)}</span>}
-                {getGavetaNome(p) && <span>Gav: {getGavetaNome(p)}</span>}
-                {getMaquinaNome(p) && <span className="truncate">{getMaquinaNome(p)}</span>}
-              </div>
-            </button>
-          ))}
+
+      {showSuggestions && value.trim() && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-xl border bg-popover shadow-xl">
+          {suggestions.map((p, idx) => {
+            const deposito = depositoResumo(p);
+
+            return (
+              <button
+                key={p._rowKey || p.id}
+                type="button"
+                onClick={() => handleSelect(p)}
+                className={`flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-accent ${
+                  idx === highlightIndex ? 'bg-accent' : ''
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{p.nome}</p>
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    {p.codigo && <span>Cód. {p.codigo}</span>}
+                    {p.codigo_referencia && <span>Ref. {p.codigo_referencia}</span>}
+                    {deposito && <span>{deposito}</span>}
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold tabular-nums">
+                    {formatQtd(p.quantidade || 0)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {p.unidade || ''}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

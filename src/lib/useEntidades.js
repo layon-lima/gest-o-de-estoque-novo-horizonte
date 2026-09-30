@@ -32,6 +32,93 @@ export const PREFETCH = [
   'Pessoa', 'PedidoPesagem', 'TicketPesagem', 'Movimentacao', 'Deposito', 'SaldoEstoque',
 ];
 
+
+const PREFETCH_PAGES = {
+  Produto: [
+    'dashboard', 'movimentacoes', 'abastecimento',
+    'pesagem', 'aplicacao', 'cadastros', 'inventario',
+  ],
+  Setor: [
+    'dashboard', 'movimentacoes', 'abastecimento',
+    'aplicacao', 'cadastros', 'inventario',
+  ],
+  Maquina: [
+    'dashboard', 'movimentacoes', 'abastecimento',
+    'cadastros', 'inventario',
+  ],
+  Gaveta: [
+    'dashboard', 'movimentacoes', 'cadastros', 'inventario',
+  ],
+  Lote: [
+    'dashboard', 'movimentacoes', 'abastecimento',
+    'aplicacao', 'cadastros', 'inventario',
+  ],
+  Pessoa: [
+    'movimentacoes', 'pesagem', 'cadastros',
+  ],
+  PedidoPesagem: [
+    'pesagem',
+  ],
+  TicketPesagem: [
+    'pesagem',
+  ],
+  Movimentacao: [
+    'movimentacoes', 'abastecimento', 'aplicacao',
+  ],
+  Deposito: [
+    'dashboard', 'movimentacoes', 'abastecimento',
+    'aplicacao', 'cadastros', 'inventario',
+  ],
+  SaldoEstoque: [
+    'dashboard', 'movimentacoes', 'abastecimento',
+    'pesagem', 'aplicacao', 'cadastros', 'inventario',
+  ],
+};
+
+const MOBILE_PREFETCH = new Set([
+  'Produto',
+  'Setor',
+  'Maquina',
+  'Gaveta',
+  'Lote',
+  'Pessoa',
+  'Movimentacao',
+  'Deposito',
+  'SaldoEstoque',
+]);
+
+function podePrefetch(user, name) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+
+  const paginas = user.paginas_permitidas;
+
+  if (!Array.isArray(paginas)) {
+    return true;
+  }
+
+  const necessarias =
+    PREFETCH_PAGES[name] || [];
+
+  if (
+    necessarias.some(
+      (pagina) =>
+        paginas.includes(pagina)
+    )
+  ) {
+    return true;
+  }
+
+  const setores =
+    user.setores_permitidos;
+
+  return (
+    MOBILE_PREFETCH.has(name)
+    && Array.isArray(setores)
+    && setores.length > 0
+  );
+}
+
 export const keyOf = (name, opts = {}) => ['ent', name, opts.sort ?? null, opts.limit ?? null];
 
 const subscribed = new Set();
@@ -108,16 +195,23 @@ export function useEntidades(config = {}) {
 }
 
 /** Pré-carrega as entidades principais em paralelo (chamar após o login). */
-export function prefetchEntidades() {
-  PREFETCH.forEach((name) => {
-    const opts = DEFAULTS[name];
-    queryClientInstance.prefetchQuery({
-      queryKey: keyOf(name, opts),
-      queryFn: fetcher(name, opts),
-      staleTime: 60_000,
+export function prefetchEntidades(user) {
+  PREFETCH
+    .filter(
+      (name) =>
+        podePrefetch(user, name)
+    )
+    .forEach((name) => {
+      const opts = DEFAULTS[name];
+
+      queryClientInstance.prefetchQuery({
+        queryKey: keyOf(name, opts),
+        queryFn: fetcher(name, opts),
+        staleTime: 60_000,
+      });
+
+      ensureSubscribe(name);
     });
-    ensureSubscribe(name);
-  });
 }
 
 /** Invalida o cache de uma entidade após mutações locais. */

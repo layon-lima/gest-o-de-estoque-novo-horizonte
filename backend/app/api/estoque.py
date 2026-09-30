@@ -9,8 +9,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
+from app.core.access_control import (
+    acesso_estoque_apenas_mobile,
+    exigir_acao_estoque_mobile,
+    exigir_confirmacao_abastecimento,
+    exigir_leitura_estoque,
+    pagina_da_origem,
+    produtos_em_setores_mobile,
+    setores_mobile_ids,
+    tem_pagina,
+)
 from app.db.database import get_db
 from app.models import (
+    Deposito,
     EstoqueDocumento,
     EstoqueDocumentoItem,
     EstoqueSaldo,
@@ -144,11 +155,303 @@ def _serializar_documento(
     }
 
 
+def _produto_ids(
+    dados: MovimentoRequest,
+) -> list[str]:
+    return [
+        item.produto_id
+        for item in dados.itens
+        if item.produto_id
+    ]
+
+
+def _exigir_movimentacao_permitida(
+    dados: MovimentoRequest,
+    current_user: User,
+    db: Session,
+):
+    origem = str(dados.origem_modulo or "").strip().lower()
+
+    if origem == "mobile":
+        if not produtos_em_setores_mobile(
+            current_user,
+            _produto_ids(dados),
+            db,
+        ) and current_user.role != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Produto fora dos setores liberados para este usuário.",
+            )
+
+        tipo = str(dados.tipo_movimento or "").strip().upper()
+
+        for item in dados.itens:
+            produto = db.get(Produto, item.produto_id)
+
+            if produto is None:
+                raise HTTPException(status_code=404, detail="Produto não encontrado.")
+
+            deposito_ids = {
+                str(valor).strip()
+                for valor in (
+                    item.deposito_origem_id,
+                    item.deposito_destino_id,
+                )
+                if valor
+            }
+
+            for deposito_id in deposito_ids:
+                deposito = db.get(Deposito, deposito_id)
+
+                if deposito is None or deposito.setor_id != produto.setor_id:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="O depósito informado não pertence ao setor do produto.",
+                    )
+
+        if tipo == "SAIDA_CONSUMO":
+            exigir_acao_estoque_mobile(current_user, "baixar")
+            return
+
+        if tipo == "TRANSFERENCIA":
+            acoes = set()
+
+            for item in dados.itens:
+                origem_dep = str(item.deposito_origem_id or "").strip()
+                destino_dep = str(item.deposito_destino_id or "").strip()
+                origem_gav = str(item.gaveta_origem_id or "").strip()
+                destino_gav = str(item.gaveta_destino_id or "").strip()
+
+                if not origem_gav or not destino_gav:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="A gaveta de origem e a gaveta de destino são obrigatórias.",
+                    )
+
+                if origem_dep == destino_dep:
+                    if origem_gav == destino_gav:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Escolha uma gaveta de destino diferente.",
+                        )
+                    acoes.add("mudar_gaveta")
+                else:
+                    if origem_gav == destino_gav:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Ao mudar o depósito, a gaveta também deve mudar.",
+                        )
+                    acoes.add("mudar_deposito")
+
+            if len(acoes) != 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Uma movimentação mobile deve executar apenas uma ação.",
+                )
+
+            exigir_acao_estoque_mobile(current_user, acoes.pop())
+            return
+
+        raise HTTPException(
+            status_code=400,
+            detail="Tipo de movimentação não permitido pelo celular.",
+        )
+
+    pagina = pagina_da_origem(
+        dados.origem_modulo
+    )
+
+    if pagina == "abastecimento":
+        exigir_confirmacao_abastecimento(
+            current_user
+        )
+        return
+
+    if tem_pagina(
+        current_user,
+        pagina,
+    ):
+        return
+
+    if (
+        pagina == "movimentacoes"
+        and produtos_em_setores_mobile(
+            current_user,
+            _produto_ids(dados),
+            db,
+        )
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Usuário sem permissão para "
+            "contabilizar esta movimentação."
+        ),
+    )
+
+
+def _produto_ids_documento(
+    db: Session,
+    documento_id: str,
+) -> list[str]:
+    return list(
+        db.scalars(
+            select(
+                EstoqueDocumentoItem.produto_id
+            )
+            .where(
+                EstoqueDocumentoItem.documento_id
+                == documento_id
+            )
+        ).all()
+    )
+
+
+def _exigir_estorno_permitido(
+    documento: EstoqueDocumento,
+    current_user: User,
+    db: Session,
+):
+    # A aba Movimentos continua podendo
+    # estornar documentos, como já fazia.
+    if tem_pagina(
+        current_user,
+        "movimentacoes",
+    ):
+        return
+
+    pagina_origem = pagina_da_origem(
+        documento.origem_modulo
+    )
+
+    if (
+        pagina_origem
+        == "abastecimento"
+    ):
+        exigir_confirmacao_abastecimento(
+            current_user
+        )
+        return
+
+    if tem_pagina(
+        current_user,
+        pagina_origem,
+    ):
+        return
+
+    if produtos_em_setores_mobile(
+        current_user,
+        _produto_ids_documento(
+            db,
+            documento.id,
+        ),
+        db,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Usuário sem permissão para "
+            "estornar este documento."
+        ),
+    )
+
+
+def _aplicar_escopo_mobile_documentos(
+    stmt,
+    current_user: User,
+):
+    if not acesso_estoque_apenas_mobile(
+        current_user
+    ):
+        return stmt
+
+    setores = sorted(
+        setores_mobile_ids(
+            current_user
+        )
+    )
+
+    documentos_permitidos = (
+        select(
+            EstoqueDocumentoItem.documento_id
+        )
+        .join(
+            Produto,
+            Produto.id
+            == EstoqueDocumentoItem.produto_id,
+        )
+        .where(
+            Produto.setor_id.in_(
+                setores
+            )
+        )
+        .distinct()
+    )
+
+    documentos_fora_escopo = (
+        select(
+            EstoqueDocumentoItem.documento_id
+        )
+        .join(
+            Produto,
+            Produto.id
+            == EstoqueDocumentoItem.produto_id,
+        )
+        .where(
+            Produto.setor_id.notin_(
+                setores
+            )
+        )
+        .distinct()
+    )
+
+    return stmt.where(
+        EstoqueDocumento.id.in_(
+            documentos_permitidos
+        ),
+        EstoqueDocumento.id.notin_(
+            documentos_fora_escopo
+        ),
+    )
+
+
+def _documento_visivel(
+    documento: EstoqueDocumento,
+    current_user: User,
+    db: Session,
+) -> bool:
+    if not acesso_estoque_apenas_mobile(
+        current_user
+    ):
+        return True
+
+    return produtos_em_setores_mobile(
+        current_user,
+        _produto_ids_documento(
+            db,
+            documento.id,
+        ),
+        db,
+    )
+
+
 @router.get("/tipos-movimento")
 def tipos_movimento(
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
-    return sorted(MOVIMENTOS_VALIDOS)
+    exigir_leitura_estoque(
+        current_user
+    )
+
+    return sorted(
+        MOVIMENTOS_VALIDOS
+    )
 
 
 @router.post("/movimentar")
@@ -157,6 +460,12 @@ def movimentar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _exigir_movimentacao_permitida(
+        dados,
+        current_user,
+        db,
+    )
+
     usuario_id = current_user.id
 
     # A autenticaÃƒÂ§ÃƒÂ£o jÃƒÂ¡ realizou uma leitura usando
@@ -209,6 +518,26 @@ def estornar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    documento_alvo = db.get(
+        EstoqueDocumento,
+        documento_id,
+    )
+
+    if documento_alvo is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Documento de estoque "
+                "não encontrado."
+            ),
+        )
+
+    _exigir_estorno_permitido(
+        documento_alvo,
+        current_user,
+        db,
+    )
+
     usuario_id = current_user.id
 
     db.rollback()
@@ -248,6 +577,10 @@ def listar_saldos(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    exigir_leitura_estoque(
+        current_user
+    )
+
     stmt = (
         select(
             EstoqueSaldo,
@@ -263,6 +596,19 @@ def listar_saldos(
             EstoqueSaldo.deposito_id,
         )
     )
+
+    if acesso_estoque_apenas_mobile(
+        current_user
+    ):
+        stmt = stmt.where(
+            Produto.setor_id.in_(
+                sorted(
+                    setores_mobile_ids(
+                        current_user
+                    )
+                )
+            )
+        )
 
     if produto_id:
         stmt = stmt.where(
@@ -320,6 +666,10 @@ def listar_documentos(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    exigir_leitura_estoque(
+        current_user
+    )
+
     limit = max(
         1,
         min(limit, 500),
@@ -327,6 +677,13 @@ def listar_documentos(
 
     stmt = select(
         EstoqueDocumento
+    )
+
+    stmt = (
+        _aplicar_escopo_mobile_documentos(
+            stmt,
+            current_user,
+        )
     )
 
     if origem_modulo:
@@ -382,6 +739,10 @@ def obter_documento(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    exigir_leitura_estoque(
+        current_user
+    )
+
     documento = db.get(
         EstoqueDocumento,
         documento_id,
@@ -390,7 +751,23 @@ def obter_documento(
     if documento is None:
         raise HTTPException(
             status_code=404,
-            detail="Documento de estoque nÃƒÂ£o encontrado.",
+            detail=(
+                "Documento de estoque "
+                "não encontrado."
+            ),
+        )
+
+    if not _documento_visivel(
+        documento,
+        current_user,
+        db,
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Documento de estoque "
+                "não encontrado."
+            ),
         )
 
     return _serializar_documento(

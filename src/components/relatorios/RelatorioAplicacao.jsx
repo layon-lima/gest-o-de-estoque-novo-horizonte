@@ -10,11 +10,11 @@ import { parseItens } from '@/lib/osAplicacao';
 import { useEntidades } from '@/lib/useEntidades';
 
 const STATUS_OPTS = [
-  { value: 'aberta', label: 'Abertas' },
-  { value: 'executada', label: 'Executadas' },
+  { value: 'pendente', label: 'Pendentes' },
+  { value: 'baixada', label: 'Baixadas' },
   { value: 'cancelada', label: 'Canceladas' },
 ];
-const statusLabel = (s) => (s === 'aberta' ? 'Aberta' : s === 'executada' ? 'Executada' : s === 'cancelada' ? 'Cancelada' : s);
+const statusLabel = (s) => (s === 'pendente' ? 'Pendente' : s === 'baixada' ? 'Baixada' : s === 'cancelada' ? 'Cancelada' : s);
 
 const NIVEIS = [
   { value: 'detalhado', label: 'Detalhado (por item)' },

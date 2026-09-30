@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { formatQtd } from '@/lib/format';
-import { executarOS, parseItens, diasEmAberto } from '@/lib/osAplicacao';
+import { executarOS, parseItens, diasEmAberto, normalizarStatusAplicacao } from '@/lib/osAplicacao';
 import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
 import AutobaixaDialog from '@/components/aplicacao/AutobaixaDialog';
@@ -30,7 +30,7 @@ export default function Aplicacao() {
   const [editandoOs, setEditandoOs] = useState(null);
   const [custoLavoura, setCustoLavoura] = useState(null);
   const [busca, setBusca] = useState('');
-  const [tab, setTab] = useState('aberta');
+  const [tab, setTab] = useState('pendente');
   const [novoConfirm, setNovoConfirm] = useState(false);
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -62,18 +62,18 @@ export default function Aplicacao() {
   const filtered = useMemo(() => {
     const q = busca.toLowerCase().trim();
     return (ordens || []).filter((o) => {
-      if (o.status !== tab) return false;
+      if (normalizarStatusAplicacao(o.status) !== tab) return false;
       const matchBusca = !q || [o.numero, o.cultura_nome, o.lavoura_nome, o.ano_safra, o.responsavel].filter(Boolean).join(' ').toLowerCase().includes(q);
       const matchAnoSafra = anoSafraFiltro === 'all' || o.ano_safra === anoSafraFiltro;
       return matchBusca && matchAnoSafra;
     });
   }, [ordens, tab, busca, anoSafraFiltro]);
 
-  const abertasFiltered = tab === 'aberta' ? filtered : [];
+  const abertasFiltered = tab === 'pendente' ? filtered : [];
 
-  // Lavouras com OS executadas para o relatório de custo.
+  // Lavouras com aplicações baixadas para o relatório de custo.
   const lavourasComCusto = useMemo(() => {
-    return (lavouras || []).filter((l) => (ordens || []).some((o) => o.lavoura_id === l.id && o.status === 'executada'));
+    return (lavouras || []).filter((l) => (ordens || []).some((o) => o.lavoura_id === l.id && normalizarStatusAplicacao(o.status) === 'baixada'));
   }, [lavouras, ordens]);
 
   function handleEditOs(os) {
@@ -112,7 +112,7 @@ export default function Aplicacao() {
 
   async function handleAutobaixa(distribuicao) {
     setAutobaixaSaving(true);
-    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta');
+    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente');
     let ok = 0;
     let firstErr = null;
     for (const os of selecionadas) {
@@ -148,19 +148,19 @@ export default function Aplicacao() {
       let desc = msg;
       if (msg.startsWith('SALDO_INSUFICIENTE')) {
         const [, disp, nome] = msg.split(':');
-        desc = `Saldo insuficiente de ${nome || 'produto'} (disponível ${formatQtd(Number(disp) || 0)}) ao executar ${firstErr.os.numero}. ${ok} OS já baixadas.`;
+        desc = `Saldo insuficiente de ${nome || 'produto'} (disponível ${formatQtd(Number(disp) || 0)}) ao executar ${firstErr.os.numero}. ${ok} aplicações já baixadas.`;
       } else if (msg.startsWith('DEPOSITO_OBRIGATORIO')) {
-        desc = `Depósito obrigatório para ${msg.split(':')[1] || 'produto'} em ${firstErr.os.numero}. ${ok} OS já baixadas.`;
+        desc = `Depósito obrigatório para ${msg.split(':')[1] || 'produto'} em ${firstErr.os.numero}. ${ok} aplicações já baixadas.`;
       }
-      toast({ variant: 'destructive', title: 'Erro na autobaixa', description: desc });
+      toast({ variant: 'destructive', title: 'Erro na baixa em lote', description: desc });
     } else {
-      toast({ title: 'Autobaixa concluída', description: `${ok} OS executadas e estoque baixado.` });
+      toast({ title: 'Baixa em lote concluída', description: `${ok} aplicações baixadas e estoque baixado.` });
     }
   }
 
   async function handleEdicaoMassa(distribuicao) {
     setEdicaoMassaSaving(true);
-    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta');
+    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente');
     let ok = 0;
     for (const os of selecionadas) {
       const itens = distribuicao[os.id];
@@ -172,7 +172,7 @@ export default function Aplicacao() {
     setEdicaoMassaSaving(false);
     setEdicaoMassaOpen(false);
     setSelectedIds([]);
-    toast({ title: 'Edição em massa concluída', description: `${ok} OS atualizadas.` });
+    toast({ title: 'Edição em massa concluída', description: `${ok} aplicações atualizadas.` });
   }
 
   if (loading) {
@@ -184,11 +184,11 @@ export default function Aplicacao() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-5 space-y-4 max-w-[1600px] mx-auto">
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Aplicação por Lavoura</h1>
-          <p className="text-sm text-muted-foreground mt-1">Ordens de serviço de aplicação de adubos e defensivos</p>
+          <h1 className="text-lg font-semibold">Aplicações</h1>
+          <p className="text-sm text-muted-foreground mt-1">Planejamento, baixa de insumos e rastreabilidade por lavoura</p>
         </div>
         <div className="flex items-center gap-2">
           {selectedIds.length > 0 && (
@@ -201,37 +201,37 @@ export default function Aplicacao() {
           )}
           {selectedIds.length >= 2 && (
             <Button onClick={() => setAutobaixaOpen(true)}>
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Autobaixa ({selectedIds.length})
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Baixa em lote ({selectedIds.length})
             </Button>
           )}
           {selectedIds.length >= 2 && (
             <Button variant="outline" onClick={() => setEdicaoMassaOpen(true)}>
-              <Edit3 className="w-4 h-4 mr-2" /> Editar em Massa ({selectedIds.length})
+              <Edit3 className="w-4 h-4 mr-2" /> Editar em massa ({selectedIds.length})
             </Button>
           )}
           <Button onClick={() => setNovoConfirm(true)}>
-            <Plus className="w-4 h-4 mr-2" /> Nova OS
+            <Plus className="w-4 h-4 mr-2" /> Nova aplicação
           </Button>
         </div>
       </header>
 
       {/* Resumo */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-4">
+        <Card className="rounded-xl px-3 py-2.5">
           <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><FileText className="w-4 h-4" /> Total OS</div>
-          <p className="text-2xl font-bold tabular-nums">{ordens?.length || 0}</p>
+          <p className="text-lg font-semibold tabular-nums">{ordens?.length || 0}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="rounded-xl px-3 py-2.5">
           <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><AlertCircle className="w-4 h-4" /> Abertas</div>
-          <p className="text-2xl font-bold tabular-nums text-blue-600">{(ordens || []).filter((o) => o.status === 'aberta').length}</p>
+          <p className="text-lg font-semibold tabular-nums text-blue-600">{(ordens || []).filter((o) => normalizarStatusAplicacao(o.status) === 'pendente').length}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="rounded-xl px-3 py-2.5">
           <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><Sprout className="w-4 h-4" /> Lavouras</div>
-          <p className="text-2xl font-bold tabular-nums">{lavouras?.length || 0}</p>
+          <p className="text-lg font-semibold tabular-nums">{lavouras?.length || 0}</p>
         </Card>
-        <Card className="p-4">
+        <Card className="rounded-xl px-3 py-2.5">
           <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1"><DollarSign className="w-4 h-4" /> Custo Total</div>
-          <p className="text-2xl font-bold tabular-nums text-primary">
+          <p className="text-lg font-semibold tabular-nums text-primary">
             R$ {(ordens || []).reduce((s, o) => s + (Number(o.custo_total) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </Card>
@@ -262,8 +262,8 @@ export default function Aplicacao() {
       {/* Abas: status da OS + Custos por Lavoura */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full justify-start overflow-x-auto h-auto py-1">
-          <TabsTrigger value="aberta">Abertas ({(ordens || []).filter((o) => o.status === 'aberta').length})</TabsTrigger>
-          <TabsTrigger value="executada">Executadas ({(ordens || []).filter((o) => o.status === 'executada').length})</TabsTrigger>
+          <TabsTrigger value="pendente">Pendentes ({(ordens || []).filter((o) => normalizarStatusAplicacao(o.status) === 'pendente').length})</TabsTrigger>
+          <TabsTrigger value="baixada">Baixadas ({(ordens || []).filter((o) => normalizarStatusAplicacao(o.status) === 'baixada').length})</TabsTrigger>
           <TabsTrigger value="cancelada">Canceladas ({(ordens || []).filter((o) => o.status === 'cancelada').length})</TabsTrigger>
           <TabsTrigger value="custos">Custos por Lavoura</TabsTrigger>
         </TabsList>
@@ -282,15 +282,15 @@ export default function Aplicacao() {
       filtered.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
-          <p className="text-sm text-muted-foreground mb-4">Nenhuma OS {tab === 'aberta' ? 'aberta' : tab === 'executada' ? 'executada' : 'cancelada'}.</p>
-          {tab === 'aberta' && (
+          <p className="text-sm text-muted-foreground mb-4">Nenhuma OS {tab === 'pendente' ? 'aberta' : tab === 'baixada' ? 'executada' : 'cancelada'}.</p>
+          {tab === 'pendente' && (
             <Button onClick={() => setNovoConfirm(true)} className="mx-auto">
-              <Plus className="w-4 h-4 mr-2" /> Criar primeira OS
+              <Plus className="w-4 h-4 mr-2" /> Criar primeira aplicação
             </Button>
           )}
         </Card>
       ) : (
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden rounded-2xl border shadow-none">
           <div className="max-h-[55vh] overflow-auto scrollbar-thin">
             <table className="min-w-full w-auto text-sm">
               <thead className="bg-muted/50 sticky top-0">
@@ -319,16 +319,16 @@ export default function Aplicacao() {
               <tbody>
                 {filtered.map((o) => {
                   const qtdItens = parseItens(o.itens).length;
-                  const statusBadge = o.status === 'aberta'
+                  const statusBadge = normalizarStatusAplicacao(o.status) === 'pendente'
                     ? 'bg-blue-500 text-white border-transparent'
-                    : o.status === 'executada'
+                    : normalizarStatusAplicacao(o.status) === 'baixada'
                       ? 'bg-emerald-600 text-white border-transparent'
                       : 'bg-muted text-muted-foreground border-transparent';
-                  const statusLabel = o.status === 'aberta' ? 'Aberta' : o.status === 'executada' ? 'Executada' : 'Cancelada';
+                  const statusLabel = normalizarStatusAplicacao(o.status) === 'pendente' ? 'Pendente' : normalizarStatusAplicacao(o.status) === 'baixada' ? 'Baixada' : 'Cancelada';
                   return (
                     <tr key={o.id} className="border-t hover:bg-accent/30 cursor-pointer" onClick={() => setDetalheOs(o)}>
                       <td className="p-2 w-10" onClick={(e) => e.stopPropagation()}>
-                        {o.status === 'aberta' && (
+                        {normalizarStatusAplicacao(o.status) === 'pendente' && (
                           <Checkbox
                             checked={selectedIds.includes(o.id)}
                             onCheckedChange={(checked) => setSelectedIds((prev) => checked ? [...prev, o.id] : prev.filter((id) => id !== o.id))}
@@ -346,7 +346,7 @@ export default function Aplicacao() {
                       </td>
                       <td className="p-2 text-center whitespace-nowrap"><Badge className={statusBadge}>{statusLabel}</Badge></td>
                       <td className="p-2 text-center whitespace-nowrap">
-                        {o.status === 'aberta' ? (() => {
+                        {normalizarStatusAplicacao(o.status) === 'pendente' ? (() => {
                           const d = diasEmAberto(o);
                           const alerta = d > 7;
                           return (
@@ -372,7 +372,7 @@ export default function Aplicacao() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {lavourasComCusto.map((l) => {
               const custo = (ordens || [])
-                .filter((o) => o.lavoura_id === l.id && o.status === 'executada')
+                .filter((o) => o.lavoura_id === l.id && normalizarStatusAplicacao(o.status) === 'baixada')
                 .reduce((s, o) => s + (Number(o.custo_total) || 0), 0);
               return (
                 <Card key={l.id} className="p-4 cursor-pointer hover:bg-accent/30" onClick={() => setCustoLavoura(l)}>
@@ -430,7 +430,7 @@ export default function Aplicacao() {
       <AutobaixaDialog
         open={autobaixaOpen}
         onOpenChange={setAutobaixaOpen}
-        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta')}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente')}
         produtos={produtos}
         saldos={saldos}
         lotes={lotes}
@@ -442,7 +442,7 @@ export default function Aplicacao() {
       <EdicaoMassaDialog
         open={edicaoMassaOpen}
         onOpenChange={setEdicaoMassaOpen}
-        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && o.status === 'aberta')}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente')}
         produtos={produtos}
         onConfirm={handleEdicaoMassa}
         saving={edicaoMassaSaving}
@@ -459,15 +459,15 @@ export default function Aplicacao() {
       <AlertDialog open={novoConfirm} onOpenChange={setNovoConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Criar nova OS?</AlertDialogTitle>
+            <AlertDialogTitle>Criar nova aplicação?</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja abrir o formulário para criar uma nova Ordem de Serviço de Aplicação?
+              Deseja abrir o formulário para criar uma nova aplicação?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setEditandoOs(null); setFormOpen(true); setNovoConfirm(false); }}>
-              Criar OS
+              Criar aplicação
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

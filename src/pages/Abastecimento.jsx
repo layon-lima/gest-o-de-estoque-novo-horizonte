@@ -183,7 +183,7 @@ export default function Abastecimento() {
       )}
 
       {podeConfirmar && (
-        <div className="hidden sm:flex gap-1 p-1 rounded-lg bg-muted">
+        <div className="flex gap-1 p-1 rounded-xl bg-muted">
           <button
             onClick={() => setAba('abastecer')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${aba === 'abastecer' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}

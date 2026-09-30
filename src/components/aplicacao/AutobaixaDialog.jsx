@@ -19,7 +19,7 @@ function distribuirProduto(entries, total) {
   if (S > 0) {
     raw = previstos.map((p) => (p / S) * T);
   } else {
-    // Sem previsto em nenhuma OS: divide igualmente.
+    // Sem previsto em nenhuma Aplicações: divide igualmente.
     raw = previstos.map(() => T / n);
   }
   let rounded = raw.map((r) => Math.round(r * 1000) / 1000);
@@ -36,7 +36,7 @@ export default function AutobaixaDialog({ open, onOpenChange, ordens, produtos, 
   const [totais, setTotais] = useState({});
   const [erro, setErro] = useState('');
 
-  // Agrupa produtos de todas as OS selecionadas e soma o previsto.
+  // Agrupa produtos de todas as aplicações selecionadas e soma o previsto.
   const grupos = useMemo(() => {
     const map = {};
     for (const os of ordens || []) {
@@ -129,20 +129,20 @@ export default function AutobaixaDialog({ open, onOpenChange, ordens, produtos, 
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-primary" /> Autobaixa — {ordens.length} OS selecionadas
+            <CheckCircle2 className="w-5 h-5 text-primary" /> Autobaixa — {ordens.length} aplicações selecionadas
           </DialogTitle>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">
-          Informe o total real utilizado de cada produto. O sistema distribui esse total entre as OS
+          Informe o total real utilizado de cada produto. O sistema distribui esse total entre as aplicações
           proporcionalmente ao que cada uma pedia (previsto) e baixa o estoque de todas de uma vez.
         </p>
         <div className="flex flex-wrap gap-3 text-sm">
-          <span className="glass-pill rounded-md px-2.5 py-1">OS: <b className="text-foreground">{ordens.length}</b></span>
-          <span className="glass-pill rounded-md px-2.5 py-1">Ha total: <b className="text-foreground">{formatQtd((ordens || []).reduce((s, o) => s + (Number(o.hectares) || 0), 0))}</b></span>
+          <span className="glass-pill rounded-md px-2.5 py-1">Aplicações: <b className="text-foreground">{ordens.length}</b></span>
+          <span className="glass-pill rounded-md px-2.5 py-1">Área total: <b className="text-foreground">{formatQtd((ordens || []).reduce((s, o) => s + (Number(o.hectares) || 0), 0))}</b></span>
         </div>
 
-        <div className="border rounded-lg overflow-x-auto scrollbar-thin">
+        <div className="border rounded-xl overflow-x-auto scrollbar-thin">
           <table className="min-w-full w-auto text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -213,7 +213,7 @@ export default function AutobaixaDialog({ open, onOpenChange, ordens, produtos, 
             Cancelar
           </Button>
           <Button type="button" onClick={handleConfirm} disabled={saving}>
-            {saving ? 'Processando…' : `Confirmar Autobaixa (${ordens.length} OS)`}
+            {saving ? 'Processando…' : `Confirmar baixa em lote (${ordens.length} OS)`}
           </Button>
         </DialogFooter>
       </DialogContent>

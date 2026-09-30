@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   createContext,
   useState,
   useContext,
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
         setUser(currentUser);
         setIsAuthenticated(true);
 
-        prefetchEntidades();
+        prefetchEntidades(currentUser);
       } else {
         setUser(null);
         setIsAuthenticated(false);

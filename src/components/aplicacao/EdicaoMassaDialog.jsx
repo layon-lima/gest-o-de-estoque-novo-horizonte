@@ -98,7 +98,7 @@ export default function EdicaoMassaDialog({ open, onOpenChange, ordens, produtos
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Edit3 className="w-5 h-5 text-primary" /> Edição em Massa — {ordens?.length || 0} OS
+            <Edit3 className="w-5 h-5 text-primary" /> Edição em massa — {ordens?.length || 0} OS
           </DialogTitle>
         </DialogHeader>
 
@@ -155,14 +155,14 @@ export default function EdicaoMassaDialog({ open, onOpenChange, ordens, produtos
         </Tabs>
 
         <div className="flex flex-wrap gap-3 text-sm font-medium text-muted-foreground">
-          <span>OS afetadas: <span className="text-foreground">{osAfetadas}</span></span>
-          <span>Ha total: <span className="text-foreground">{(ordens || []).reduce((s, o) => s + (Number(o.hectares) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+          <span>Aplicações afetadas: <span className="text-foreground">{osAfetadas}</span></span>
+          <span>Área total: <span className="text-foreground">{(ordens || []).reduce((s, o) => s + (Number(o.hectares) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
           <Button type="button" onClick={handleConfirm} disabled={!podeConfirmar() || saving}>
-            {saving ? 'Salvando…' : 'Aplicar em Massa'}
+            {saving ? 'Salvando…' : 'Aplicar alterações'}
           </Button>
         </DialogFooter>
       </DialogContent>

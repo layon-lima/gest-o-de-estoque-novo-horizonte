@@ -7,6 +7,20 @@ import {
 } from '@/lib/estoqueOperacoes';
 
 
+const SUBTIPOS_ENTRADA = new Set([
+  'ENTRADA_COMPRA',
+  'DEVOLUCAO_ENTRADA',
+  'AJUSTE_POSITIVO',
+]);
+
+
+const SUBTIPOS_SAIDA = new Set([
+  'SAIDA_CONSUMO',
+  'DEVOLUCAO_SAIDA',
+  'AJUSTE_NEGATIVO',
+]);
+
+
 export function maxNumeroMovimento(listaMovs) {
   let max = 0;
 
@@ -124,9 +138,30 @@ export async function registrarMovimentacao({
       form.chave_acesso || ''
     ).trim();
 
+  const subtipoEntrada =
+    SUBTIPOS_ENTRADA.has(
+      form.subtipo
+    )
+      ? form.subtipo
+      : (
+          chaveAcesso
+          || form.numero_nf
+            ? 'ENTRADA_COMPRA'
+            : 'AJUSTE_POSITIVO'
+        );
+
+  const subtipoSaida =
+    SUBTIPOS_SAIDA.has(
+      form.subtipo
+    )
+      ? form.subtipo
+      : 'SAIDA_CONSUMO';
+
+
   if (
-    form.tipo === 'entrada' &&
-    chaveAcesso
+    form.tipo === 'entrada'
+    && subtipoEntrada === 'ENTRADA_COMPRA'
+    && chaveAcesso
   ) {
     const existentes =
       await estoqueApi.buscarDocumentos({
@@ -151,12 +186,7 @@ export async function registrarMovimentacao({
 
   if (form.tipo === 'entrada') {
     tipoMovimento =
-      (
-        chaveAcesso ||
-        form.numero_nf
-      )
-        ? 'ENTRADA_COMPRA'
-        : 'AJUSTE_POSITIVO';
+      subtipoEntrada;
 
     itens = [
       {
@@ -184,7 +214,7 @@ export async function registrarMovimentacao({
     ];
   } else {
     tipoMovimento =
-      'SAIDA_CONSUMO';
+      subtipoSaida;
 
     const alocacao =
       await construirItensSaida({
@@ -207,8 +237,17 @@ export async function registrarMovimentacao({
     itens = alocacao.itens;
   }
 
+  const movimentoFiscal =
+    form.tipo === 'entrada'
+    && tipoMovimento === 'ENTRADA_COMPRA'
+    && (
+      chaveAcesso
+      || form.numero_nf
+    );
+
+
   const origemModulo =
-    chaveAcesso
+    movimentoFiscal
       ? 'nfe_manual'
       : (
           form.modulo ||
@@ -216,9 +255,12 @@ export async function registrarMovimentacao({
         );
 
   const documentoOrigemId =
-    chaveAcesso ||
-    form.documento_origem_id ||
-    null;
+    (
+      movimentoFiscal
+        ? chaveAcesso
+        : form.documento_origem_id
+    )
+    || null;
 
   const resposta =
     await estoqueApi.movimentar({
@@ -229,9 +271,17 @@ export async function registrarMovimentacao({
       documento_origem_id:
         documentoOrigemId,
       referencia_externa:
-        chaveAcesso ||
-        form.numero_nf ||
-        undefined,
+        (
+          movimentoFiscal
+            ? (
+                chaveAcesso
+                || form.numero_nf
+              )
+            : (
+                form.referencia_externa
+                || undefined
+              )
+        ),
       observacao:
         form.observacao ||
         undefined,

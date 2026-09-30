@@ -25,9 +25,13 @@ import {
   LogOut,
   MapPinned,
   Package,
+  Palette,
+  Check,
+  Moon,
   Scale,
   Settings,
   Sprout,
+  Sun,
   Tractor,
   Trash2,
   Users,
@@ -67,6 +71,12 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import BalancaStatusBadge from '@/components/balanca/BalancaStatusBadge';
+import AdminIntegrityStatus from '@/components/admin/AdminIntegrityStatus';
+
+import {
+  ERP_THEMES,
+  useErpTheme,
+} from '@/lib/erpTheme';
 
 
 const MAIN_NAV = [
@@ -240,6 +250,108 @@ function MobileNavItem({
 }
 
 
+function ThemeControls({
+  theme,
+  mode,
+  onThemeChange,
+  onModeChange,
+  compact = false,
+}) {
+  return (
+    <div
+      className={`erp-theme-control ${
+        compact ? 'is-compact' : ''
+      }`}
+    >
+      <div className="erp-theme-control__head">
+        <span className="erp-theme-control__title">
+          <Palette className="h-4 w-4" />
+          Aparência
+        </span>
+
+        <span className="erp-theme-control__current">
+          {
+            ERP_THEMES.find(
+              (item) => item.id === theme
+            )?.label || 'Novo Horizonte'
+          }
+        </span>
+      </div>
+
+      <div className="erp-theme-control__themes">
+        {ERP_THEMES.map((item) => {
+          const active = item.id === theme;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`erp-theme-choice ${
+                active ? 'is-active' : ''
+              }`}
+              onClick={() =>
+                onThemeChange(item.id)
+              }
+              title={item.label}
+              aria-pressed={active}
+            >
+              <span
+                className="erp-theme-choice__swatch"
+                style={{
+                  background: item.swatch,
+                }}
+              />
+
+              <span className="erp-theme-choice__label">
+                {item.shortLabel}
+              </span>
+
+              {active && (
+                <Check className="erp-theme-choice__check h-3.5 w-3.5" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="erp-theme-mode">
+        <button
+          type="button"
+          className={
+            mode === 'light'
+              ? 'is-active'
+              : ''
+          }
+          onClick={() =>
+            onModeChange('light')
+          }
+          aria-pressed={mode === 'light'}
+        >
+          <Sun className="h-3.5 w-3.5" />
+          Claro
+        </button>
+
+        <button
+          type="button"
+          className={
+            mode === 'dark'
+              ? 'is-active'
+              : ''
+          }
+          onClick={() =>
+            onModeChange('dark')
+          }
+          aria-pressed={mode === 'dark'}
+        >
+          <Moon className="h-3.5 w-3.5" />
+          Escuro
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function Sidebar({
   open,
   onClose,
@@ -254,6 +366,13 @@ export default function Sidebar({
 
   const location =
     useLocation();
+
+  const {
+    theme,
+    mode,
+    setTheme,
+    setMode,
+  } = useErpTheme();
 
   const userMenuRef =
     useRef(null);
@@ -449,6 +568,17 @@ export default function Sidebar({
                       </span>
                     </div>
 
+                    <ThemeControls
+                      theme={theme}
+                      mode={mode}
+                      onThemeChange={setTheme}
+                      onModeChange={setMode}
+                    />
+
+                    {user?.role === 'admin' && (
+                      <AdminIntegrityStatus />
+                    )}
+
                     <button
                       type="button"
                       onClick={logout}
@@ -637,6 +767,14 @@ export default function Sidebar({
 
 
         <div className="space-y-2 border-t px-4 py-3">
+          <ThemeControls
+            theme={theme}
+            mode={mode}
+            onThemeChange={setTheme}
+            onModeChange={setMode}
+            compact
+          />
+
           <div className="flex items-center gap-3 px-2 pb-1">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
               {getDisplayInitial(user)}

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { formatQtd, parseQtd } from '@/lib/format';
-import { parseItens, saldoProduto } from '@/lib/osAplicacao';
+import { parseItens, saldoProdutoDeposito } from '@/lib/osAplicacao';
 
 // Dialog para lançar o consumo real de cada produto da OS.
 export default function ConsumoRealDialog({ open, onOpenChange, os, produtos, saldos, onConfirm, saving }) {
@@ -18,7 +18,7 @@ export default function ConsumoRealDialog({ open, onOpenChange, os, produtos, sa
     if (os && open) {
       const parsed = parseItens(os.itens).map((it) => ({
         ...it,
-        realizado: '',
+        realizado: String(Number(it.realizado) || Number(it.previsto) || 0),
       }));
       setItens(parsed);
     }
@@ -43,16 +43,16 @@ export default function ConsumoRealDialog({ open, onOpenChange, os, produtos, sa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Lançar Consumo Real — {os.numero}</DialogTitle>
+          <DialogTitle>Baixar Aplicação — {os.numero}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleConfirm} className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Informe a quantidade real utilizada de cada produto. Ao confirmar, o estoque será baixado e a OS marcada como executada.
+            Informe a quantidade real utilizada de cada produto. Ao confirmar, o estoque será baixado e a OS marcada como baixada.
           </p>
 
-          <div className="border rounded-lg overflow-x-auto scrollbar-thin">
+          <div className="border rounded-xl overflow-x-auto scrollbar-thin">
             <table className="min-w-full w-auto text-sm">
               <thead className="bg-muted/50">
                 <tr>
@@ -64,8 +64,10 @@ export default function ConsumoRealDialog({ open, onOpenChange, os, produtos, sa
               </thead>
               <tbody>
                 {itens.map((it, idx) => {
-                  const saldo = saldoProduto(it.produto_id, saldos);
-                  const insuficiente = parseQtd(it.realizado) > saldo;
+                  const produto = (produtos || []).find((p) => p.id === it.produto_id);
+                  const depositoId = it.deposito_id || produto?.deposito_id || '';
+                  const saldo = saldoProdutoDeposito(it.produto_id, depositoId, saldos);
+                  const insuficiente = !depositoId || parseQtd(it.realizado) > saldo;
                   return (
                     <tr key={idx} className="border-t">
                       <td className="p-2 whitespace-nowrap">
@@ -97,7 +99,7 @@ export default function ConsumoRealDialog({ open, onOpenChange, os, produtos, sa
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}>{saving ? 'Processando…' : 'Confirmar Consumo'}</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Processando…' : 'Confirmar Baixa'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

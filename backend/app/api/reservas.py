@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from decimal import Decimal
 
@@ -8,10 +8,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
+from app.core.access_control import (
+    acesso_estoque_apenas_mobile,
+    exigir_leitura_estoque,
+    pagina_da_origem,
+    produtos_em_setores_mobile,
+    setores_mobile_ids,
+    tem_pagina,
+)
 from app.db.database import get_db
 from app.models import (
     EstoqueReserva,
     EstoqueReservaEvento,
+    Produto,
     User,
 )
 from app.services.reservas_estoque import (
@@ -137,6 +146,57 @@ def _serializar_reserva(
     }
 
 
+def _exigir_acesso_reserva(
+    current_user: User,
+    origem_modulo: str | None,
+    produto_ids: list[str],
+    db: Session,
+):
+    if tem_pagina(
+        current_user,
+        "movimentacoes",
+    ):
+        return
+
+    pagina = pagina_da_origem(
+        origem_modulo
+    )
+
+    if tem_pagina(
+        current_user,
+        pagina,
+    ):
+        return
+
+    if produtos_em_setores_mobile(
+        current_user,
+        produto_ids,
+        db,
+    ):
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Usuário sem permissão para "
+            "operar esta reserva de estoque."
+        ),
+    )
+
+
+def _exigir_acesso_reserva_existente(
+    reserva: EstoqueReserva,
+    current_user: User,
+    db: Session,
+):
+    _exigir_acesso_reserva(
+        current_user,
+        reserva.origem_modulo,
+        [reserva.produto_id],
+        db,
+    )
+
+
 @router.post("")
 def criar_reserva(
     dados: CriarReservaRequest,
@@ -145,6 +205,13 @@ def criar_reserva(
     ),
     db: Session = Depends(get_db),
 ):
+    _exigir_acesso_reserva(
+        current_user,
+        dados.origem_modulo,
+        [dados.produto_id],
+        db,
+    )
+
     usuario_id = current_user.id
 
     #
@@ -243,6 +310,25 @@ def cancelar(
     ),
     db: Session = Depends(get_db),
 ):
+    reserva_atual = db.get(
+        EstoqueReserva,
+        reserva_id,
+    )
+
+    if reserva_atual is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Reserva não encontrada."
+            ),
+        )
+
+    _exigir_acesso_reserva_existente(
+        reserva_atual,
+        current_user,
+        db,
+    )
+
     usuario_id = current_user.id
 
     db.rollback()
@@ -288,6 +374,25 @@ def consumir(
     ),
     db: Session = Depends(get_db),
 ):
+    reserva_atual = db.get(
+        EstoqueReserva,
+        reserva_id,
+    )
+
+    if reserva_atual is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Reserva não encontrada."
+            ),
+        )
+
+    _exigir_acesso_reserva_existente(
+        reserva_atual,
+        current_user,
+        db,
+    )
+
     usuario_id = current_user.id
 
     db.rollback()
@@ -361,12 +466,38 @@ def listar_reservas(
 
     db: Session = Depends(get_db),
 ):
+    exigir_leitura_estoque(
+        current_user
+    )
+
     stmt = (
         select(EstoqueReserva)
         .order_by(
             EstoqueReserva.created_at.desc()
         )
     )
+
+    if acesso_estoque_apenas_mobile(
+        current_user
+    ):
+        produtos_permitidos = (
+            select(Produto.id)
+            .where(
+                Produto.setor_id.in_(
+                    sorted(
+                        setores_mobile_ids(
+                            current_user
+                        )
+                    )
+                )
+            )
+        )
+
+        stmt = stmt.where(
+            EstoqueReserva.produto_id.in_(
+                produtos_permitidos
+            )
+        )
 
     if produto_id:
         stmt = stmt.where(
@@ -421,6 +552,12 @@ def listar_eventos(
             status_code=404,
             detail="Reserva não encontrada.",
         )
+
+    _exigir_acesso_reserva_existente(
+        reserva,
+        current_user,
+        db,
+    )
 
     eventos = db.scalars(
         select(

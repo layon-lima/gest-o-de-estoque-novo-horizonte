@@ -609,8 +609,6 @@ REPORTS: dict[str, dict[str, Any]] = {
             _col("peso_bruto", "Bruto", "number"),
             _col("peso_liquido", "Líquido", "number"),
             _col("pedido", "Pedido"),
-            _col("nfe_numero", "NF-e"),
-            _col("nfe_chave", "Chave NF-e"),
             _col("observacao", "Observação"),
         ],
         "filters": [
@@ -644,13 +642,26 @@ REPORTS: dict[str, dict[str, Any]] = {
     },
     "nfe_pesagem": {
         "code": "REL-PES-04",
-        "title": "NF-e vinculadas à pesagem",
-        "description": "NF-e efetivamente vinculadas aos tickets de pesagem do sistema.",
+        "title": "Controle de NF-e por ticket",
+        "description": "Tickets de venda com indicação de NF-e e dados capturados automaticamente do XML.",
         "category": "Pesagem",
         "icon": "FileCheck2",
         "date_key": "data_abertura",
-        "base": "tickets_pesagem",
-        "nfe_only": True,
+        "columns": [
+            _col("numero", "Ticket"),
+            _col("nfe_importada", "Tem NF-e", "boolean"),
+            _col("nfe_numero", "Nº NF-e"),
+            _col("cliente", "Cliente"),
+            _col("produto", "Produto"),
+            _col("quantidade", "Quantidade", "number"),
+            _col("nfe_valor", "Valor NF-e", "currency"),
+            _col("nfe_chave", "Chave NF-e"),
+        ],
+        "filters": [
+            _filtro("nfe_importada", "NF-e", "status_nfe_ticket"),
+            _filtro("cliente_id", "Cliente", "clientes"),
+            _filtro("produto_id", "Produto", "produtos"),
+        ],
     },
     "produtos": {
         "code": "REL-CAD-01",
@@ -897,9 +908,6 @@ for _key in ("entradas_estoque", "saidas_estoque", "transferencias_estoque", "es
         if f["key"] != "tipo_movimento"
     ]
     REPORTS[_key]["sector_key"] = "setores_ids"
-
-REPORTS["nfe_pesagem"]["columns"] = REPORTS["tickets_pesagem"]["columns"]
-REPORTS["nfe_pesagem"]["filters"] = REPORTS["tickets_pesagem"]["filters"]
 
 for _key in ("clientes", "fornecedores", "transportadoras", "motoristas"):
     REPORTS[_key]["columns"] = REPORTS["pessoas"]["columns"]
@@ -1396,12 +1404,10 @@ def _build_rows(codigo: str, db: Session, current_user: User) -> list[dict[str, 
             })
         return rows
 
-    if codigo in {"tickets_pesagem", "nfe_pesagem"}:
+    if codigo == "tickets_pesagem":
         rows = []
         tickets = db.scalars(select(TicketPesagem).order_by(TicketPesagem.data_abertura.desc())).all()
         for ticket in tickets:
-            if codigo == "nfe_pesagem" and not ticket.nfe_importada:
-                continue
             prod = produtos.get(ticket.produto_id or "")
             cliente = pessoas.get(ticket.cliente_id or "")
             pedido = pedidos.get(ticket.pedido_id or "")
@@ -1412,7 +1418,7 @@ def _build_rows(codigo: str, db: Session, current_user: User) -> list[dict[str, 
                 "data_abertura": ticket.data_abertura,
                 "data_fechamento": ticket.data_fechamento,
                 "produto_codigo": prod.codigo if prod else "",
-                "produto_nome": ticket.nfe_produto or (prod.nome if prod else "—"),
+                "produto_nome": prod.nome if prod else "—",
                 "cliente": ticket.cliente_nome or _texto_local(cliente.nome if cliente else None),
                 "transportadora": ticket.transportadora_nome or "",
                 "motorista": ticket.motorista,
@@ -1423,13 +1429,47 @@ def _build_rows(codigo: str, db: Session, current_user: User) -> list[dict[str, 
                 "peso_bruto": _num(ticket.peso_bruto),
                 "peso_liquido": _num(ticket.peso_liquido),
                 "pedido": pedido.numero if pedido else "",
-                "nfe_numero": ticket.nfe_numero or "",
-                "nfe_chave": ticket.nfe_chave or "",
                 "observacao": ticket.observacao or "",
                 "produto_id": ticket.produto_id or "",
                 "cliente_id": ticket.cliente_id or "",
                 "transportadora_id": ticket.transportadora_id or "",
+            })
+        return rows
+
+    if codigo == "nfe_pesagem":
+        rows = []
+        tickets = db.scalars(select(TicketPesagem).order_by(TicketPesagem.data_abertura.desc())).all()
+        for ticket in tickets:
+            if ticket.tipo != "venda":
+                continue
+
+            prod = produtos.get(ticket.produto_id or "")
+            cliente = pessoas.get(ticket.cliente_id or "")
+
+            cliente_rel = (
+                ticket.nfe_cliente
+                or ticket.cliente_nome
+                or _texto_local(cliente.nome if cliente else None)
+            )
+            produto_rel = ticket.nfe_produto or (prod.nome if prod else "—")
+            quantidade_rel = (
+                _num(ticket.nfe_quantidade)
+                if ticket.nfe_importada and _num(ticket.nfe_quantidade) > 0
+                else _num(ticket.peso_liquido)
+            )
+
+            rows.append({
+                "numero": ticket.numero,
                 "nfe_importada": bool(ticket.nfe_importada),
+                "nfe_numero": ticket.nfe_numero or "",
+                "cliente": cliente_rel,
+                "produto": produto_rel,
+                "quantidade": quantidade_rel,
+                "nfe_valor": _num(ticket.nfe_valor),
+                "nfe_chave": ticket.nfe_chave or "",
+                "data_abertura": ticket.data_abertura,
+                "cliente_id": ticket.cliente_id or "",
+                "produto_id": ticket.produto_id or "",
             })
         return rows
 
@@ -1783,9 +1823,10 @@ def _catalog_options(db: Session, current_user: User) -> dict[str, list[dict[str
         "status_reserva": [_option("ativa", "Ativa"), _option("consumida", "Consumida"), _option("cancelada", "Cancelada")],
         "tipos_evento_reserva": [_option("RESERVA", "Reserva"), _option("CONSUMO", "Consumo"), _option("CANCELAMENTO", "Cancelamento")],
         "status_abastecimento": [_option("pendente", "Pendente"), _option("confirmado", "Confirmado")],
-        "status_aplicacao": [_option("aberta", "Aberta"), _option("executada", "Executada"), _option("cancelada", "Cancelada")],
+        "status_aplicacao": [_option("pendente", "Pendente"), _option("baixada", "Baixada"), _option("cancelada", "Cancelada")],
         "status_inventario": [_option("aberto", "Aberto"), _option("fechado", "Fechado")],
         "status_pedido": [_option("aberto", "Aberto"), _option("fechado", "Fechado"), _option("cancelado", "Cancelado")],
+        "status_nfe_ticket": [_option("true", "Com NF-e"), _option("false", "Sem NF-e")],
         "tipos_ticket": [_option("venda", "Venda"), _option("avulsa", "Avulsa")],
         "status_ticket": [_option("aberto", "Aberto"), _option("fechado", "Fechado"), _option("cancelado", "Cancelado")],
         "formas_pagamento": [_option("pix", "PIX"), _option("dinheiro", "Dinheiro"), _option("transferencia", "Transferência"), _option("outro", "Outro")],

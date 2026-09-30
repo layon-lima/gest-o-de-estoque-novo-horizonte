@@ -81,7 +81,7 @@ export function gerarPDFOS(os, { cultura, lavoura }) {
     doc.text(item.unidade || '', colUn, y);
     doc.text(formatDose(item.dose_por_hect || 0), colDose, y, { align: 'right' });
     doc.text(formatQtd(item.previsto || 0), colPrev, y, { align: 'right' });
-    doc.text(os.status === 'executada' ? formatQtd(item.realizado || 0) : '_______', colReal, y, { align: 'right' });
+    doc.text(os.status === 'baixada' ? formatQtd(item.realizado || 0) : '_______', colReal, y, { align: 'right' });
     y += 6;
   }
 

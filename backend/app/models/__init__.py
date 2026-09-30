@@ -1,6 +1,7 @@
 from app.models.entities import (
     Abastecimento,
     AnoSafra,
+    AuditoriaERP,
     Cultura,
     Deposito,
     Gaveta,
@@ -30,6 +31,7 @@ from app.models.estoque import (
 __all__ = [
     "Abastecimento",
     "AnoSafra",
+    "AuditoriaERP",
     "Cultura",
     "Deposito",
     "Gaveta",

@@ -6,6 +6,14 @@ import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
 import { construirItensSaida } from '@/lib/estoqueOperacoes';
 
+export function normalizarStatusAplicacao(status) {
+  if (status === 'aberta') return 'pendente';
+  if (status === 'executada') return 'baixada';
+  if (status === 'cancelada') return 'cancelada';
+  return status || 'pendente';
+}
+
+
 // Extrai o sufixo numérico de um número de OS (ex.: OSA-000012 -> 12).
 export function maxNumeroOS(listaOS) {
   let max = 0;
@@ -70,6 +78,13 @@ export function saldoProduto(produtoId, saldos) {
     .reduce((sum, s) => sum + (s.quantidade || 0), 0);
 }
 
+export function saldoProdutoDeposito(produtoId, depositoId, saldos) {
+  if (!produtoId || !depositoId) return 0;
+  return (saldos || [])
+    .filter((s) => s.produto_id === produtoId && s.deposito_id === depositoId)
+    .reduce((sum, s) => sum + (Number(s.quantidade) || 0), 0);
+}
+
 // Lança o consumo real da OS: para cada item, gera uma movimentação de saída
 // e baixa o saldo (FEFO). Atualiza a OS com realizado, status e custo_total.
 // `form` = { itens: [{ produto_id, realizado, deposito_id }] }.
@@ -79,6 +94,10 @@ export async function executarOS({
   produtos,
   responsavel,
 }) {
+  if (normalizarStatusAplicacao(os?.status) !== 'pendente') {
+    throw new Error('APLICACAO_NAO_PENDENTE');
+  }
+
   const itens = parseItens(os.itens);
   const now = new Date().toISOString();
 
@@ -133,7 +152,7 @@ export async function executarOS({
         somenteDeposito: true,
         somenteGaveta: false,
         observacao:
-          `${marcador} | OS Aplicação ${os.numero || ''}`,
+          `${marcador} | Aplicação ${os.numero || ''}`,
       });
 
     if (!alocacao.suficiente) {
@@ -156,7 +175,7 @@ export async function executarOS({
 
   if (itensMovimento.length === 0) {
     throw new Error(
-      'Nenhum consumo informado para executar a OS.'
+      'Nenhum consumo informado para baixar a aplicação.'
     );
   }
 
@@ -172,7 +191,7 @@ export async function executarOS({
         os.numero || undefined,
       observacao:
         [
-          `OS Aplicação ${os.numero || ''}`,
+          `Aplicação ${os.numero || ''}`,
           os.lavoura_nome || '',
           responsavel || '',
         ]
@@ -240,7 +259,7 @@ export async function executarOS({
       {
         itens:
           stringifyItens(itens),
-        status: 'executada',
+        status: 'baixada',
         data_execucao: now,
         custo_total:
           custoTotal,
@@ -253,11 +272,11 @@ export async function executarOS({
   };
 }
 
-// Calcula o custo detalhado de uma lavoura: agrega todas as OS executadas
+// Calcula o custo detalhado de uma lavoura: agrega todas as aplicações baixadas
 // daquela lavoura, somando por produto o previsto, realizado e custo.
 export function custoPorLavoura(lavouraId, ordens) {
   const ordensLavoura = (ordens || []).filter(
-    (o) => o.lavoura_id === lavouraId && o.status === 'executada'
+    (o) => o.lavoura_id === lavouraId && normalizarStatusAplicacao(o.status) === 'baixada'
   );
 
   const porProduto = {};
@@ -299,7 +318,7 @@ export function custoPorLavoura(lavouraId, ordens) {
 }
 
 // Recalcula o custo de todas as OS que contêm um produto, usando o novo
-// custo unitário. Para OS executadas usa o realizado; para as demais, o previsto.
+// custo unitário. Para aplicações baixadas usa o realizado; para as demais, o previsto.
 // Atualiza custo_unitario/custo_total de cada item e custo_total da OS.
 export async function recalcularCustosPorProduto(produtoId, novoCustoUnit) {
   const custo = Number(novoCustoUnit) || 0;
@@ -311,7 +330,7 @@ export async function recalcularCustosPorProduto(produtoId, novoCustoUnit) {
     let custoTotal = 0;
     for (const it of itens) {
       if (it.produto_id === produtoId) it.custo_unitario = custo;
-      const base = o.status === 'executada' ? Number(it.realizado) || 0 : Number(it.previsto) || 0;
+      const base = normalizarStatusAplicacao(o.status) === 'baixada' ? Number(it.realizado) || 0 : Number(it.previsto) || 0;
       const cu = Number(it.custo_unitario) || 0;
       it.custo_total = base * cu;
       custoTotal += it.custo_total;

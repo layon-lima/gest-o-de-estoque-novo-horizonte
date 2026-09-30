@@ -11,7 +11,7 @@ import { Printer, CheckCircle2, Trash2, FileText, AlertTriangle, Pencil, MoreVer
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd, formatDose } from '@/lib/format';
-import { parseItens, diasEmAberto } from '@/lib/osAplicacao';
+import { parseItens, diasEmAberto, normalizarStatusAplicacao } from '@/lib/osAplicacao';
 import { gerarPDFOS } from '@/lib/osPdf';
 import { invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -19,8 +19,8 @@ import ConsumoRealDialog from '@/components/aplicacao/ConsumoRealDialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 const STATUS_LABELS = {
-  aberta: { label: 'Aberta', className: 'bg-blue-500 text-white border-transparent' },
-  executada: { label: 'Executada', className: 'bg-emerald-600 text-white border-transparent' },
+  pendente: { label: 'Pendente', className: 'bg-blue-500 text-white border-transparent' },
+  baixada: { label: 'Baixada', className: 'bg-emerald-600 text-white border-transparent' },
   cancelada: { label: 'Cancelada', className: 'bg-muted text-muted-foreground border-transparent' },
 };
 
@@ -37,7 +37,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
   const itens = parseItens(os.itens);
   const cultura = culturas.find((c) => c.id === os.cultura_id);
   const lavoura = lavouras.find((l) => l.id === os.lavoura_id);
-  const statusInfo = STATUS_LABELS[os.status] || STATUS_LABELS.aberta;
+  const statusInfo = STATUS_LABELS[normalizarStatusAplicacao(os.status)] || STATUS_LABELS.pendente;
 
   function handlePrint() {
     gerarPDFOS(os, { cultura, lavoura });
@@ -76,7 +76,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
 
   async function handleCancelar() {
     await base44.entities.OrdemServicoAplicacao.update(os.id, { status: 'cancelada' });
-    toast({ title: 'OS cancelada' });
+    toast({ title: 'Aplicação cancelada' });
     invalidateEntidade('OrdemServicoAplicacao');
     onOpenChange(false);
   }
@@ -84,7 +84,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/15 text-primary">
@@ -95,9 +95,9 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                 <p className="text-sm text-muted-foreground">{lavoura?.nome || os.lavoura_nome}</p>
               </div>
               <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
-              {os.status === 'aberta' && diasEmAberto(os) > 7 && (
+              {normalizarStatusAplicacao(os.status) === 'pendente' && diasEmAberto(os) > 7 && (
                 <Badge className="bg-red-100 text-red-700 border-transparent inline-flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Aberta há {diasEmAberto(os)} dias
+                  <AlertTriangle className="w-3.5 h-3.5" /> Pendente há {diasEmAberto(os)} dias
                 </Badge>
               )}
             </div>
@@ -128,7 +128,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
               </div>
               {os.data_execucao && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Data de Execução</p>
+                  <p className="text-xs text-muted-foreground">Data da Baixa</p>
                   <p className="font-medium">{new Date(os.data_execucao).toLocaleString('pt-BR')}</p>
                 </div>
               )}
@@ -148,7 +148,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
             )}
 
             {/* Tabela de itens */}
-            <div className="border rounded-lg overflow-x-auto scrollbar-thin">
+            <div className="border rounded-xl overflow-x-auto scrollbar-thin">
               <table className="min-w-full w-auto text-sm">
                 <thead className="bg-muted/50">
                   <tr>
@@ -156,8 +156,8 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                     <th className="p-2 text-center whitespace-nowrap">Un.</th>
                     <th className="p-2 text-right whitespace-nowrap">Dose/ha</th>
                     <th className="p-2 text-right whitespace-nowrap">Previsto</th>
-                    {os.status === 'executada' && <th className="p-2 text-right whitespace-nowrap">Realizado</th>}
-                    {os.status === 'executada' && <th className="p-2 text-right whitespace-nowrap">Custo</th>}
+                    {normalizarStatusAplicacao(os.status) === 'baixada' && <th className="p-2 text-right whitespace-nowrap">Realizado</th>}
+                    {normalizarStatusAplicacao(os.status) === 'baixada' && <th className="p-2 text-right whitespace-nowrap">Custo</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -167,10 +167,10 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                       <td className="p-2 text-center whitespace-nowrap text-muted-foreground">{it.unidade}</td>
                       <td className="p-2 text-right whitespace-nowrap tabular-nums">{formatDose(it.dose_por_hect || 0)}</td>
                       <td className="p-2 text-right whitespace-nowrap tabular-nums font-semibold">{formatQtd(it.previsto || 0)}</td>
-                      {os.status === 'executada' && (
+                      {normalizarStatusAplicacao(os.status) === 'baixada' && (
                         <td className="p-2 text-right whitespace-nowrap tabular-nums font-semibold text-primary">{formatQtd(it.realizado || 0)}</td>
                       )}
-                      {os.status === 'executada' && (
+                      {normalizarStatusAplicacao(os.status) === 'baixada' && (
                         <td className="p-2 text-right whitespace-nowrap tabular-nums">
                           {it.custo_total ? `R$ ${Number(it.custo_total).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                         </td>
@@ -192,21 +192,21 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-52 p-1">
-                  {os.status === 'aberta' && (
+                  {normalizarStatusAplicacao(os.status) === 'pendente' && (
                     <>
                       <button type="button" onClick={() => { setAcoesOpen(false); setConfirmEdit(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left">
                         <Pencil className="w-4 h-4" /> Editar
                       </button>
                       <button type="button" onClick={() => { setAcoesOpen(false); setConsumoOpen(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left">
-                        <CheckCircle2 className="w-4 h-4" /> Lançar Consumo
+                        <CheckCircle2 className="w-4 h-4" /> Baixar aplicação
                       </button>
                       <button type="button" onClick={() => { setAcoesOpen(false); setConfirmCancelar(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left text-destructive">
-                        <Ban className="w-4 h-4" /> Cancelar OS
+                        <Ban className="w-4 h-4" /> Cancelar aplicação
                       </button>
                       <div className="my-1 h-px bg-border" />
                     </>
                   )}
-                  <button type="button" onClick={() => { setAcoesOpen(false); setDeleteOpen(true); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left text-destructive">
+                  <button type="button" onClick={() => { setAcoesOpen(false); setDeleteOpen(true); }} className="hidden w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent text-left text-destructive">
                     <Trash2 className="w-4 h-4" /> Excluir
                   </button>
                 </PopoverContent>
@@ -246,7 +246,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
       <AlertDialog open={confirmEdit} onOpenChange={setConfirmEdit}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><Pencil className="w-5 h-5 text-primary" /> Editar OS?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><Pencil className="w-5 h-5 text-primary" /> Editar aplicação?</AlertDialogTitle>
             <AlertDialogDescription>
               Deseja editar a OS <b className="font-mono">{os.numero}</b>? Os produtos, doses e depósitos poderão ser alterados.
             </AlertDialogDescription>
@@ -263,7 +263,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
       <AlertDialog open={confirmCancelar} onOpenChange={setConfirmCancelar}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-destructive" /> Cancelar OS?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-destructive" /> Cancelar aplicação?</AlertDialogTitle>
             <AlertDialogDescription>
               Deseja cancelar a OS <b className="font-mono">{os.numero}</b>? A OS passará ao status "Cancelada" e não poderá ser executada.
             </AlertDialogDescription>
