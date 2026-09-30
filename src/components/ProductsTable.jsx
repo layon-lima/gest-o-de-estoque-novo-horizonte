@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, Download, ImageIcon,
+  ChevronLeft, ChevronRight, Download,
   Pencil, Trash2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -9,26 +9,16 @@ import { getNome, getStatusEstoque } from '@/lib/estoqueFilters';
 import { formatQtd, formatMoeda } from '@/lib/format';
 import { useColumnConfig } from '@/hooks/useColumnConfig';
 import DataTable from '@/components/tables/DataTable';
+import ImagePreview from '@/components/ImagePreview';
 
 function ProductThumb({ produto }) {
-  const [erro, setErro] = useState(false);
-  const hasImage = !!produto?.foto_url && !erro;
-
-  if (hasImage) {
-    return (
-      <img
-        src={produto.foto_url}
-        alt={produto.nome || 'Produto'}
-        className="h-10 w-10 rounded-lg border object-cover"
-        onError={() => setErro(true)}
-      />
-    );
-  }
-
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground">
-      <ImageIcon className="h-4 w-4" />
-    </div>
+    <ImagePreview
+      src={produto?.foto_url}
+      alt={produto?.nome || 'Produto'}
+      className="h-10 w-10 rounded-lg border object-cover"
+      fallbackClassName="flex h-10 w-10 items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground"
+    />
   );
 }
 

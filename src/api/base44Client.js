@@ -858,6 +858,12 @@ const userEntityClient = {
     );
   },
 
+  async get(id) {
+    return request(
+      `/users/${encodeURIComponent(id)}`
+    );
+  },
+
   async create(data) {
     return request(
       "/users",
@@ -916,6 +922,15 @@ const entities =
           prop === "User"
         ) {
           return userEntityClient;
+        }
+
+        if (prop === 'InventarioForaEstoque') {
+          return {
+            list: () => request('/inventario-pendencias'),
+            create: (data) => request('/inventario-pendencias', { method: 'POST', body: JSON.stringify(data) }),
+            revisar: (id, data) => request(`/inventario-pendencias/${encodeURIComponent(id)}/revisar`, { method: 'POST', body: JSON.stringify(data) }),
+            subscribe: () => () => {},
+          };
         }
 
         if (

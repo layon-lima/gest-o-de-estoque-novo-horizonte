@@ -2,7 +2,6 @@ import { useRef } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { ArrowDownCircle, ArrowUpCircle, Undo2, Trash2 } from 'lucide-react';
 import {
-  TableRow,
   TableCell,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';

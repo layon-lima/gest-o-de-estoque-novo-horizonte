@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, CalendarDays, ClipboardList, CheckCircle2, Edit3 } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, ClipboardList, CheckCircle2, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';

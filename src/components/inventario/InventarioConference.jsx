@@ -84,6 +84,7 @@ export default function InventarioConference({
   user,
   onSaved,
   initialInventarioId,
+  onForaEstoque,
 }) {
   const { toast } = useToast();
   const [step, setStep] = useState('criterios');
@@ -415,7 +416,7 @@ export default function InventarioConference({
 
     const val = parseQtd(qtdInput);
     try {
-      await base44.entities.InventarioItem.create({
+      const registrado = await base44.entities.InventarioItem.create({
         inventario_id: inventario.id,
         produto_id: produtoAtivo.id,
         codigo: produtoAtivo.codigo,
@@ -426,6 +427,7 @@ export default function InventarioConference({
         responsavel: getDisplayName(user),
         data: new Date().toISOString(),
       });
+      setItems((current) => [...current.filter((item) => item.id !== registrado.id), registrado]);
       setAtivoId(null);
       setQtdInput('');
       setBusca('');
@@ -451,11 +453,13 @@ export default function InventarioConference({
         ? (Number(aviso.item.qtd_contada) || 0) + val
         : val;
 
-      await base44.entities.InventarioItem.update(aviso.item.id, {
+      const atualizado = await base44.entities.InventarioItem.update(aviso.item.id, {
         qtd_contada: nova,
         responsavel: getDisplayName(user),
         data: new Date().toISOString(),
       });
+
+      setItems((current) => current.map((item) => item.id === atualizado.id ? atualizado : item));
 
       toast({ title: modo === 'add' ? 'Quantidade adicionada' : 'Contagem atualizada' });
       setAviso(null);
@@ -565,7 +569,7 @@ export default function InventarioConference({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[94vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1180px] max-sm:!h-[100dvh] max-sm:!max-h-none max-sm:!w-screen max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none">
+      <DialogContent className="inventory-conference flex max-h-[94vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1180px] max-sm:!h-[100dvh] max-sm:!max-h-none max-sm:!w-screen max-sm:!max-w-none max-sm:!left-0 max-sm:!top-0 max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none">
         <div className="flex items-center justify-between gap-3 border-b bg-muted/20 px-5 py-3.5">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700">
@@ -636,44 +640,6 @@ export default function InventarioConference({
                       />
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label>Setor <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-                      <SearchSelect
-                        value={criterios.setor_id}
-                        onChange={(value) => atualizarCriterio('setor_id', value)}
-                        allLabel="Todos os setores"
-                        placeholder="Filtrar setor..."
-                        options={setores
-                          .map((s) => ({ value: s.id, label: s.nome }))
-                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label>Gaveta <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-                      <SearchSelect
-                        value={criterios.gaveta_id}
-                        onChange={(value) => atualizarCriterio('gaveta_id', value)}
-                        allLabel="Todas as gavetas"
-                        placeholder="Filtrar gaveta..."
-                        options={gavetasDisponiveis
-                          .map((g) => ({ value: g.id, label: g.codigo || g.descricao || 'Gaveta' }))
-                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 md:col-span-2">
-                      <Label>Máquina <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-                      <SearchSelect
-                        value={criterios.maquina_id}
-                        onChange={(value) => atualizarCriterio('maquina_id', value)}
-                        allLabel="Todas as máquinas"
-                        placeholder="Filtrar máquina..."
-                        options={maquinasDisponiveis
-                          .map((m) => ({ value: m.id, label: maquinaLabel(m) }))
-                          .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))}
-                      />
-                    </div>
                   </div>
                 </Card>
 
@@ -752,6 +718,9 @@ export default function InventarioConference({
 
           {step === 'documento' && inventario ? (
             <div className="space-y-4">
+              {onForaEstoque ? <Button variant="outline" className="h-12 w-full" onClick={() => onForaEstoque(inventario.id)}>
+                Encontrei um item fora do estoque
+              </Button> : null}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border bg-card px-3 py-2.5">
                   <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Depósito</p>

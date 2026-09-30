@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { base44 } from '@/api/base44Client';
 import { safeDelete, isNotFoundError } from '@/lib/entityOps';
 import { useToast } from '@/components/ui/use-toast';
-import { parseQtd, formatQtd } from '@/lib/format';
+import { formatQtd } from '@/lib/format';
 import { formatPlaca, formatKg, round3, statusPorSaldo, normalizePlaca } from '@/lib/pesagem';
 import { exportPDF, exportCSV } from '@/lib/exports';
 import SearchSelect from '@/components/SearchSelect';

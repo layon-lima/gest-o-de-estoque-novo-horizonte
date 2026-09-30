@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import SearchSelect from '@/components/SearchSelect';
 import { base44 } from '@/api/base44Client';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatQtd, parseQtd } from '@/lib/format';
 
 export default function AbastecimentoForm({
@@ -118,7 +119,7 @@ export default function AbastecimentoForm({
           <Label>Foto do painel do abastecedor{fotoOpcional ? '' : ' *'}</Label>
           {fotoUrl ? (
             <div className="relative rounded-lg overflow-hidden border">
-              <img src={fotoUrl} alt="Painel" className="w-full max-h-56 object-cover" />
+              <img src={resolveMediaUrl(fotoUrl)} alt="Painel" className="w-full max-h-56 object-cover" />
               <button
                 type="button"
                 onClick={() => { setFotoUrl(''); if (fileRef.current) fileRef.current.value = ''; }}

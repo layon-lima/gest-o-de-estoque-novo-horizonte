@@ -1,9 +1,14 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowRight,
+  ArrowLeftRight,
   ChevronRight,
+  ClipboardList,
+  FileBarChart,
   Fuel,
+  Scale,
+  Settings,
+  Sprout,
 } from 'lucide-react';
 
 import { useAuth } from '@/lib/AuthContext';
@@ -29,13 +34,71 @@ const FILTROS_VAZIOS = {
   valor_total_max: '',
 };
 
+const MOBILE_SHORTCUTS = [
+  {
+    key: 'movimentacoes',
+    label: 'Movimentos',
+    description: 'Entradas, saídas e histórico',
+    path: '/movimentacoes',
+    icon: ArrowLeftRight,
+    tone: 'blue',
+  },
+  {
+    key: 'abastecimento',
+    label: 'Abastecimento',
+    description: 'Registrar abastecimento',
+    path: '/abastecimento',
+    icon: Fuel,
+    tone: 'orange',
+  },
+  {
+    key: 'pesagem',
+    label: 'Pesagem',
+    description: 'Tickets e operações',
+    path: '/pesagem',
+    icon: Scale,
+    tone: 'slate',
+  },
+  {
+    key: 'aplicacao',
+    label: 'Aplicação',
+    description: 'Ordens de aplicação',
+    path: '/aplicacao',
+    icon: Sprout,
+    tone: 'green',
+  },
+  {
+    key: 'cadastros',
+    label: 'Cadastros',
+    description: 'Dados do sistema',
+    path: '/cadastros',
+    icon: Settings,
+    tone: 'violet',
+  },
+  {
+    key: 'relatorios',
+    label: 'Relatórios',
+    description: 'Análises e exportações',
+    path: '/relatorios',
+    icon: FileBarChart,
+    tone: 'cyan',
+  },
+  {
+    key: 'inventario',
+    label: 'Inventário',
+    description: 'Conferir estoque físico',
+    path: '/inventario',
+    icon: ClipboardList,
+    tone: 'emerald',
+  },
+];
+
 export default function MobileHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const podeAbastecer = mobilePageAllowed(
-    user,
-    'abastecimento'
+  const atalhosPermitidos = MOBILE_SHORTCUTS.filter(
+    (atalho) => mobilePageAllowed(user, atalho.key)
   );
 
   const { data, loading } = useEntidades({
@@ -81,29 +144,41 @@ export default function MobileHome() {
 
   return (
     <div className="mobile-page mobile-home mobile-home-v5">
-      {podeAbastecer ? (
-        <button
-          type="button"
-          className="mobile-fuel-shortcut"
-          onClick={() =>
-            navigate('/abastecimento')
-          }
-        >
-          <span className="mobile-fuel-shortcut__icon">
-            <Fuel className="h-7 w-7" />
-          </span>
+      {atalhosPermitidos.length > 0 ? (
+        <section className="mobile-home-access">
+          <div className="mobile-section-heading mobile-section-heading--simple">
+            <div>
+              <span className="mobile-eyebrow">Acesso rápido</span>
+              <p className="mobile-section-copy">
+                Funções liberadas para seu usuário.
+              </p>
+            </div>
+          </div>
 
-          <span className="mobile-fuel-shortcut__copy">
-            <strong>ABASTECEDOR</strong>
-            <small>
-              Registrar abastecimento
-            </small>
-          </span>
+          <div className="mobile-home-access-grid">
+            {atalhosPermitidos.map((atalho) => {
+              const Icon = atalho.icon;
 
-          <span className="mobile-fuel-shortcut__arrow">
-            <ArrowRight className="h-5 w-5" />
-          </span>
-        </button>
+              return (
+                <button
+                  type="button"
+                  key={atalho.key}
+                  className={`mobile-home-access-card is-${atalho.tone}`}
+                  onClick={() => navigate(atalho.path)}
+                >
+                  <span className="mobile-home-access-card__icon">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="mobile-home-access-card__copy">
+                    <strong>{atalho.label}</strong>
+                    <small>{atalho.description}</small>
+                  </span>
+                  <ChevronRight className="mobile-home-access-card__arrow h-4 w-4" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
 
       <section className="mobile-home-sectors">

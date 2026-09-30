@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Fuel, Droplet, Check, X, ImageIcon, Clock, Loader2 } from 'lucide-react';
+import { Droplet, Check, X, ImageIcon, Clock, Loader2 } from 'lucide-react';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -47,11 +48,11 @@ export default function AbastecimentoPendentes({
             <div className="flex items-start gap-3">
               <button
                 type="button"
-                onClick={() => abast.foto_url && setFotoAmpliada(abast.foto_url)}
+                onClick={() => abast.foto_url && setFotoAmpliada(resolveMediaUrl(abast.foto_url))}
                 className="shrink-0 w-16 h-16 rounded-md overflow-hidden border bg-muted flex items-center justify-center"
               >
                 {abast.foto_url ? (
-                  <img src={abast.foto_url} alt="Painel" className="w-full h-full object-cover" />
+                  <img src={resolveMediaUrl(abast.foto_url)} alt="Painel" className="w-full h-full object-cover" />
                 ) : (
                   <ImageIcon className="w-5 h-5 text-muted-foreground" />
                 )}

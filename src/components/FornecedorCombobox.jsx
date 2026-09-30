@@ -1,5 +1,4 @@
 import { useState, useRef, useMemo } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';

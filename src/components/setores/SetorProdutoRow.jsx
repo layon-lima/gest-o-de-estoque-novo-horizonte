@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Package,
   ChevronDown,
@@ -10,6 +10,13 @@ import {
   Info,
 } from 'lucide-react';
 import { formatQtd, formatMoeda } from '@/lib/format';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 function formatDate(d) {
   if (!d) return '';
@@ -61,6 +68,7 @@ export default function SetorProdutoRow({
   const holdTimerRef = useRef(null);
   const longPressedRef = useRef(false);
   const pointerStartRef = useRef(null);
+  const [fotoOpen, setFotoOpen] = useState(false);
 
   const parcelas = (saldos || [])
     .filter(
@@ -151,8 +159,11 @@ export default function SetorProdutoRow({
   };
 
   if (mobile) {
+    const fotoUrl = resolveMediaUrl(produto.foto_url);
+
     return (
-      <article
+      <>
+        <article
         className={[
           'mobile-sector-product',
           'mobile-sector-product--v5',
@@ -175,8 +186,34 @@ export default function SetorProdutoRow({
           }
           className="mobile-sector-product__main"
         >
-          <div className="mobile-sector-product__icon">
-            <Package className="h-5 w-5" />
+          <div
+            className={`mobile-sector-product__icon ${fotoUrl ? 'cursor-zoom-in' : ''}`}
+            onPointerDown={(event) => {
+              if (!fotoUrl) return;
+              event.stopPropagation();
+              cancelarLongPress();
+            }}
+            onPointerUp={(event) => {
+              if (fotoUrl) event.stopPropagation();
+            }}
+            onClick={(event) => {
+              if (!fotoUrl) return;
+              event.stopPropagation();
+              setFotoOpen(true);
+            }}
+          >
+            {fotoUrl ? (
+              <img
+                src={fotoUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                  event.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+            ) : null}
+            <Package className={`h-5 w-5 ${fotoUrl ? 'hidden' : ''}`} />
           </div>
 
           <div className="mobile-sector-product__identity">
@@ -304,7 +341,23 @@ export default function SetorProdutoRow({
             </div>
           </div>
         ) : null}
-      </article>
+        </article>
+
+        <Dialog open={fotoOpen} onOpenChange={setFotoOpen}>
+          <DialogContent className="max-w-4xl p-3 sm:p-5">
+            <DialogHeader className="sr-only">
+              <DialogTitle>
+                {produto.nome || 'Imagem do produto'}
+              </DialogTitle>
+            </DialogHeader>
+            <img
+              src={fotoUrl}
+              alt={produto.nome || 'Produto'}
+              className="max-h-[82vh] w-full rounded-lg object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 

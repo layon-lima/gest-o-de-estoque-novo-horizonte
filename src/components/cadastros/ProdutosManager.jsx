@@ -5,7 +5,6 @@ import {
   Eye,
   EyeOff,
   Filter,
-  Image as ImageIcon,
   Package,
   Pencil,
   Plus,
@@ -30,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import ImagePreview from '@/components/ImagePreview';
 
 const PAGE_SIZE = 8;
 const STORAGE_KEY = 'erp_produtos_mostrar_imagens';
@@ -100,24 +100,14 @@ function smartLabel(value) {
 }
 
 function ProductThumb({ produto }) {
-  const [erro, setErro] = useState(false);
-  const hasImage = !!produto?.foto_url && !erro;
-
-  if (hasImage) {
-    return (
-      <img
-        src={produto.foto_url}
-        alt={produto.nome || 'Produto'}
-        className="h-11 w-11 rounded-xl border object-cover"
-        onError={() => setErro(true)}
-      />
-    );
-  }
-
   return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-xl border bg-muted/50 text-muted-foreground">
-      <ImageIcon className="h-5 w-5" />
-    </div>
+    <ImagePreview
+      src={produto?.foto_url}
+      alt={produto?.nome || 'Produto'}
+      className="h-11 w-11 rounded-xl border object-cover"
+      fallbackClassName="flex h-11 w-11 items-center justify-center rounded-xl border bg-muted/50 text-muted-foreground"
+      fallbackIconClassName="h-5 w-5"
+    />
   );
 }
 

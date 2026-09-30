@@ -14,6 +14,7 @@ from app.api.estoque import router as estoque_router
 from app.api.reservas import router as reservas_router
 from app.api.files import router as files_router
 from app.api.users import router as users_router
+from app.api.inventario_pendencias import router as inventario_pendencias_router
 from app.core.logging_config import configurar_logging
 from app.core.scheduler import (
     iniciar_agendador,
@@ -70,6 +71,7 @@ app.mount(
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(users_router)
+app.include_router(inventario_pendencias_router)
 app.include_router(files_router)
 app.include_router(entities_router)
 app.include_router(relatorios_router)

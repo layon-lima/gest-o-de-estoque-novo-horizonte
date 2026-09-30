@@ -56,6 +56,26 @@ function criarMapa(lista) {
   );
 }
 
+function gavetaCorrespondeNumero(gaveta, valor) {
+  const numero = String(valor || '')
+    .replace(/\D/g, '');
+
+  if (!numero) return false;
+
+  const alvo = Number(numero);
+  const fonte = String(
+    gaveta?.codigo ||
+    gaveta?.descricao ||
+    ''
+  );
+
+  const grupos = fonte.match(/\d+/g) || [];
+
+  return grupos.some(
+    (grupo) => Number(grupo) === alvo
+  );
+}
+
 function adicionarLocalizacao(
   partes,
   saldo,
@@ -110,6 +130,12 @@ export default function SetorDetail() {
     ''
   );
 
+  const [modoBuscaGaveta, setModoBuscaGaveta] =
+    useState(false);
+
+  const [buscaGaveta, setBuscaGaveta] =
+    useState('');
+
   const [expandedId, setExpandedId] =
     usePersistentState(
       `setor:exp:${setorId}`,
@@ -132,6 +158,9 @@ export default function SetorDetail() {
     );
 
   const listRef = useRef(null);
+
+  const buscaHoldTimerRef = useRef(null);
+  const buscaGavetaInputRef = useRef(null);
 
   const { data, loading, reload: load } =
     useEntidades({
@@ -180,6 +209,14 @@ export default function SetorDetail() {
   );
 
   useBackHandler(
+    modoBuscaGaveta,
+    () => {
+      setModoBuscaGaveta(false);
+      setBuscaGaveta('');
+    }
+  );
+
+  useBackHandler(
     inventarioOpen,
     () => setInventarioOpen(false)
   );
@@ -202,6 +239,17 @@ export default function SetorDetail() {
       );
     };
   }, [setorId, loading]);
+
+  useEffect(() => {
+    setModoBuscaGaveta(false);
+    setBuscaGaveta('');
+
+    return () => {
+      if (buscaHoldTimerRef.current) {
+        clearTimeout(buscaHoldTimerRef.current);
+      }
+    };
+  }, [setorId]);
 
   const setor = useMemo(
     () =>
@@ -284,7 +332,73 @@ export default function SetorDetail() {
     [produtos, setor]
   );
 
+  const gavetasBusca = useMemo(() => {
+    if (
+      !modoBuscaGaveta ||
+      !buscaGaveta.trim()
+    ) {
+      return [];
+    }
+
+    return (gavetas || []).filter(
+      (gaveta) =>
+        gavetaCorrespondeNumero(
+          gaveta,
+          buscaGaveta
+        )
+    );
+  }, [
+    modoBuscaGaveta,
+    buscaGaveta,
+    gavetas,
+  ]);
+
   const produtosSetor = useMemo(() => {
+    if (modoBuscaGaveta) {
+      if (!buscaGaveta.trim()) {
+        return [];
+      }
+
+      const idsGavetas = new Set(
+        gavetasBusca.map(
+          (gaveta) => gaveta.id
+        )
+      );
+
+      if (idsGavetas.size === 0) {
+        return [];
+      }
+
+      return produtosDoSetor.filter(
+        (produto) => {
+          const saldosProduto =
+            saldosPorProduto.get(produto.id) || [];
+
+          const saldosPositivos =
+            saldosProduto.filter(
+              (saldo) =>
+                (Number(saldo.quantidade) || 0) > 0
+            );
+
+          if (saldosPositivos.length > 0) {
+            return saldosPositivos.some(
+              (saldo) =>
+                idsGavetas.has(
+                  saldo.gaveta_id
+                )
+            );
+          }
+
+          return (
+            produto.gaveta_id &&
+            idsGavetas.has(
+              produto.gaveta_id
+            )
+          );
+        }
+      );
+    }
+
     const tokens = normalizar(busca)
       .split(/\s+/)
       .filter(Boolean);
@@ -361,7 +475,10 @@ export default function SetorDetail() {
       }
     );
   }, [
+    modoBuscaGaveta,
+    buscaGaveta,
     busca,
+    gavetasBusca,
     produtosDoSetor,
     maquinasMap,
     depositosMap,
@@ -391,6 +508,50 @@ export default function SetorDetail() {
     produtosDoSetor,
     setExpandedId,
   ]);
+
+  const cancelarPressBusca = () => {
+    if (buscaHoldTimerRef.current) {
+      clearTimeout(buscaHoldTimerRef.current);
+      buscaHoldTimerRef.current = null;
+    }
+  };
+
+  const iniciarPressBusca = () => {
+    if (!isMobile || modoBuscaGaveta) {
+      return;
+    }
+
+    cancelarPressBusca();
+
+    buscaHoldTimerRef.current = setTimeout(
+      () => {
+        setModoBuscaGaveta(true);
+        setBuscaGaveta('');
+        setExpandedId(null);
+
+        if (
+          typeof navigator !== 'undefined' &&
+          navigator.vibrate
+        ) {
+          navigator.vibrate(35);
+        }
+
+        setTimeout(
+          () =>
+            buscaGavetaInputRef.current?.focus(),
+          60
+        );
+      },
+      600
+    );
+  };
+
+  const fecharBuscaGaveta = () => {
+    cancelarPressBusca();
+    setModoBuscaGaveta(false);
+    setBuscaGaveta('');
+    setExpandedId(null);
+  };
 
   if (loading) {
     return (
@@ -532,29 +693,99 @@ export default function SetorDetail() {
           ) : null}
         </section>
 
-        <section className="mobile-sector-search">
-          <Search className="h-5 w-5 shrink-0" />
-          <input
-            value={busca}
-            onChange={(event) =>
-              setBusca(event.target.value)
-            }
-            placeholder="Buscar produto, gaveta, depósito, lote..."
-            aria-label={`Pesquisar no setor ${setor.nome}`}
-          />
-        </section>
+        {modoBuscaGaveta ? (
+          <>
+            <section className="mobile-sector-search border-emerald-300 bg-emerald-50/70">
+              <span className="shrink-0 rounded-md bg-emerald-700 px-2 py-1 text-[10px] font-black tracking-[0.12em] text-white">
+                GAVETA
+              </span>
 
-        {busca.trim() ? (
-          <div className="mobile-sector-result-summary">
-            <span>
-              {produtosSetor.length}{' '}
-              {produtosSetor.length === 1
-                ? 'resultado'
-                : 'resultados'}
-            </span>
-            <strong>{busca.trim()}</strong>
-          </div>
-        ) : null}
+              <input
+                ref={buscaGavetaInputRef}
+                value={buscaGaveta}
+                onChange={(event) =>
+                  setBuscaGaveta(
+                    event.target.value.replace(
+                      /\D/g,
+                      ''
+                    )
+                  )
+                }
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Digite apenas o número"
+                aria-label={`Pesquisar gaveta no setor ${setor.nome}`}
+              />
+
+              <button
+                type="button"
+                onClick={fecharBuscaGaveta}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-lg font-medium text-emerald-800 hover:bg-emerald-100"
+                aria-label="Fechar busca por gaveta"
+              >
+                ×
+              </button>
+            </section>
+
+            <div className="mobile-sector-result-summary">
+              <span>
+                {buscaGaveta.trim()
+                  ? `${produtosSetor.length} ${
+                      produtosSetor.length === 1
+                        ? 'produto'
+                        : 'produtos'
+                    }`
+                  : 'Busca por gaveta'}
+              </span>
+
+              <strong>
+                {buscaGaveta.trim()
+                  ? gavetasBusca.length === 1
+                    ? gavetasBusca[0].codigo ||
+                      gavetasBusca[0].descricao ||
+                      `GAVETA ${buscaGaveta.trim()}`
+                    : `GAVETA ${buscaGaveta.trim()}`
+                  : 'Digite o número'}
+              </strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <section
+              className="mobile-sector-search"
+              onPointerDown={iniciarPressBusca}
+              onPointerUp={cancelarPressBusca}
+              onPointerLeave={cancelarPressBusca}
+              onPointerCancel={cancelarPressBusca}
+              onContextMenu={(event) =>
+                event.preventDefault()
+              }
+            >
+              <Search className="h-5 w-5 shrink-0" />
+
+              <input
+                value={busca}
+                onChange={(event) =>
+                  setBusca(event.target.value)
+                }
+                placeholder="Buscar produto, gaveta, depósito, lote..."
+                aria-label={`Pesquisar no setor ${setor.nome}`}
+              />
+            </section>
+
+            {busca.trim() ? (
+              <div className="mobile-sector-result-summary">
+                <span>
+                  {produtosSetor.length}{' '}
+                  {produtosSetor.length === 1
+                    ? 'resultado'
+                    : 'resultados'}
+                </span>
+                <strong>{busca.trim()}</strong>
+              </div>
+            ) : null}
+          </>
+        )}
 
         <section
           ref={listRef}
@@ -562,7 +793,11 @@ export default function SetorDetail() {
         >
           {produtosSetor.length === 0 ? (
             <div className="mobile-sector-empty">
-              Nenhum produto encontrado.
+              {modoBuscaGaveta
+                ? buscaGaveta.trim()
+                  ? 'Nenhum produto nesta gaveta.'
+                  : 'Digite o número da gaveta.'
+                : 'Nenhum produto encontrado.'}
             </div>
           ) : (
             produtosSetor.map((produto) => (

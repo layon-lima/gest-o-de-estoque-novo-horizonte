@@ -8,10 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { formatKg, formatMoeda, formatPlaca } from '@/lib/pesagem';
-import { formatQtd } from '@/lib/format';
 import { gerarTicketPDF } from '@/lib/ticketPdf';
 import { imprimirTicketTermico } from '@/lib/ticketThermal';
 import MarcaNfDialog from './MarcaNfDialog';

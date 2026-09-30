@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Fuel,
   Loader2,
@@ -29,7 +30,6 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import InviteUserDialog from '@/components/usuarios/InviteUserDialog';
-import PermissoesDialog from '@/components/usuarios/PermissoesDialog';
 import UsuarioNomeEditor from '@/components/usuarios/UsuarioNomeEditor';
 import {
   AlertDialog,
@@ -69,6 +69,7 @@ function MiniStat({ icon: Icon, label, value, tone = 'default' }) {
 export default function Usuarios() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,6 @@ export default function Usuarios() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
-  const [permTarget, setPermTarget] = useState(null);
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -388,7 +388,7 @@ export default function Usuarios() {
                                   variant="outline"
                                   size="sm"
                                   className="gap-1.5"
-                                  onClick={() => setPermTarget(u)}
+                                  onClick={() => navigate(`/usuarios/${u.id}/permissoes`)}
                                 >
                                   <Settings className="h-3.5 w-3.5" />
                                   Configurar
@@ -439,12 +439,6 @@ export default function Usuarios() {
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         onInvited={loadUsuarios}
-      />
-
-      <PermissoesDialog
-        user={permTarget}
-        onClose={() => setPermTarget(null)}
-        onSaved={loadUsuarios}
       />
 
       <AlertDialog

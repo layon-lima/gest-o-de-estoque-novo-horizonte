@@ -16,7 +16,7 @@ import {
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
-import { calcLiquido, formatKg, formatPlaca, normalizePlaca, round3, ajustarEstoqueVendaTicket } from '@/lib/pesagem';
+import { calcLiquido, formatKg, normalizePlaca, round3, ajustarEstoqueVendaTicket } from '@/lib/pesagem';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import SearchSelect from '@/components/SearchSelect';

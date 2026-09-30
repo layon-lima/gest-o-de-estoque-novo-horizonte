@@ -36,6 +36,7 @@ import { useEntidades } from '@/lib/useEntidades';
 import { parseInventarioCriterios } from '@/lib/inventario';
 import InventarioConference from '@/components/inventario/InventarioConference';
 import InventarioDetalhe from '@/components/inventario/InventarioDetalhe';
+import InventarioForaEstoqueReview from '@/components/inventario/InventarioForaEstoqueReview';
 
 function fmtData(iso) {
   if (!iso) return '—';
@@ -75,6 +76,7 @@ export default function Inventario() {
     Gaveta: {},
     SaldoEstoque: {},
     Inventario: { sort: '-data', limit: 300 },
+    InventarioForaEstoque: { sort: '-data_registro', limit: 300 },
   });
 
   const {
@@ -85,6 +87,7 @@ export default function Inventario() {
     Gaveta: gavetas = [],
     SaldoEstoque: saldos = [],
     Inventario: registros = [],
+    InventarioForaEstoque: itensForaEstoque = [],
   } = data;
 
   const depositoMap = useMemo(() => new Map(depositos.map((d) => [d.id, d])), [depositos]);
@@ -185,6 +188,15 @@ export default function Inventario() {
         </div>
 
         <div className="space-y-4 p-5">
+          <InventarioForaEstoqueReview
+            itens={itensForaEstoque}
+            produtos={produtos}
+            depositos={depositos}
+            gavetas={gavetas}
+            user={user}
+            onSaved={load}
+          />
+
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {compactStat({ icon: ClipboardList, label: 'Documentos', value: stats.total })}
             {compactStat({ icon: Clock3, label: 'Em aberto', value: stats.abertos })}

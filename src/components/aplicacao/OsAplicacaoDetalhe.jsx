@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Printer, CheckCircle2, Trash2, FileText, AlertTriangle, Pencil, MoreVertical, Ban } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
-import { formatQtd, parseQtd, formatDose } from '@/lib/format';
+import { formatQtd, formatDose } from '@/lib/format';
 import { parseItens, diasEmAberto, normalizarStatusAplicacao } from '@/lib/osAplicacao';
 import { gerarPDFOS } from '@/lib/osPdf';
 import { invalidateEntidade } from '@/lib/useEntidades';

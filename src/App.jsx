@@ -1,3 +1,4 @@
+import UsuarioPermissoes from '@/pages/UsuarioPermissoes';
 import { ThemeProvider } from 'next-themes';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClientInstance } from '@/lib/query-client';
@@ -19,6 +20,7 @@ import Pesagem from '@/pages/Pesagem';
 import Aplicacao from '@/pages/Aplicacao';
 import Relatorios from '@/pages/Relatorios';
 import Inventario from '@/pages/Inventario';
+import MobileInventario from '@/pages/mobile/MobileInventario';
 import Balanca from '@/pages/Balanca';
 import MobileSetores from '@/pages/mobile/MobileSetores';
 import MobileMais from '@/pages/mobile/MobileMais';
@@ -27,6 +29,11 @@ import { BalancaProvider } from '@/lib/balancaContext';
 function MobileOnly({ children }) {
   const isMobile = useIsMobile();
   return isMobile ? children : <Navigate to="/" replace />;
+}
+
+function ResponsiveInventario() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileInventario /> : <Inventario />;
 }
 
 const AuthenticatedApp = () => {
@@ -75,12 +82,13 @@ const AuthenticatedApp = () => {
         />
         <Route path="/setor/:setorId" element={<SetorDetail />} />
         <Route path="/cadastros" element={<Cadastros />} />
+        <Route path="/usuarios/:userId/permissoes" element={<UsuarioPermissoes />} />
         <Route path="/movimentacoes" element={<Movimentacoes />} />
         <Route path="/abastecimento" element={<Abastecimento />} />
         <Route path="/pesagem" element={<Pesagem />} />
         <Route path="/aplicacao" element={<Aplicacao />} />
         <Route path="/relatorios" element={<Relatorios />} />
-        <Route path="/inventario" element={<Inventario />} />
+        <Route path="/inventario" element={<ResponsiveInventario />} />
         <Route path="/balanca" element={<Balanca />} />
         <Route
           path="/mais"

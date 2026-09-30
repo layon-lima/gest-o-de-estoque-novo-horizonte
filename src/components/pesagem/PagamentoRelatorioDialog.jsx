@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react';
-import { FileSpreadsheet, FileDown, Share2, Truck, Wallet, Package } from 'lucide-react';
+import { FileSpreadsheet, FileDown, Share2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import SearchSelect from '@/components/SearchSelect';
 import { exportPDF, exportCSV, sharePDF } from '@/lib/exports';
-import { formatMoeda, formatKg, round3 } from '@/lib/pesagem';
+import { formatMoeda, round3 } from '@/lib/pesagem';
 
 const FORMAS = [
   { value: 'pix', label: 'Pix' },

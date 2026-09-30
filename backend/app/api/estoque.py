@@ -172,6 +172,9 @@ def _exigir_movimentacao_permitida(
 ):
     origem = str(dados.origem_modulo or "").strip().lower()
 
+    if str(dados.documento_origem_id or '').startswith('fora-estoque:'):
+        raise HTTPException(403, 'A entrada de itens encontrados exige revisão pela rotina de inventário.')
+
     if origem == "mobile":
         if not produtos_em_setores_mobile(
             current_user,

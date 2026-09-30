@@ -8,7 +8,6 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
-    Request,
     UploadFile,
 )
 
@@ -184,7 +183,6 @@ def _assinatura_valida(
 
 @router.post("/upload")
 async def upload_file(
-    request: Request,
     file: UploadFile = File(...),
     _: User = Depends(
         get_current_user
@@ -267,12 +265,10 @@ async def upload_file(
     finally:
         await file.close()
 
-    file_url = str(
-        request.url_for(
-            "uploads",
-            path=nome_arquivo,
-        )
-    )
+    # URL relativa funciona tanto no computador quanto em celulares na rede.
+    # Uma URL absoluta gravaria o host usado no upload (muitas vezes
+    # localhost), tornando a imagem inacessível nos outros dispositivos.
+    file_url = f"/uploads/{nome_arquivo}"
 
     return {
         "file_url": file_url,

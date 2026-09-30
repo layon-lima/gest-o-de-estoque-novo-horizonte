@@ -87,6 +87,27 @@ class InventarioItem(Base44CompatMixin, Base):
     data = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class InventarioForaEstoque(Base44CompatMixin, Base):
+    __tablename__ = "inventario_fora_estoque"
+
+    inventario_id = mapped_column(String(100), nullable=True, index=True)
+    descricao = mapped_column(String(255), nullable=False, index=True)
+    quantidade = mapped_column(Float, nullable=False, default=0)
+    unidade = mapped_column(String(30), nullable=True, default="un")
+    foto_url = mapped_column(Text, nullable=True)
+    observacao = mapped_column(Text, nullable=True)
+    status = mapped_column(String(30), nullable=False, default="pendente", index=True)
+    registrado_por = mapped_column(String(255), nullable=True)
+    data_registro = mapped_column(DateTime(timezone=True), nullable=False)
+    produto_id = mapped_column(String(100), nullable=True, index=True)
+    deposito_id = mapped_column(String(100), nullable=True, index=True)
+    gaveta_id = mapped_column(String(100), nullable=True, index=True)
+    revisado_por = mapped_column(String(255), nullable=True)
+    revisado_em = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_rejeicao = mapped_column(Text, nullable=True)
+    documento_estoque_id = mapped_column(String(100), nullable=True, index=True)
+
+
 class Lavoura(Base44CompatMixin, Base):
     __tablename__ = "lavouras"
 

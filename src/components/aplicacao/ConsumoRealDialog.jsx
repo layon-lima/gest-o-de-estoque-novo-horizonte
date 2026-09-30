@@ -4,8 +4,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { parseItens, saldoProdutoDeposito } from '@/lib/osAplicacao';

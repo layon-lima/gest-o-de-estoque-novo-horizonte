@@ -45,6 +45,7 @@ ENTITY_READ_PAGES = {
         "relatorios",
     },
     "Inventario": {"inventario", "relatorios"},
+    "InventarioForaEstoque": {"inventario", "relatorios"},
     "InventarioItem": {"inventario", "relatorios"},
     "Lavoura": {"cadastros", "aplicacao", "relatorios"},
     "Lote": {
@@ -99,6 +100,7 @@ ENTITY_WRITE_PAGES = {
     "Deposito": {"cadastros"},
     "Gaveta": {"cadastros"},
     "Inventario": {"inventario"},
+    "InventarioForaEstoque": {"inventario"},
     "InventarioItem": {"inventario"},
     "Lavoura": {"cadastros"},
     "Lote": set(),

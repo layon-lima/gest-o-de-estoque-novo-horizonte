@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Scale, X, ShoppingCart, Sprout, Truck, ArrowLeftRight, CheckCircle2, AlertTriangle, Search } from 'lucide-react';
+import { Scale, X, ShoppingCart, Sprout, Truck, ArrowLeftRight, Search } from 'lucide-react';
 import PesoDisplay from '@/components/pesagem/PesoDisplay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

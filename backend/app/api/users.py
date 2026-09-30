@@ -191,6 +191,28 @@ def listar_usuarios(
     ]
 
 
+@router.get("/{user_id}")
+def obter_usuario(
+    user_id: str,
+    _: User = Depends(
+        exigir_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    usuario = db.get(
+        User,
+        user_id,
+    )
+
+    if not usuario:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuário não encontrado.",
+        )
+
+    return user_publico(usuario)
+
+
 @router.post("")
 def criar_usuario(
     dados: CriarUsuarioRequest,

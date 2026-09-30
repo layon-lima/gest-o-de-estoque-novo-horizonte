@@ -52,7 +52,7 @@ export default function Layout() {
   );
 
   const pageKey = pageKeyForPath(location.pathname);
-  const isUsuarios = location.pathname === '/usuarios';
+  const isUsuarios = location.pathname.startsWith('/usuarios');
   const isBalanca = location.pathname === '/balanca';
   const isMobileHome = isMobile && location.pathname === '/';
 

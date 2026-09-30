@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   Ban,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,

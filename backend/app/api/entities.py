@@ -36,6 +36,7 @@ from app.models import (
     EstoqueSaldo,
     Gaveta,
     Inventario,
+    InventarioForaEstoque,
     InventarioItem,
     Lavoura,
     Lote,
