@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { estoqueApi } from '@/api/estoqueClient';
 import {
   construirItensSaida,
@@ -45,7 +45,7 @@ export async function registrarAbastecimentoPendente({
     );
   }
 
-  return base44.entities.Abastecimento.create({
+  return api.entities.Abastecimento.create({
     data: new Date().toISOString(),
     maquina_id: maquina.id,
     produto_id: produto.id,
@@ -132,7 +132,7 @@ export async function confirmarAbastecimento({
   const documento =
     resposta.documento;
 
-  await base44.entities
+  await api.entities
     .Abastecimento
     .update(
       abast.id,
@@ -158,7 +158,7 @@ export async function confirmarAbastecimento({
 export async function cancelarAbastecimento(
   abastId
 ) {
-  return base44.entities
+  return api.entities
     .Abastecimento
     .update(
       abastId,

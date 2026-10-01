@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd } from '@/lib/format';
 import {
@@ -194,7 +194,7 @@ export default function PedidoFormDialog({
 
         payload.status = pedido.status || 'aberto';
 
-        await base44.entities.PedidoPesagem.update(
+        await api.entities.PedidoPesagem.update(
           pedido.id,
           payload
         );
@@ -209,7 +209,7 @@ export default function PedidoFormDialog({
         payload.numero = nextPedidoNumber(pedidos);
 
         const created =
-          await base44.entities.PedidoPesagem.create(payload);
+          await api.entities.PedidoPesagem.create(payload);
 
         toast({
           title: isDuplicate

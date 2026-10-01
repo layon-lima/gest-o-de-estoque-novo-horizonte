@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -107,10 +107,10 @@ function CulturasPanel({ culturas }) {
 
     try {
       if (editingId) {
-        await base44.entities.Cultura.update(editingId, { nome });
+        await api.entities.Cultura.update(editingId, { nome });
         toast({ title: 'Cultura atualizada' });
       } else {
-        await base44.entities.Cultura.create({ nome });
+        await api.entities.Cultura.create({ nome });
         toast({ title: 'Cultura cadastrada' });
       }
       resetForm();
@@ -256,10 +256,10 @@ function LavourasPanel({ lavouras }) {
 
     try {
       if (editingId) {
-        await base44.entities.Lavoura.update(editingId, payload);
+        await api.entities.Lavoura.update(editingId, payload);
         toast({ title: 'Lavoura atualizada' });
       } else {
-        await base44.entities.Lavoura.create(payload);
+        await api.entities.Lavoura.create(payload);
         toast({ title: 'Lavoura cadastrada' });
       }
       resetForm();

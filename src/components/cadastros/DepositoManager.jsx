@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -98,11 +98,11 @@ export default function DepositoManager() {
     e.preventDefault();
     try {
       if (editingId) {
-        await base44.entities.Deposito.update(editingId, form);
+        await api.entities.Deposito.update(editingId, form);
         toast({ title: 'Depósito atualizado' });
       } else {
         const numero = nextDepositoNumber(items);
-        await base44.entities.Deposito.create({ ...form, numero });
+        await api.entities.Deposito.create({ ...form, numero });
         toast({ title: 'Depósito cadastrado', description: `Número gerado: ${numero}` });
       }
       resetForm();

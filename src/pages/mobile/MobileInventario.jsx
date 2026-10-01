@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
 import { formatQtd, parseQtd } from '@/lib/format';
@@ -807,7 +807,7 @@ export default function MobileInventario() {
     inventarioId
   ) {
     return (
-      await base44.entities.InventarioItem.filter(
+      await api.entities.InventarioItem.filter(
         {
           inventario_id:
             inventarioId,
@@ -889,7 +889,7 @@ export default function MobileInventario() {
 
     try {
       const abertos =
-        await base44.entities.Inventario.filter(
+        await api.entities.Inventario.filter(
           {
             status: 'aberto',
           },
@@ -971,7 +971,7 @@ export default function MobileInventario() {
       };
 
       const todos =
-        await base44.entities.Inventario.list(
+        await api.entities.Inventario.list(
           '-data',
           500
         );
@@ -987,7 +987,7 @@ export default function MobileInventario() {
         );
 
       const criado =
-        await base44.entities.Inventario.create(
+        await api.entities.Inventario.create(
           {
             numero:
               nextInventarioNumber(
@@ -1059,7 +1059,7 @@ export default function MobileInventario() {
   ) {
     if (!doc) return;
 
-    await base44.entities.Inventario.update(
+    await api.entities.Inventario.update(
       doc.id,
       {
         criterios:
@@ -1113,13 +1113,13 @@ export default function MobileInventario() {
 
     if (existente) {
       salvo =
-        await base44.entities.InventarioItem.update(
+        await api.entities.InventarioItem.update(
           existente.id,
           payload
         );
     } else {
       salvo =
-        await base44.entities.InventarioItem.create(
+        await api.entities.InventarioItem.create(
           {
             inventario_id:
               doc.id,
@@ -1505,7 +1505,7 @@ export default function MobileInventario() {
           : 'divergente';
 
       const atualizado =
-        await base44.entities.Inventario.update(
+        await api.entities.Inventario.update(
           doc.id,
           {
             itens:

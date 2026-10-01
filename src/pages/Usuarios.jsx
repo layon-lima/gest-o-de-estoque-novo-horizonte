@@ -26,7 +26,7 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import InviteUserDialog from '@/components/usuarios/InviteUserDialog';
@@ -86,7 +86,7 @@ export default function Usuarios() {
     setLoading(true);
 
     try {
-      const data = await base44.entities.User.list('-created_date', 200);
+      const data = await api.entities.User.list('-created_date', 200);
       setUsuarios(data);
     } catch (err) {
       toast({
@@ -135,7 +135,7 @@ export default function Usuarios() {
     setDeleting(true);
 
     try {
-      await base44.entities.User.delete(deleteTarget.id);
+      await api.entities.User.delete(deleteTarget.id);
 
       setUsuarios((prev) =>
         prev.filter((u) => u.id !== deleteTarget.id)
@@ -162,7 +162,7 @@ export default function Usuarios() {
     setTogglingId(u.id);
 
     try {
-      await base44.entities.User.update(u.id, {
+      await api.entities.User.update(u.id, {
         pode_confirmar_abastecimento: value,
       });
 

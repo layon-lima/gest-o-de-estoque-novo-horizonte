@@ -1,4 +1,4 @@
-﻿import { base44 } from '@/api/base44Client';
+﻿import { api } from '@/api/apiClient';
 
 
 // Normalizações usadas apenas para localizar
@@ -21,7 +21,7 @@ const normNome = (s) =>
 
 async function loadPessoas() {
   try {
-    return await base44.entities.Pessoa.list(
+    return await api.entities.Pessoa.list(
       '-created_date',
       500
     );
@@ -53,7 +53,7 @@ export async function loadTransportadoras() {
 
 export async function loadVeiculos() {
   try {
-    return await base44.entities.Veiculo.list(
+    return await api.entities.Veiculo.list(
       '-created_date',
       500
     );

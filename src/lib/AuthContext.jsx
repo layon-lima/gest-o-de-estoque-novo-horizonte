@@ -5,7 +5,7 @@ import React, {
   useEffect,
 } from 'react';
 
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { prefetchEntidades } from '@/lib/useEntidades';
 
 
@@ -37,11 +37,11 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const authenticated =
-        await base44.auth.isAuthenticated();
+        await api.auth.isAuthenticated();
 
       if (authenticated) {
         const currentUser =
-          await base44.auth.me();
+          await api.auth.me();
 
         setUser(currentUser);
         setIsAuthenticated(true);
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
 
-    base44.auth.logout();
+    api.auth.logout();
   };
 
 

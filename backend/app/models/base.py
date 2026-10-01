@@ -10,11 +10,8 @@ def novo_id() -> str:
     return str(uuid.uuid4())
 
 
-class Base44CompatMixin:
-    """
-    Campos comuns para manter compatibilidade com os registros do Base44
-    e facilitar uma futura importação dos dados existentes.
-    """
+class EntityBaseMixin:
+    """Campos comuns de identificação, autoria e datas das entidades do ERP."""
 
     @declared_attr
     def id(cls):

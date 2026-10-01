@@ -40,7 +40,7 @@ import {
   Warehouse,
   X,
 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { formatQtd, parseQtd } from '@/lib/format';
@@ -126,13 +126,13 @@ export default function InventarioConference({
     if (!inventario) return undefined;
 
     let active = true;
-    base44.entities.InventarioItem.filter({ inventario_id: inventario.id })
+    api.entities.InventarioItem.filter({ inventario_id: inventario.id })
       .then((rows) => {
         if (active) setItems(rows || []);
       })
       .catch(() => {});
 
-    const unsub = base44.entities.InventarioItem.subscribe((event) => {
+    const unsub = api.entities.InventarioItem.subscribe((event) => {
       const rec = event.data;
       if (rec && rec.inventario_id !== inventario.id) return;
 
@@ -246,7 +246,7 @@ export default function InventarioConference({
 
   async function carregarAbertos() {
     try {
-      const rows = await base44.entities.Inventario.filter({ status: 'aberto' }, '-data', 100);
+      const rows = await api.entities.Inventario.filter({ status: 'aberto' }, '-data', 100);
       setAbertos(rows || []);
     } catch {
       setAbertos([]);
@@ -275,7 +275,7 @@ export default function InventarioConference({
   async function abrirDocumento(id) {
     setLoadingDoc(true);
     try {
-      const doc = await base44.entities.Inventario.get(id);
+      const doc = await api.entities.Inventario.get(id);
       const escopo = parseInventarioCriterios(doc);
 
       if (!escopo.deposito_id) {
@@ -335,7 +335,7 @@ export default function InventarioConference({
     setLoadingDoc(true);
     try {
       const key = criteriosKey(criterios);
-      const documentosAbertos = await base44.entities.Inventario.filter({ status: 'aberto' }, '-data', 200);
+      const documentosAbertos = await api.entities.Inventario.filter({ status: 'aberto' }, '-data', 200);
       const existente = (documentosAbertos || []).find(
         (doc) => criteriosKey(parseInventarioCriterios(doc)) === key
       );
@@ -347,9 +347,9 @@ export default function InventarioConference({
           description: 'Retomando o inventário já existente para este mesmo escopo.',
         });
       } else {
-        const todos = await base44.entities.Inventario.list('-data', 500);
+        const todos = await api.entities.Inventario.list('-data', 500);
         const setorSelecionado = setores.find((s) => s.id === criterios.setor_id);
-        doc = await base44.entities.Inventario.create({
+        doc = await api.entities.Inventario.create({
           numero: nextInventarioNumber(todos),
           data: new Date().toISOString(),
           setor_id: criterios.setor_id || '',
@@ -416,7 +416,7 @@ export default function InventarioConference({
 
     const val = parseQtd(qtdInput);
     try {
-      const registrado = await base44.entities.InventarioItem.create({
+      const registrado = await api.entities.InventarioItem.create({
         inventario_id: inventario.id,
         produto_id: produtoAtivo.id,
         codigo: produtoAtivo.codigo,
@@ -453,7 +453,7 @@ export default function InventarioConference({
         ? (Number(aviso.item.qtd_contada) || 0) + val
         : val;
 
-      const atualizado = await base44.entities.InventarioItem.update(aviso.item.id, {
+      const atualizado = await api.entities.InventarioItem.update(aviso.item.id, {
         qtd_contada: nova,
         responsavel: getDisplayName(user),
         data: new Date().toISOString(),
@@ -479,7 +479,7 @@ export default function InventarioConference({
     setConcluindo(true);
 
     try {
-      const itensDb = await base44.entities.InventarioItem.filter({ inventario_id: inventario.id });
+      const itensDb = await api.entities.InventarioItem.filter({ inventario_id: inventario.id });
       const contagemMap = new Map((itensDb || []).map((item) => [item.produto_id, item]));
 
       const itensResultado = alvo.map((produto) => {
@@ -506,7 +506,7 @@ export default function InventarioConference({
       const total_divergencias = total_itens - total_acertos;
       const resultadoCalc = total_divergencias === 0 ? 'consistente' : 'divergente';
 
-      await base44.entities.Inventario.update(inventario.id, {
+      await api.entities.Inventario.update(inventario.id, {
         itens: JSON.stringify(itensResultado),
         total_itens,
         total_acertos,

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Lock, Loader2, Leaf } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/apiClient";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -19,7 +19,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await base44.auth.loginViaEmailPassword(
+      await api.auth.loginViaEmailPassword(
         username.trim(),
         password
       );

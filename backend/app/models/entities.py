@@ -4,10 +4,10 @@ from sqlalchemy import Boolean, Date, DateTime, Float, JSON, String, Text
 from sqlalchemy.orm import mapped_column
 
 from app.db.database import Base
-from app.models.base import Base44CompatMixin
+from app.models.base import EntityBaseMixin
 
 
-class Abastecimento(Base44CompatMixin, Base):
+class Abastecimento(EntityBaseMixin, Base):
     __tablename__ = "abastecimentos"
 
     data = mapped_column(DateTime(timezone=True), nullable=False)
@@ -24,19 +24,19 @@ class Abastecimento(Base44CompatMixin, Base):
     data_confirmacao = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class AnoSafra(Base44CompatMixin, Base):
+class AnoSafra(EntityBaseMixin, Base):
     __tablename__ = "anos_safra"
 
     nome = mapped_column(String(100), nullable=False)
 
 
-class Cultura(Base44CompatMixin, Base):
+class Cultura(EntityBaseMixin, Base):
     __tablename__ = "culturas"
 
     nome = mapped_column(String(255), nullable=False)
 
 
-class Deposito(Base44CompatMixin, Base):
+class Deposito(EntityBaseMixin, Base):
     __tablename__ = "depositos"
 
     numero = mapped_column(String(100), nullable=True, index=True)
@@ -45,7 +45,7 @@ class Deposito(Base44CompatMixin, Base):
     descricao = mapped_column(Text, nullable=True)
 
 
-class Gaveta(Base44CompatMixin, Base):
+class Gaveta(EntityBaseMixin, Base):
     __tablename__ = "gavetas"
 
     codigo = mapped_column(String(100), nullable=False, index=True)
@@ -53,7 +53,7 @@ class Gaveta(Base44CompatMixin, Base):
     deposito_id = mapped_column(String(100), nullable=True, index=True)
 
 
-class CadastroMobilePendente(Base44CompatMixin, Base):
+class CadastroMobilePendente(EntityBaseMixin, Base):
     __tablename__ = "cadastros_mobile_pendentes"
 
     tipo = mapped_column(String(30), nullable=False, index=True)
@@ -68,7 +68,7 @@ class CadastroMobilePendente(Base44CompatMixin, Base):
     registro_criado_id = mapped_column(String(100), nullable=True, index=True)
 
 
-class Inventario(Base44CompatMixin, Base):
+class Inventario(EntityBaseMixin, Base):
     __tablename__ = "inventarios"
 
     numero = mapped_column(String(100), nullable=True, index=True)
@@ -88,7 +88,7 @@ class Inventario(Base44CompatMixin, Base):
     observacao = mapped_column(Text, nullable=True)
 
 
-class InventarioItem(Base44CompatMixin, Base):
+class InventarioItem(EntityBaseMixin, Base):
     __tablename__ = "inventario_itens"
 
     inventario_id = mapped_column(String(100), nullable=False, index=True)
@@ -102,7 +102,7 @@ class InventarioItem(Base44CompatMixin, Base):
     data = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class InventarioForaEstoque(Base44CompatMixin, Base):
+class InventarioForaEstoque(EntityBaseMixin, Base):
     __tablename__ = "inventario_fora_estoque"
 
     inventario_id = mapped_column(String(100), nullable=True, index=True)
@@ -123,7 +123,7 @@ class InventarioForaEstoque(Base44CompatMixin, Base):
     documento_estoque_id = mapped_column(String(100), nullable=True, index=True)
 
 
-class Lavoura(Base44CompatMixin, Base):
+class Lavoura(EntityBaseMixin, Base):
     __tablename__ = "lavouras"
 
     nome = mapped_column(String(255), nullable=False)
@@ -131,7 +131,7 @@ class Lavoura(Base44CompatMixin, Base):
     hectares = mapped_column(Float, nullable=True, default=0)
 
 
-class Lote(Base44CompatMixin, Base):
+class Lote(EntityBaseMixin, Base):
     __tablename__ = "lotes"
 
     produto_id = mapped_column(String(100), nullable=False, index=True)
@@ -146,7 +146,7 @@ class Lote(Base44CompatMixin, Base):
     unidade = mapped_column(String(30), nullable=True, default="un")
 
 
-class Maquina(Base44CompatMixin, Base):
+class Maquina(EntityBaseMixin, Base):
     __tablename__ = "maquinas"
 
     codigo = mapped_column(String(100), nullable=False, index=True)
@@ -159,7 +159,7 @@ class Maquina(Base44CompatMixin, Base):
 
 
 
-class OrdemServicoAplicacao(Base44CompatMixin, Base):
+class OrdemServicoAplicacao(EntityBaseMixin, Base):
     __tablename__ = "ordens_servico_aplicacao"
 
     numero = mapped_column(String(100), nullable=False, index=True)
@@ -178,7 +178,7 @@ class OrdemServicoAplicacao(Base44CompatMixin, Base):
     custo_total = mapped_column(Float, nullable=True, default=0)
 
 
-class Pagamento(Base44CompatMixin, Base):
+class Pagamento(EntityBaseMixin, Base):
     __tablename__ = "pagamentos"
 
     numero = mapped_column(String(100), nullable=True, index=True)
@@ -190,7 +190,7 @@ class Pagamento(Base44CompatMixin, Base):
     observacao = mapped_column(Text, nullable=True)
 
 
-class PedidoPesagem(Base44CompatMixin, Base):
+class PedidoPesagem(EntityBaseMixin, Base):
     __tablename__ = "pedidos_pesagem"
 
     numero = mapped_column(String(100), nullable=True, index=True)
@@ -209,7 +209,7 @@ class PedidoPesagem(Base44CompatMixin, Base):
     observacao = mapped_column(Text, nullable=True)
 
 
-class Pessoa(Base44CompatMixin, Base):
+class Pessoa(EntityBaseMixin, Base):
     __tablename__ = "pessoas"
 
     nome = mapped_column(String(255), nullable=False, index=True)
@@ -228,7 +228,7 @@ class Pessoa(Base44CompatMixin, Base):
     observacao = mapped_column(Text, nullable=True)
 
 
-class Produto(Base44CompatMixin, Base):
+class Produto(EntityBaseMixin, Base):
     __tablename__ = "produtos"
 
     codigo = mapped_column(String(100), nullable=False, index=True)
@@ -249,7 +249,7 @@ class Produto(Base44CompatMixin, Base):
 
 
 
-class Setor(Base44CompatMixin, Base):
+class Setor(EntityBaseMixin, Base):
     __tablename__ = "setores"
 
     nome = mapped_column(String(255), nullable=False, index=True)
@@ -261,7 +261,7 @@ class Setor(Base44CompatMixin, Base):
     permite_inventario = mapped_column(Boolean, nullable=True, default=False)
 
 
-class TicketPesagem(Base44CompatMixin, Base):
+class TicketPesagem(EntityBaseMixin, Base):
     __tablename__ = "tickets_pesagem"
 
     numero = mapped_column(String(100), nullable=False, index=True)
@@ -294,7 +294,7 @@ class TicketPesagem(Base44CompatMixin, Base):
 
 
 
-class User(Base44CompatMixin, Base):
+class User(EntityBaseMixin, Base):
     __tablename__ = "users"
 
     username = mapped_column(String(100), nullable=False, unique=True, index=True)
@@ -314,7 +314,7 @@ class User(Base44CompatMixin, Base):
     ativo = mapped_column(Boolean, nullable=False, default=True)
 
 
-class Veiculo(Base44CompatMixin, Base):
+class Veiculo(EntityBaseMixin, Base):
     __tablename__ = "veiculos"
 
     placa = mapped_column(String(30), nullable=False, index=True)
@@ -328,7 +328,7 @@ class Veiculo(Base44CompatMixin, Base):
     observacao = mapped_column(Text, nullable=True)
 
 
-class AuditoriaERP(Base44CompatMixin, Base):
+class AuditoriaERP(EntityBaseMixin, Base):
     __tablename__ = "auditoria_erp"
 
     usuario_id = mapped_column(

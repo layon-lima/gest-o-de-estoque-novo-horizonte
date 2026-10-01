@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { parseQtd, formatQtd } from '@/lib/format';
 import { calcLiquido, formatKg, normalizePlaca, round3, ajustarEstoqueVendaTicket } from '@/lib/pesagem';
@@ -108,7 +108,7 @@ export default function EditarTicketDialog({ ticket, pedidos = [], pessoas = [],
         if (form.transportadora_id) { updateData.transportadora_id = form.transportadora_id; updateData.transportadora_nome = transpNome(form.transportadora_id); }
       }
 
-      await base44.entities.TicketPesagem.update(ticket.id, updateData);
+      await api.entities.TicketPesagem.update(ticket.id, updateData);
 
       let baixaError = null;
       if (podeEditarPeso && (pesosMudaram)) {

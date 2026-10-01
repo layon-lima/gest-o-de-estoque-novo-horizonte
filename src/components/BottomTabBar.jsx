@@ -9,7 +9,7 @@ import {
   Scale,
   Sprout,
 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
 import { PAGES } from '@/lib/permissions';
 import { setoresAcessiveis } from '@/lib/setoresAcesso';
@@ -45,7 +45,7 @@ export default function BottomTabBar() {
   const items = allItems.filter((it) => allowedKeys.has(it.key));
 
   useEffect(() => {
-    base44.entities.Setor.list()
+    api.entities.Setor.list()
       .then((s) => setSetores(s))
       .catch(() => setSetores([]));
   }, []);

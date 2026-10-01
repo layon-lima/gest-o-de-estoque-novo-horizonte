@@ -38,7 +38,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import {
   useEntidades,
@@ -296,7 +296,7 @@ export default function VeiculosManager() {
 
     try {
       if (editingId) {
-        await base44.entities.Veiculo.update(
+        await api.entities.Veiculo.update(
           editingId,
           payload
         );
@@ -307,7 +307,7 @@ export default function VeiculosManager() {
             'As informações do veículo foram atualizadas.',
         });
       } else {
-        await base44.entities.Veiculo.create(
+        await api.entities.Veiculo.create(
           payload
         );
 

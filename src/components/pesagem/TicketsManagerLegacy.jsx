@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { safeDelete, isNotFoundError } from '@/lib/entityOps';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd } from '@/lib/format';
@@ -210,7 +210,7 @@ export default function TicketsManager({ tickets, pedidos, pessoas, produtos, tr
       if (ped) {
         const liq = Number(excluirTicket.peso_liquido) || 0;
         const novoSaldo = round3((Number(ped.saldo_kg) || 0) + liq);
-        await base44.entities.PedidoPesagem.update(ped.id, {
+        await api.entities.PedidoPesagem.update(ped.id, {
           saldo_kg: novoSaldo,
           status: statusPorSaldo(novoSaldo, ped.total_kg, ped.status),
         }).catch((e) => { if (!isNotFoundError(e)) throw e; });

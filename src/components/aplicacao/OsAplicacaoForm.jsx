@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Search } from 'lucide-react';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { formatQtd, parseQtd } from '@/lib/format';
@@ -189,7 +189,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
       const lavoura = lavouras.find((l) => l.id === form.lavoura_id);
 
       if (editing) {
-        await base44.entities.OrdemServicoAplicacao.update(os.id, {
+        await api.entities.OrdemServicoAplicacao.update(os.id, {
           cultura_id: form.cultura_id,
           cultura_nome: cultura?.nome || '',
           ano_safra: form.ano_safra.trim(),
@@ -215,7 +215,7 @@ export default function OsAplicacaoForm({ open, onOpenChange, onSaved, culturas,
         onOpenChange(false);
       } else {
         const numero = formatarNumeroOS(maxNumeroOS(ordens) + 1);
-        const created = await base44.entities.OrdemServicoAplicacao.create({
+        const created = await api.entities.OrdemServicoAplicacao.create({
           numero,
           cultura_id: form.cultura_id,
           cultura_nome: cultura?.nome || '',

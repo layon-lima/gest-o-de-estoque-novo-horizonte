@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
@@ -91,7 +91,7 @@ export default function Aplicacao() {
   async function handleConsumo(os, itensAtualizados) {
     // Atualiza os itens da OS com o realizado antes de executar.
     const osAtualizada = { ...os, itens: JSON.stringify(itensAtualizados) };
-    await base44.entities.OrdemServicoAplicacao.update(os.id, { itens: osAtualizada.itens });
+    await api.entities.OrdemServicoAplicacao.update(os.id, { itens: osAtualizada.itens });
 
     await executarOS({
       os: osAtualizada,
@@ -120,7 +120,7 @@ export default function Aplicacao() {
       if (!itens) continue;
       try {
         const osAtualizada = { ...os, itens: JSON.stringify(itens) };
-        await base44.entities.OrdemServicoAplicacao.update(os.id, { itens: osAtualizada.itens });
+        await api.entities.OrdemServicoAplicacao.update(os.id, { itens: osAtualizada.itens });
         await executarOS({
           os: osAtualizada,
           produtos,
@@ -165,7 +165,7 @@ export default function Aplicacao() {
     for (const os of selecionadas) {
       const itens = distribuicao[os.id];
       if (!itens) continue;
-      await base44.entities.OrdemServicoAplicacao.update(os.id, { itens: JSON.stringify(itens) });
+      await api.entities.OrdemServicoAplicacao.update(os.id, { itens: JSON.stringify(itens) });
       ok++;
     }
     invalidateEntidade('OrdemServicoAplicacao');

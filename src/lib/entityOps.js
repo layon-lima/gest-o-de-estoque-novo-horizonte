@@ -1,5 +1,5 @@
 // Operações de entidade resilientes a registros fantasmas (restos do cache offline).
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { queryClientInstance } from '@/lib/query-client';
 
 // Verifica se um erro é "entidade não encontrada" (registro fantasma do cache).
@@ -21,7 +21,7 @@ async function syncCacheFromBackend(entityName, deletedId) {
     const limit = queryKey[3];
 
     try {
-      const entity = base44.entities[entityName];
+      const entity = api.entities[entityName];
       let fresh;
       if (sort && limit != null) fresh = await entity.list(sort, limit);
       else if (sort) fresh = await entity.list(sort);
@@ -44,7 +44,7 @@ async function syncCacheFromBackend(entityName, deletedId) {
 // Lança qualquer outro erro (permissão, rede, etc.) para o caller tratar.
 export async function safeDelete(entityName, id) {
   try {
-    await base44.entities[entityName].delete(id);
+    await api.entities[entityName].delete(id);
   } catch (err) {
     if (!isNotFoundError(err)) throw err;
     // Registro fantasma: já não existe no backend. Trata como sucesso.
@@ -57,7 +57,7 @@ export async function safeDelete(entityName, id) {
 // para o caller decidir como tratar.
 export async function safeUpdate(entityName, id, data) {
   try {
-    return await base44.entities[entityName].update(id, data);
+    return await api.entities[entityName].update(id, data);
   } catch (err) {
     if (isNotFoundError(err)) {
       await syncCacheFromBackend(entityName, id);

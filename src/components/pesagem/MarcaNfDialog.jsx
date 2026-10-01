@@ -11,7 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function MarcaNfDialog({ ticket, onClose, onDone }) {
@@ -30,7 +30,7 @@ export default function MarcaNfDialog({ ticket, onClose, onDone }) {
     if (!ticket) return;
     setSalvando(true);
     try {
-      await base44.entities.TicketPesagem.update(ticket.id, {
+      await api.entities.TicketPesagem.update(ticket.id, {
         nfe_importada: true,
         nfe_numero: nfeNumero.trim() || null,
       });
@@ -47,7 +47,7 @@ export default function MarcaNfDialog({ ticket, onClose, onDone }) {
     if (!ticket) return;
     setSalvando(true);
     try {
-      await base44.entities.TicketPesagem.update(ticket.id, {
+      await api.entities.TicketPesagem.update(ticket.id, {
         nfe_importada: false,
         nfe_numero: null,
         nfe_produto: null,

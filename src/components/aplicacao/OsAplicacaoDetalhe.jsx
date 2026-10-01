@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Printer, CheckCircle2, Trash2, FileText, AlertTriangle, Pencil, MoreVertical, Ban } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, formatDose } from '@/lib/format';
 import { parseItens, diasEmAberto, normalizarStatusAplicacao } from '@/lib/osAplicacao';
@@ -75,7 +75,7 @@ export default function OsAplicacaoDetalhe({ open, onOpenChange, os, culturas, l
   }
 
   async function handleCancelar() {
-    await base44.entities.OrdemServicoAplicacao.update(os.id, { status: 'cancelada' });
+    await api.entities.OrdemServicoAplicacao.update(os.id, { status: 'cancelada' });
     toast({ title: 'Aplicação cancelada' });
     invalidateEntidade('OrdemServicoAplicacao');
     onOpenChange(false);

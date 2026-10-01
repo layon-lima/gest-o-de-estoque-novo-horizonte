@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatQtd, parseQtd } from '@/lib/format';
 import {
@@ -237,7 +237,7 @@ export default function PagamentoFormDialog({
       };
 
       if (isEdit) {
-        await base44.entities.Pagamento.update(
+        await api.entities.Pagamento.update(
           pagamento.id,
           payload
         );
@@ -251,7 +251,7 @@ export default function PagamentoFormDialog({
           nextPagamentoNumber(pagamentos);
 
         const created =
-          await base44.entities.Pagamento.create(
+          await api.entities.Pagamento.create(
             payload
           );
 

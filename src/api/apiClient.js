@@ -1003,7 +1003,7 @@ async function uploadFile(file) {
 }
 
 
-export const base44 = {
+export const api = {
   entities,
 
   integrations: {
