@@ -59,6 +59,15 @@ REGRAS_MOVIMENTO = {
         origem_controlada=True,
     ),
 
+    "ENTRADA_SALDO_ADMIN": RegraMovimento(
+        codigo="ENTRADA_SALDO_ADMIN",
+        descricao="Entrada manual de saldo por administrador",
+        direcao=DirecaoMovimento.ENTRADA,
+        exige_destino=True,
+        permite_custo_informado=True,
+        origem_controlada=True,
+    ),
+
     #
     # SAÍDAS
     #
