@@ -1033,13 +1033,13 @@ export default function Movimentacoes() {
           </h1>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Entradas, saídas, transferências e estornos em uma única área operacional
+            Registre entradas, saídas, transferências e estornos de produtos no seu estoque.
           </p>
         </header>
 
 
         <Card className="overflow-hidden border-border/70">
-          <div className="grid grid-cols-2 border-b bg-muted/20 lg:grid-cols-4">
+          <div className="grid grid-cols-2 border-b bg-background lg:grid-cols-4">
             {Object.entries(
               TIPO_CONFIG
             ).map(
@@ -1060,10 +1060,10 @@ export default function Movimentacoes() {
                     onClick={() =>
                       trocarTipo(value)
                     }
-                    className={`flex min-h-12 items-center justify-center gap-2 border-b px-4 text-sm font-semibold transition-colors lg:border-b-0 lg:border-r last:border-r-0 ${
+                    className={`relative flex min-h-12 items-center justify-center gap-2 border-b px-4 text-sm font-semibold transition-colors lg:border-b-0 lg:border-r last:border-r-0 ${
                       ativo
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary-foreground/80'
+                        : 'bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -1077,23 +1077,6 @@ export default function Movimentacoes() {
 
           <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="border-b p-4 sm:p-5 lg:border-b-0 lg:border-r">
-              <div className="mb-5 flex items-start gap-3 rounded-xl border bg-muted/20 px-4 py-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <tipoAtual.Icon className="h-4 w-4" />
-                </div>
-
-                <div>
-                  <div className="text-sm font-semibold">
-                    {tipoAtual.label}
-                  </div>
-
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {tipoAtual.description}
-                  </p>
-                </div>
-              </div>
-
-
               <form
                 onSubmit={handleSubmit}
                 className="space-y-5"
@@ -1102,7 +1085,22 @@ export default function Movimentacoes() {
                   form.tipo === 'entrada'
                   || form.tipo === 'saida'
                 ) && (
-                  <div className="grid gap-3 rounded-xl border bg-muted/10 p-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-end">
+                  <section className="rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="mb-4 flex items-start gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                        1
+                      </div>
+
+                      <div>
+                        <h2 className="text-sm font-semibold">
+                          Tipo e finalidade
+                        </h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Defina a finalidade desta movimentação
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label>
                         Finalidade *
@@ -1139,18 +1137,12 @@ export default function Movimentacoes() {
                           })
                         )}
                       />
-                    </div>
 
-                    <div className="rounded-lg border bg-background/60 px-3 py-2.5">
-                      <div className="text-xs font-semibold">
-                        {subtipoAtual?.label || 'Selecione a finalidade'}
-                      </div>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {subtipoAtual?.description || 'A classificação correta melhora a rastreabilidade e os relatórios.'}
+                      <p className="text-xs text-muted-foreground">
+                        {subtipoAtual?.description || 'Selecione uma opção na lista.'}
                       </p>
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {form.tipo === 'estorno' ? (
@@ -1226,70 +1218,87 @@ export default function Movimentacoes() {
                   </div>
                 ) : (
                   <>
-                    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-                      <div className="space-y-1.5">
-                        <Label>
-                          Produto *
-                        </Label>
+                    <section className="rounded-xl border bg-card p-4 shadow-sm">
+                      <div className="mb-4 flex items-start gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                          {form.tipo === 'entrada' || form.tipo === 'saida' ? '2' : '1'}
+                        </div>
 
-                        <ProductSearchSelect
-                          produtos={produtos}
-                          maquinas={maquinas}
-                          gavetas={gavetas}
-                          value={form.produto_id}
-                          onChange={(v) =>
-                            setForm({
-                              ...form,
-                              produto_id: v,
-                              deposito_id: '',
-                              gaveta_id: '',
-                              deposito_origem_id: '',
-                              gaveta_origem_id: '',
-                              deposito_destino_id: '',
-                              gaveta_destino_id: '',
-                              codigo_lote: '',
-                              data_validade: '',
-                            })
-                          }
-                          placeholder="Buscar produto por nome, código, referência..."
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="mv-qtd">
-                          Quantidade *
-                        </Label>
-
-                        <div className="relative">
-                          <Input
-                            id="mv-qtd"
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0,00"
-                            value={form.quantidade}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                quantidade:
-                                  e.target.value,
-                              })
-                            }
-                            className={
-                              produtoSelecionado
-                                ? 'pr-16'
-                                : ''
-                            }
-                            required
-                          />
-
-                          {produtoSelecionado && (
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-muted-foreground">
-                              {produtoSelecionado.unidade || 'un'}
-                            </span>
-                          )}
+                        <div>
+                          <h2 className="text-sm font-semibold">
+                            Produto
+                          </h2>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Selecione o produto e informe a quantidade
+                          </p>
                         </div>
                       </div>
-                    </div>
+
+                      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                        <div className="space-y-1.5">
+                          <Label>
+                            Produto *
+                          </Label>
+
+                          <ProductSearchSelect
+                            produtos={produtos}
+                            maquinas={maquinas}
+                            gavetas={gavetas}
+                            value={form.produto_id}
+                            onChange={(v) =>
+                              setForm({
+                                ...form,
+                                produto_id: v,
+                                deposito_id: '',
+                                gaveta_id: '',
+                                deposito_origem_id: '',
+                                gaveta_origem_id: '',
+                                deposito_destino_id: '',
+                                gaveta_destino_id: '',
+                                codigo_lote: '',
+                                data_validade: '',
+                              })
+                            }
+                            placeholder="Buscar produto por nome, código, referência..."
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="mv-qtd">
+                            Quantidade *
+                          </Label>
+
+                          <div className="relative">
+                            <Input
+                              id="mv-qtd"
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0,00"
+                              value={form.quantidade}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  quantidade:
+                                    e.target.value,
+                                })
+                              }
+                              className={
+                                produtoSelecionado
+                                  ? 'pr-16'
+                                  : ''
+                              }
+                              required
+                            />
+
+                            {produtoSelecionado && (
+                              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-muted-foreground">
+                                {produtoSelecionado.unidade || 'un'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
 
 
                     {form.tipo === 'transferencia' ? (
@@ -1456,92 +1465,109 @@ export default function Movimentacoes() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label>
-                            Depósito *
-                          </Label>
+                      <section className="rounded-xl border bg-card p-4 shadow-sm">
+                        <div className="mb-4 flex items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                            {form.tipo === 'entrada' || form.tipo === 'saida' ? '3' : '2'}
+                          </div>
 
-                          <SearchSelect
-                            value={form.deposito_id}
-                            onChange={(v) =>
-                              setForm({
-                                ...form,
-                                deposito_id:
-                                  v === 'all'
-                                    ? ''
-                                    : v,
-                                gaveta_id: '',
-                              })
-                            }
-                            allLabel={
-                              form.tipo === 'saida'
-                                ? '— Sem saldo —'
-                                : '— Nenhum —'
-                            }
-                            placeholder="Selecionar depósito..."
-                            disabled={
-                              form.tipo === 'saida'
-                              && !temSaldo
-                            }
-                            options={(
-                              form.tipo === 'saida'
-                                ? depositosComSaldo
-                                : depositos
-                            ).map(
-                              (d) => ({
-                                value: d.id,
-                                label:
-                                  depositoLabel(d),
-                              })
-                            )}
-                          />
+                          <div>
+                            <h2 className="text-sm font-semibold">
+                              Localização
+                            </h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Informe onde o produto será movimentado
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <Label>
-                            Gaveta
-                            <span className="ml-1 text-xs font-normal text-muted-foreground">
-                              (opcional)
-                            </span>
-                          </Label>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label>
+                              Depósito *
+                            </Label>
 
-                          <SearchSelect
-                            value={form.gaveta_id}
-                            onChange={(v) =>
-                              setForm({
-                                ...form,
-                                gaveta_id:
-                                  v === 'all'
-                                    ? ''
-                                    : v,
-                              })
-                            }
-                            allLabel="— Nenhuma —"
-                            placeholder="Selecionar gaveta..."
-                            disabled={
-                              !form.deposito_id
-                            }
-                            options={(
-                              form.tipo === 'saida'
-                                ? gavetasComSaldoDep
-                                : sortGavetas(
-                                    gavetas.filter(
-                                      (g) =>
-                                        !form.deposito_id
-                                        || g.deposito_id
-                                          === form.deposito_id
+                            <SearchSelect
+                              value={form.deposito_id}
+                              onChange={(v) =>
+                                setForm({
+                                  ...form,
+                                  deposito_id:
+                                    v === 'all'
+                                      ? ''
+                                      : v,
+                                  gaveta_id: '',
+                                })
+                              }
+                              allLabel={
+                                form.tipo === 'saida'
+                                  ? '— Sem saldo —'
+                                  : '— Nenhum —'
+                              }
+                              placeholder="Selecionar depósito..."
+                              disabled={
+                                form.tipo === 'saida'
+                                && !temSaldo
+                              }
+                              options={(
+                                form.tipo === 'saida'
+                                  ? depositosComSaldo
+                                  : depositos
+                              ).map(
+                                (d) => ({
+                                  value: d.id,
+                                  label:
+                                    depositoLabel(d),
+                                })
+                              )}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label>
+                              Gaveta
+                              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                (opcional)
+                              </span>
+                            </Label>
+
+                            <SearchSelect
+                              value={form.gaveta_id}
+                              onChange={(v) =>
+                                setForm({
+                                  ...form,
+                                  gaveta_id:
+                                    v === 'all'
+                                      ? ''
+                                      : v,
+                                })
+                              }
+                              allLabel="— Nenhuma —"
+                              placeholder="Selecionar gaveta..."
+                              disabled={
+                                !form.deposito_id
+                              }
+                              options={(
+                                form.tipo === 'saida'
+                                  ? gavetasComSaldoDep
+                                  : sortGavetas(
+                                      gavetas.filter(
+                                        (g) =>
+                                          !form.deposito_id
+                                          || g.deposito_id
+                                            === form.deposito_id
+                                      )
                                     )
-                                  )
-                            ).map(
-                              (g) => ({
-                                value: g.id,
-                                label: g.codigo,
-                              })
-                            )}
-                          />
+                              ).map(
+                                (g) => ({
+                                  value: g.id,
+                                  label: g.codigo,
+                                })
+                              )}
+                            />
+                          </div>
                         </div>
-                      </div>
+                      </section>
                     )}
 
 
@@ -1595,15 +1621,20 @@ export default function Movimentacoes() {
                       form.tipo === 'entrada'
                       && form.subtipo === 'ENTRADA_COMPRA'
                     ) && (
-                      <div className="rounded-xl border bg-muted/10 p-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-semibold">
-                            Documento fiscal
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            (opcional)
-                          </span>
+                      <section className="rounded-xl border bg-card p-4 shadow-sm">
+                        <div className="mb-4 flex items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                            4
+                          </div>
+
+                          <div>
+                            <h2 className="text-sm font-semibold">
+                              Documento fiscal
+                            </h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Preencha os dados da nota fiscal ou documento de origem
+                            </p>
+                          </div>
                         </div>
 
                         <div className="grid gap-3 lg:grid-cols-3">
@@ -1665,34 +1696,55 @@ export default function Movimentacoes() {
                             />
                           </div>
                         </div>
-                      </div>
+                      </section>
                     )}
                   </>
                 )}
 
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="mv-obs">
+                <section className="rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="mb-4 flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                      {form.tipo === 'entrada' && form.subtipo === 'ENTRADA_COMPRA'
+                        ? '5'
+                        : form.tipo === 'entrada' || form.tipo === 'saida'
+                          ? '4'
+                          : '3'}
+                    </div>
+
+                    <div>
+                      <h2 className="text-sm font-semibold">
+                        Observações
+                      </h2>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Informações adicionais complementares sobre esta movimentação
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mv-obs">
                     Observação
                     <span className="ml-1 text-xs font-normal text-muted-foreground">
                       (opcional)
                     </span>
                   </Label>
 
-                  <Textarea
-                    id="mv-obs"
-                    rows={3}
-                    value={form.observacao}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        observacao:
-                          e.target.value,
-                      })
-                    }
-                    placeholder="Adicione uma observação sobre esta movimentação..."
-                  />
-                </div>
+                    <Textarea
+                      id="mv-obs"
+                      rows={3}
+                      value={form.observacao}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          observacao:
+                            e.target.value,
+                        })
+                      }
+                      placeholder="Adicione uma observação sobre esta movimentação..."
+                    />
+                  </div>
+                </section>
 
 
                 <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
