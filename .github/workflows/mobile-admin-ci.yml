@@ -51,4 +51,4 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install -r requirements.txt
       - run: python -m compileall app
-      - run: python -m unittest tests.test_cadastros_mobile tests.test_entrada_saldo_admin
+      - run: python -m unittest tests.test_cadastros_mobile tests.test_entrada_saldo_admin tests.test_maquina_sem_deposito
