@@ -49,6 +49,7 @@ import {
   saldoTotalProduto,
 } from '@/lib/saldos';
 import { useNfeImport } from '@/hooks/useNfeImport';
+import { useAuth } from '@/lib/AuthContext';
 
 
 const emptyForm = {
@@ -113,6 +114,12 @@ const MOVIMENTO_SUBTIPOS = {
       label: 'Ajuste Positivo',
       description: 'Correção controlada que aumenta o saldo.',
     },
+    {
+      value: 'ENTRADA_SALDO_ADMIN',
+      label: 'Entrada manual de saldo',
+      description: 'Lançamento administrativo de saldo sem nota fiscal ou documento de origem.',
+      adminOnly: true,
+    },
   ],
 
   saida: [
@@ -139,6 +146,7 @@ const MOVIMENTO_SUBTIPO_LABELS = {
   ENTRADA_COMPRA: 'Compra / NF',
   DEVOLUCAO_ENTRADA: 'Devolução de entrada',
   AJUSTE_POSITIVO: 'Ajuste positivo',
+  ENTRADA_SALDO_ADMIN: 'Entrada manual de saldo',
   SAIDA_CONSUMO: 'Consumo',
   DEVOLUCAO_SAIDA: 'Devolução de saída',
   AJUSTE_NEGATIVO: 'Ajuste negativo',
@@ -220,6 +228,8 @@ export default function Movimentacoes() {
   const [form, setForm] = useState(emptyForm);
 
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const {
     data,
@@ -790,6 +800,32 @@ export default function Movimentacoes() {
       return;
     }
 
+    if (
+      form.subtipo === 'ENTRADA_SALDO_ADMIN'
+      && !isAdmin
+    ) {
+      toast({
+        variant: 'destructive',
+        title: 'Acesso restrito',
+        description:
+          'A entrada manual de saldo é exclusiva para administradores.',
+      });
+      return;
+    }
+
+    if (
+      form.subtipo === 'ENTRADA_SALDO_ADMIN'
+      && String(form.observacao || '').trim().length < 3
+    ) {
+      toast({
+        variant: 'destructive',
+        title: 'Justificativa obrigatória',
+        description:
+          'Informe o motivo da entrada manual de saldo.',
+      });
+      return;
+    }
+
 
     setSaving(true);
 
@@ -938,10 +974,15 @@ export default function Movimentacoes() {
     TIPO_CONFIG[form.tipo];
 
 
-  const subtiposDisponiveis =
+  const subtiposDisponiveis = (
     MOVIMENTO_SUBTIPOS[
       form.tipo
-    ] || [];
+    ] || []
+  ).filter(
+    (item) =>
+      !item.adminOnly
+      || isAdmin
+  );
 
 
   const subtipoAtual =
@@ -1016,6 +1057,16 @@ export default function Movimentacoes() {
     ) {
       camposPendentes.push(
         'Informe a validade'
+      );
+    }
+
+    if (
+      form.tipo === 'entrada'
+      && form.subtipo === 'ENTRADA_SALDO_ADMIN'
+      && String(form.observacao || '').trim().length < 3
+    ) {
+      camposPendentes.push(
+        'Informe a justificativa da entrada de saldo'
       );
     }
   }
@@ -1724,11 +1775,15 @@ export default function Movimentacoes() {
 
                   <div className="space-y-1.5">
                     <Label htmlFor="mv-obs">
-                    Observação
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (opcional)
-                    </span>
-                  </Label>
+                      {form.subtipo === 'ENTRADA_SALDO_ADMIN'
+                        ? 'Justificativa *'
+                        : 'Observação'}
+                      {form.subtipo !== 'ENTRADA_SALDO_ADMIN' && (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          (opcional)
+                        </span>
+                      )}
+                    </Label>
 
                     <Textarea
                       id="mv-obs"
@@ -1741,7 +1796,11 @@ export default function Movimentacoes() {
                             e.target.value,
                         })
                       }
-                      placeholder="Adicione uma observação sobre esta movimentação..."
+                      placeholder={
+                        form.subtipo === 'ENTRADA_SALDO_ADMIN'
+                          ? 'Informe o motivo deste lançamento de saldo...'
+                          : 'Adicione uma observação sobre esta movimentação...'
+                      }
                     />
                   </div>
                 </section>
@@ -1795,7 +1854,9 @@ export default function Movimentacoes() {
                           ? 'Estornar movimento'
                           : form.tipo === 'transferencia'
                             ? 'Registrar transferência'
-                            : 'Registrar movimentação'
+                            : form.subtipo === 'ENTRADA_SALDO_ADMIN'
+                              ? 'Adicionar saldo'
+                              : 'Registrar movimentação'
                       }
                     </Button>
                   </div>
