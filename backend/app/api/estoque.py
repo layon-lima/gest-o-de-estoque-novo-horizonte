@@ -171,6 +171,41 @@ def _exigir_movimentacao_permitida(
     db: Session,
 ):
     origem = str(dados.origem_modulo or "").strip().lower()
+    tipo = str(dados.tipo_movimento or "").strip().upper()
+
+    if tipo == "ENTRADA_SALDO_ADMIN":
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="A entrada manual de saldo é permitida somente para administradores.",
+            )
+
+        if origem != "movimentacoes":
+            raise HTTPException(
+                status_code=400,
+                detail="A entrada manual de saldo só pode ser registrada pela página Movimentos.",
+            )
+
+        if dados.documento_origem_id or dados.referencia_externa:
+            raise HTTPException(
+                status_code=400,
+                detail="A entrada manual de saldo não aceita nota fiscal ou documento de origem.",
+            )
+
+        if len(str(dados.observacao or "").strip()) < 3:
+            raise HTTPException(
+                status_code=400,
+                detail="Informe uma justificativa para a entrada manual de saldo.",
+            )
+
+        for item in dados.itens:
+            if item.deposito_origem_id or item.gaveta_origem_id or item.lote_origem_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="A entrada manual de saldo deve informar somente o destino do estoque.",
+                )
+
+        return
 
     if str(dados.documento_origem_id or '').startswith('fora-estoque:'):
         raise HTTPException(403, 'A entrada de itens encontrados exige revisão pela rotina de inventário.')
@@ -185,8 +220,6 @@ def _exigir_movimentacao_permitida(
                 status_code=403,
                 detail="Produto fora dos setores liberados para este usuário.",
             )
-
-        tipo = str(dados.tipo_movimento or "").strip().upper()
 
         for item in dados.itens:
             produto = db.get(Produto, item.produto_id)
