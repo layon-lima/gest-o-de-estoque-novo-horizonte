@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+import re
 from typing import Any
 
 from fastapi import (
@@ -378,6 +379,68 @@ def aplicar_escopo_mobile(
     # A leitura é mantida porque o fluxo
     # mobile usa fornecedores na entrada.
     return stmt
+
+
+def _proximo_numero_lavoura(
+    db: Session,
+) -> str:
+    maior = 0
+
+    numeros = db.scalars(
+        select(Lavoura.numero)
+    ).all()
+
+    for valor in numeros:
+        match = re.search(
+            r"(\d+)\s*$",
+            str(valor or ""),
+        )
+
+        if not match:
+            continue
+
+        numero = int(match.group(1))
+
+        if numero > maior:
+            maior = numero
+
+    return (
+        f"LAV-{maior + 1:06d}"
+    )
+
+
+def _validar_duplicidade_lavoura(
+    db: Session,
+    dados_limpos: dict[str, Any],
+    registro_id: str | None = None,
+):
+    nome = str(
+        dados_limpos.get("nome")
+        or ""
+    ).strip()
+
+    if not nome:
+        return
+
+    stmt = select(
+        Lavoura
+    ).where(
+        Lavoura.nome.ilike(nome)
+    )
+
+    if registro_id:
+        stmt = stmt.where(
+            Lavoura.id != registro_id
+        )
+
+    if db.scalar(stmt.limit(1)):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Já existe uma lavoura cadastrada "
+                f"com o nome '{nome}'."
+            ),
+        )
 
 
 def _validar_maquina_sem_deposito(
@@ -822,6 +885,15 @@ def criar(
             dados_limpos,
         )
 
+    if entidade == "Lavoura":
+        _validar_duplicidade_lavoura(
+            db,
+            dados_limpos,
+        )
+        dados_limpos["numero"] = (
+            _proximo_numero_lavoura(db)
+        )
+
     registro = model(
         **dados_limpos
     )
@@ -905,6 +977,17 @@ def atualizar(
             dados_limpos
         )
         _validar_duplicidade_maquina(
+            db,
+            dados_limpos,
+            registro_id=registro_id,
+        )
+
+    if entidade == "Lavoura":
+        dados_limpos.pop(
+            "numero",
+            None,
+        )
+        _validar_duplicidade_lavoura(
             db,
             dados_limpos,
             registro_id=registro_id,
