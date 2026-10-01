@@ -59,10 +59,11 @@ function MiniStat({ icon: Icon, label, value, helper }) {
 }
 
 function parseDecimal(value) {
-  const normalized = String(value ?? '')
-    .trim()
-    .replace(/\./g, '')
-    .replace(',', '.');
+  const raw = String(value ?? '').trim();
+
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
 
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
