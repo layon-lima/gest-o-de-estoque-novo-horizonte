@@ -109,14 +109,11 @@ function StatCard({ icon: Icon, label, value, tone = 'default' }) {
 
 function FeatureCard({ enabled, onToggle, combustivelNome }) {
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(!enabled)}
-      aria-pressed={enabled}
+    <div
       className={`w-full rounded-xl border p-4 text-left transition-all ${
         enabled
           ? 'border-primary bg-primary/[0.055] shadow-[0_0_0_1px_hsl(var(--primary)/0.08)]'
-          : 'border-border bg-background hover:border-primary/35 hover:bg-muted/25'
+          : 'border-border bg-background'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -151,9 +148,13 @@ function FeatureCard({ enabled, onToggle, combustivelNome }) {
           )}
         </div>
 
-        <Switch checked={enabled} onCheckedChange={onToggle} />
+        <Switch
+          checked={enabled}
+          onCheckedChange={(checked) => onToggle(Boolean(checked))}
+          aria-label="Permitir abastecimento"
+        />
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -459,11 +460,22 @@ export default function MaquinaManager() {
                             allLabel="— Nenhum combustível —"
                             placeholder="Buscar combustível..."
                             options={combustiveis
+                              .filter((combustivel) => combustivel?.id)
                               .map((combustivel) => ({
                                 value: combustivel.id,
-                                label: combustivel.nome,
+                                label:
+                                  String(
+                                    combustivel.nome
+                                    || combustivel.codigo
+                                    || 'Combustível sem nome'
+                                  ),
                               }))
-                              .sort((a, b) => a.label.localeCompare(b.label))}
+                              .sort((a, b) =>
+                                a.label.localeCompare(
+                                  b.label,
+                                  'pt-BR'
+                                )
+                              )}
                           />
                           <p className="text-xs text-amber-800">
                             Quando definido, o produto é pré-selecionado na tela de abastecimento.
