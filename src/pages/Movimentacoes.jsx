@@ -1078,19 +1078,22 @@ export default function Movimentacoes() {
       disabled={nfe.importing}
     >
       <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:p-6">
-        <header>
-          <h1 className="text-2xl font-bold">
-            Movimentos
-          </h1>
+        <Card className="border-border/70 p-3 shadow-sm sm:p-4">
+          <header className="mb-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Movimentos
+            </p>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            Registre entradas, saídas, transferências e estornos de produtos no seu estoque.
-          </p>
-        </header>
+            <h1 className="mt-0.5 text-xl font-semibold sm:text-2xl">
+              Movimentos
+            </h1>
 
+            <p className="mt-1 text-sm text-muted-foreground">
+              Registre entradas, saídas, transferências e estornos de produtos no seu estoque.
+            </p>
+          </header>
 
-        <Card className="overflow-hidden border-border/70">
-          <div className="grid grid-cols-2 border-b bg-background lg:grid-cols-4">
+          <div className="flex flex-wrap gap-2">
             {Object.entries(
               TIPO_CONFIG
             ).map(
@@ -1111,21 +1114,26 @@ export default function Movimentacoes() {
                     onClick={() =>
                       trocarTipo(value)
                     }
-                    className={`relative flex min-h-12 items-center justify-center gap-2 border-b px-4 text-sm font-semibold transition-colors lg:border-b-0 lg:border-r last:border-r-0 ${
+                    className={[
+                      'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:px-4',
                       ativo
-                        ? 'bg-primary text-primary-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary-foreground/80'
-                        : 'bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-                    }`}
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'bg-background text-foreground hover:border-primary/30 hover:bg-primary/[0.04]',
+                    ].join(' ')}
                   >
                     <Icon className="h-4 w-4" />
-                    {config.label}
+                    <span>
+                      {config.label}
+                    </span>
                   </button>
                 );
               }
             )}
           </div>
+        </Card>
 
 
+        <Card className="overflow-hidden border-border/70">
           <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="border-b p-4 sm:p-5 lg:border-b-0 lg:border-r">
               <form
