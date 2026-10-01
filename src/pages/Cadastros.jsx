@@ -216,7 +216,7 @@ export default function Cadastros() {
       <div className="cadastros-shell">
 
         <main className="cadastros-main">
-          <div className="cadastros-mobile-select">
+          <div className="cadastros-mobile-select lg:hidden">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Cadastros
@@ -233,6 +233,48 @@ export default function Cadastros() {
               placeholder="Selecione o cadastro..."
               options={opcoes}
             />
+          </div>
+
+          <div className="mb-4 hidden rounded-xl border bg-card p-3 shadow-sm lg:block">
+            <div className="mb-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Cadastros
+              </p>
+
+              <h1 className="mt-0.5 text-xl font-semibold">
+                Central de dados mestres
+              </h1>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {codigosDisponiveis.map((codigo) => {
+                const cadastro = CADASTROS[codigo];
+                const ativo = cadastroSelecionado === codigo;
+                const TabIcone = cadastro.icon;
+
+                return (
+                  <button
+                    key={codigo}
+                    type="button"
+                    onClick={() => selecionarCadastro(codigo)}
+                    className={[
+                      'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                      ativo
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'bg-background text-foreground hover:border-primary/30 hover:bg-primary/[0.04]',
+                    ].join(' ')}
+                  >
+                    <TabIcone className="h-4 w-4" />
+                    <span>
+                      {cadastro.label}
+                      {codigo === 'mobile_pendentes' && mobilePendentes > 0
+                        ? ` (${mobilePendentes})`
+                        : ''}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
 
