@@ -216,7 +216,7 @@ export function prefetchEntidades(user) {
 
 /** Invalida o cache de uma entidade após mutações locais. */
 export function invalidateEntidade(name) {
-  queryClientInstance.invalidateQueries({ queryKey: ['ent', name] });
+  return queryClientInstance.invalidateQueries({ queryKey: ['ent', name] });
 }
 
 // Entidades que compõem o "estoque" — afetadas por qualquer movimentação.
