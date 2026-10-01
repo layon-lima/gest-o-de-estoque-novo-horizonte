@@ -216,7 +216,7 @@ export default function Cadastros() {
       <div className="cadastros-shell">
 
         <main className="cadastros-main">
-          <div className="lg:hidden cadastros-mobile-select">
+          <div className="cadastros-mobile-select">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Cadastros
