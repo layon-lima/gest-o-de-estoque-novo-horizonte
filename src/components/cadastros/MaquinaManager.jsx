@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
+  AlertCircle,
   Check,
   Database,
   Fuel,
+  Loader2,
   Pencil,
   Search,
   Tractor,
@@ -162,6 +164,8 @@ export default function MaquinaManager() {
   const [busca, setBusca] = useState('');
   const [quickFilter, setQuickFilter] = useState('todos');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [formNotice, setFormNotice] = useState(null);
   const { toast } = useToast();
 
   const { data } = useEntidades({ Maquina: {}, Produto: {}, Setor: {} });
@@ -213,13 +217,79 @@ export default function MaquinaManager() {
 
   const combustivelSelecionado = combustiveis.find((c) => c.id === form.combustivel_id) || null;
 
+  const normalizarDuplicidade = (value) =>
+    String(value || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLocaleUpperCase('pt-BR');
+
+  function avisarBloqueio(title, description) {
+    setFormNotice({
+      type: 'error',
+      title,
+      description,
+    });
+
+    toast({
+      variant: 'destructive',
+      title,
+      description,
+    });
+  }
+
   function resetForm() {
     setForm(emptyForm);
     setEditingId(null);
+    setFormNotice(null);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    if (saving) return;
+
+    const nome = String(form.nome || '').trim().replace(/\s+/g, ' ');
+
+    if (!nome) {
+      avisarBloqueio(
+        'Nome da máquina obrigatório',
+        'Preencha o nome ou a descrição principal antes de salvar.'
+      );
+      return;
+    }
+
+    if (
+      form.permite_abastecimento
+      && form.combustivel_id
+      && !combustivelSelecionado
+    ) {
+      avisarBloqueio(
+        'Combustível inválido',
+        'O combustível selecionado não está mais disponível. Selecione outro ou deixe sem combustível padrão.'
+      );
+      return;
+    }
+
+    const duplicadaLocal = items.find(
+      (item) =>
+        item.id !== editingId
+        && normalizarDuplicidade(item.nome) === normalizarDuplicidade(nome)
+    );
+
+    if (duplicadaLocal) {
+      avisarBloqueio(
+        'Máquina já cadastrada',
+        `Já existe uma máquina com este nome: ${duplicadaLocal.codigo || duplicadaLocal.nome}.`
+      );
+      return;
+    }
+
+    setSaving(true);
+    setFormNotice({
+      type: 'info',
+      title: editingId ? 'Salvando alterações...' : 'Salvando máquina...',
+      description: 'Aguarde a confirmação do sistema.',
+    });
 
     try {
       const combustivelPayload = form.permite_abastecimento
@@ -234,23 +304,76 @@ export default function MaquinaManager() {
 
       if (editingId) {
         await api.entities.Maquina.update(editingId, {
-          nome: form.nome,
-          descricao: form.descricao,
+          nome,
+          descricao: String(form.descricao || '').trim(),
           permite_abastecimento: form.permite_abastecimento,
           ...combustivelPayload,
         });
 
+        await invalidateEntidade('Maquina');
+
+        setFormNotice({
+          type: 'success',
+          title: 'Máquina atualizada',
+          description: `${form.codigo || nome} foi atualizada com sucesso.`,
+        });
+
         toast({
           title: 'Máquina atualizada',
-          description: `${form.codigo || 'Máquina'} foi atualizada com sucesso.`,
+          description: `${form.codigo || nome} foi atualizada com sucesso.`,
         });
+
+        setForm((prev) => ({
+          ...prev,
+          nome,
+          descricao: String(prev.descricao || '').trim(),
+        }));
       } else {
-        const codigo = nextMaquinaCodigo(items);
+        const maquinasAtuais = await api.entities.Maquina.list();
+
+        const duplicadaAtual = maquinasAtuais.find(
+          (item) =>
+            normalizarDuplicidade(item.nome) === normalizarDuplicidade(nome)
+        );
+
+        if (duplicadaAtual) {
+          avisarBloqueio(
+            'Máquina já cadastrada',
+            `Já existe uma máquina com este nome: ${duplicadaAtual.codigo || duplicadaAtual.nome}.`
+          );
+          return;
+        }
+
+        const codigo = nextMaquinaCodigo(maquinasAtuais);
+
+        const codigoEmUso = maquinasAtuais.some(
+          (item) => normalizarDuplicidade(item.codigo) === normalizarDuplicidade(codigo)
+        );
+
+        if (codigoEmUso) {
+          avisarBloqueio(
+            'Código de máquina em uso',
+            'O código automático calculado já existe. Atualize a página e tente novamente.'
+          );
+          return;
+        }
 
         await api.entities.Maquina.create({
-          ...form,
           codigo,
+          nome,
+          descricao: String(form.descricao || '').trim(),
+          permite_abastecimento: form.permite_abastecimento,
           ...combustivelPayload,
+        });
+
+        await invalidateEntidade('Maquina');
+
+        setForm(emptyForm);
+        setEditingId(null);
+        setFormNotice({
+          type: 'success',
+          title: 'Máquina cadastrada',
+          description: `${codigo} foi cadastrada com sucesso.`,
         });
 
         toast({
@@ -258,19 +381,27 @@ export default function MaquinaManager() {
           description: `Código gerado: ${codigo}`,
         });
       }
-
-      resetForm();
-      invalidateEntidade('Maquina');
     } catch (err) {
+      const mensagem = String(err?.message || err || 'Falha desconhecida ao salvar.');
+
+      setFormNotice({
+        type: 'error',
+        title: editingId ? 'Não foi possível atualizar' : 'Não foi possível cadastrar',
+        description: mensagem,
+      });
+
       toast({
         variant: 'destructive',
         title: editingId ? 'Erro ao atualizar máquina' : 'Erro ao cadastrar máquina',
-        description: String(err?.message || err),
+        description: mensagem,
       });
+    } finally {
+      setSaving(false);
     }
   }
 
   function handleEdit(item) {
+    setFormNotice(null);
     setForm({
       codigo: item.codigo || '',
       nome: item.nome || '',
@@ -429,13 +560,46 @@ export default function MaquinaManager() {
                     </div>
                   </section>
 
+                  {formNotice ? (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs ${
+                        formNotice.type === 'error'
+                          ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                          : formNotice.type === 'success'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : 'border-blue-200 bg-blue-50 text-blue-800'
+                      }`}
+                    >
+                      {formNotice.type === 'info' ? (
+                        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                      ) : formNotice.type === 'success' ? (
+                        <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                      ) : (
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      )}
+
+                      <div className="min-w-0">
+                        <p className="font-semibold">{formNotice.title}</p>
+                        <p className="mt-0.5 leading-relaxed">{formNotice.description}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                    <Button type="submit" className="flex-1 gap-2">
-                      {editingId ? <Pencil className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                      {editingId ? 'Salvar alterações' : 'Adicionar máquina'}
+                    <Button type="submit" disabled={saving} className="flex-1 gap-2">
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : editingId ? (
+                        <Pencil className="h-4 w-4" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar máquina'}
                     </Button>
 
-                    <Button type="button" variant="outline" onClick={resetForm} className="gap-2">
+                    <Button type="button" variant="outline" onClick={resetForm} disabled={saving} className="gap-2">
                       <X className="h-4 w-4" />
                       {editingId ? 'Cancelar' : 'Limpar'}
                     </Button>

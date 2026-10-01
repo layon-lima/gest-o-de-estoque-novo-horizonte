@@ -26,6 +26,7 @@ import MobileSetores from '@/pages/mobile/MobileSetores';
 import MobileMais from '@/pages/mobile/MobileMais';
 import MobileAdmin from '@/pages/mobile/MobileAdmin';
 import { BalancaProvider } from '@/lib/balancaContext';
+import { Toaster } from '@/components/ui/toaster';
 
 function MobileOnly({ children }) {
   const isMobile = useIsMobile();
@@ -125,6 +126,7 @@ function App() {
             <BalancaProvider>
               <AuthenticatedApp />
             </BalancaProvider>
+            <Toaster />
           </Router>
         </QueryClientProvider>
       </ThemeProvider>
