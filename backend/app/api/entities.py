@@ -370,13 +370,8 @@ def aplicar_escopo_mobile(
         )
 
         return stmt.where(
-            or_(
-                Maquina.deposito_id.in_(
-                    depositos_permitidos
-                ),
-                Maquina.combustivel_id.in_(
-                    produtos_permitidos
-                ),
+            Maquina.combustivel_id.in_(
+                produtos_permitidos
             )
         )
 
@@ -384,6 +379,24 @@ def aplicar_escopo_mobile(
     # A leitura é mantida porque o fluxo
     # mobile usa fornecedores na entrada.
     return stmt
+
+
+def _validar_maquina_sem_deposito(
+    dados_limpos: dict[str, Any],
+):
+    deposito_id = dados_limpos.get("deposito_id")
+
+    if deposito_id not in (None, ""):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Máquinas não possuem vínculo com depósito."
+            ),
+        )
+
+    # O campo permanece temporariamente no modelo/banco por compatibilidade
+    # histórica, mas não é aceito como vínculo funcional.
+    dados_limpos.pop("deposito_id", None)
 
 
 def _validar_criacao_abastecimento(
@@ -745,6 +758,11 @@ def criar(
             dados_limpos
         )
 
+    if entidade == "Maquina":
+        _validar_maquina_sem_deposito(
+            dados_limpos
+        )
+
     registro = model(
         **dados_limpos
     )
@@ -821,6 +839,11 @@ def atualizar(
             dados_limpos,
             current_user,
             db,
+        )
+
+    if entidade == "Maquina":
+        _validar_maquina_sem_deposito(
+            dados_limpos
         )
 
     antes = serializar(
@@ -1021,6 +1044,11 @@ def atualizar_em_lote(
                 dados_limpos,
                 current_user,
                 db,
+            )
+
+        if entidade == "Maquina":
+            _validar_maquina_sem_deposito(
+                dados_limpos
             )
 
         for (
