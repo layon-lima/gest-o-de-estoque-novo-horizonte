@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Date, DateTime, Float, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, JSON, String, Text
 from sqlalchemy.orm import mapped_column
 
 from app.db.database import Base
@@ -51,6 +51,21 @@ class Gaveta(Base44CompatMixin, Base):
     codigo = mapped_column(String(100), nullable=False, index=True)
     descricao = mapped_column(Text, nullable=True)
     deposito_id = mapped_column(String(100), nullable=True, index=True)
+
+
+class CadastroMobilePendente(Base44CompatMixin, Base):
+    __tablename__ = "cadastros_mobile_pendentes"
+
+    tipo = mapped_column(String(30), nullable=False, index=True)
+    dados = mapped_column(JSON, nullable=False)
+    imagem_url = mapped_column(Text, nullable=True)
+    status = mapped_column(String(30), nullable=False, default="PENDENTE", index=True)
+    solicitante_nome = mapped_column(String(255), nullable=True)
+    analisado_por_id = mapped_column(String(100), nullable=True, index=True)
+    analisado_por_nome = mapped_column(String(255), nullable=True)
+    analisado_em = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_rejeicao = mapped_column(Text, nullable=True)
+    registro_criado_id = mapped_column(String(100), nullable=True, index=True)
 
 
 class Inventario(Base44CompatMixin, Base):

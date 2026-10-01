@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -8,6 +8,7 @@ import {
   Contact,
   MapPinned,
   Package,
+  Smartphone,
   Tractor,
   Users,
   Warehouse,
@@ -24,11 +25,13 @@ import PessoasManager from '@/components/cadastros/PessoasManager';
 import VeiculosManager from '@/components/cadastros/VeiculosManager';
 import LavourasManager from '@/components/cadastros/LavourasManager';
 import AnoSafraManager from '@/components/cadastros/AnoSafraManager';
+import CadastrosMobilePendentes from '@/components/cadastros/CadastrosMobilePendentes';
 
 import Usuarios from '@/pages/Usuarios';
 
 import { useAuth } from '@/lib/AuthContext';
 import { canAccessUsuarios } from '@/lib/permissions';
+import { cadastrosMobileApi } from '@/api/cadastrosMobileClient';
 
 
 const CADASTROS = {
@@ -121,12 +124,29 @@ const CADASTROS = {
     componente: Usuarios,
     grupo: 'Administração',
   },
+
+  mobile_pendentes: {
+    label: 'Cadastros Mobile Pendentes',
+    descricao: 'Solicitações enviadas pelo celular aguardando aprovação.',
+    icon: Smartphone,
+    componente: CadastrosMobilePendentes,
+    grupo: 'Administração',
+  },
 };
 
 
 export default function Cadastros() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [mobilePendentes, setMobilePendentes] = useState(0);
+
+  useEffect(() => {
+    if (canAccessUsuarios(user)) {
+      cadastrosMobileApi.contador()
+        .then((result) => setMobilePendentes(result.pendentes || 0))
+        .catch(() => setMobilePendentes(0));
+    }
+  }, [user]);
 
 
   const codigosDisponiveis = useMemo(() => {
@@ -144,6 +164,7 @@ export default function Cadastros() {
 
     if (canAccessUsuarios(user)) {
       lista.push('usuarios');
+      lista.push('mobile_pendentes');
     }
 
     return lista;
@@ -174,9 +195,11 @@ export default function Cadastros() {
     () =>
       codigosDisponiveis.map((codigo) => ({
         value: codigo,
-        label: CADASTROS[codigo].label,
+        label: codigo === 'mobile_pendentes' && mobilePendentes > 0
+          ? `${CADASTROS[codigo].label} (${mobilePendentes})`
+          : CADASTROS[codigo].label,
       })),
-    [codigosDisponiveis]
+    [codigosDisponiveis, mobilePendentes]
   );
 
 
@@ -226,6 +249,9 @@ export default function Cadastros() {
 
                 <h2 className="cadastros-content-header__title">
                   {configuracao.label}
+                  {cadastroSelecionado === 'mobile_pendentes' && mobilePendentes > 0
+                    ? ` (${mobilePendentes})`
+                    : ''}
                 </h2>
 
                 <p className="cadastros-content-header__description">

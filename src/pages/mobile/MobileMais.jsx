@@ -7,6 +7,7 @@ import {
   Settings,
   Sprout,
   UserRound,
+  ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
@@ -50,6 +51,13 @@ export default function MobileMais() {
         </div>
 
         <div className="mobile-more-list">
+          {user?.role === 'admin' && (
+            <Link to="/admin-mobile" className="mobile-more-row">
+              <span className="mobile-more-row__icon"><ShieldCheck className="h-5 w-5" /></span>
+              <strong>Modo Admin</strong>
+              <span className="mobile-more-row__arrow">›</span>
+            </Link>
+          )}
           {links.map((item) => {
             const Icon = item.icon;
             return (

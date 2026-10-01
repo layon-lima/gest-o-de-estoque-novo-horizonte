@@ -8,6 +8,7 @@ import {
   Fuel,
   Scale,
   Settings,
+  ShieldCheck,
   Sprout,
 } from 'lucide-react';
 
@@ -101,6 +102,10 @@ export default function MobileHome() {
     (atalho) => mobilePageAllowed(user, atalho.key)
   );
 
+  const atalhosComAdmin = user?.role === 'admin'
+    ? [{ key: 'admin-mobile', label: 'Modo Admin', description: 'Cadastros para aprovação', path: '/admin-mobile', icon: ShieldCheck, tone: 'violet' }, ...atalhosPermitidos]
+    : atalhosPermitidos;
+
   const { data, loading } = useEntidades({
     Produto: {},
     Setor: {},
@@ -144,7 +149,7 @@ export default function MobileHome() {
 
   return (
     <div className="mobile-page mobile-home mobile-home-v5">
-      {atalhosPermitidos.length > 0 ? (
+      {atalhosComAdmin.length > 0 ? (
         <section className="mobile-home-access">
           <div className="mobile-section-heading mobile-section-heading--simple">
             <div>
@@ -156,7 +161,7 @@ export default function MobileHome() {
           </div>
 
           <div className="mobile-home-access-grid">
-            {atalhosPermitidos.map((atalho) => {
+            {atalhosComAdmin.map((atalho) => {
               const Icon = atalho.icon;
 
               return (

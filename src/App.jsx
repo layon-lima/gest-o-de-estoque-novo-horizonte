@@ -24,6 +24,7 @@ import MobileInventario from '@/pages/mobile/MobileInventario';
 import Balanca from '@/pages/Balanca';
 import MobileSetores from '@/pages/mobile/MobileSetores';
 import MobileMais from '@/pages/mobile/MobileMais';
+import MobileAdmin from '@/pages/mobile/MobileAdmin';
 import { BalancaProvider } from '@/lib/balancaContext';
 
 function MobileOnly({ children }) {
@@ -95,6 +96,14 @@ const AuthenticatedApp = () => {
           element={
             <MobileOnly>
               <MobileMais />
+            </MobileOnly>
+          }
+        />
+        <Route
+          path="/admin-mobile"
+          element={
+            <MobileOnly>
+              <MobileAdmin />
             </MobileOnly>
           }
         />
