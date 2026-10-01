@@ -604,52 +604,6 @@ export default function Sidebar({
             </div>
           </header>
 
-
-          {isCadastros && (
-            <nav className="top-subnav">
-              <div className="top-subnav__inner">
-                {cadastroItems.map(
-                  (item) => {
-                    const Icon =
-                      item.icon;
-
-                    const active =
-                      cadastroSelecionado
-                      === item.key;
-
-                    return (
-                      <Tooltip
-                        key={item.key}
-                      >
-                        <TooltipTrigger asChild>
-                          <NavLink
-                            to={`/cadastros?tab=${item.key}`}
-                            className={
-                              `top-subnav__item ${
-                                active
-                                  ? 'is-active'
-                                  : ''
-                              }`
-                            }
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-
-                            <span>
-                              {item.label}
-                            </span>
-                          </NavLink>
-                        </TooltipTrigger>
-
-                        <TooltipContent>
-                          {item.label}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  }
-                )}
-              </div>
-            </nav>
-          )}
         </div>
       </TooltipProvider>
 
