@@ -398,6 +398,62 @@ def _validar_maquina_sem_deposito(
     dados_limpos.pop("deposito_id", None)
 
 
+def _validar_duplicidade_maquina(
+    db: Session,
+    dados_limpos: dict[str, Any],
+    registro_id: str | None = None,
+):
+    codigo = str(
+        dados_limpos.get("codigo")
+        or ""
+    ).strip()
+
+    nome = str(
+        dados_limpos.get("nome")
+        or ""
+    ).strip()
+
+    if codigo:
+        stmt_codigo = select(
+            Maquina
+        ).where(
+            Maquina.codigo == codigo
+        )
+
+        if registro_id:
+            stmt_codigo = stmt_codigo.where(
+                Maquina.id != registro_id
+            )
+
+        if db.scalar(stmt_codigo.limit(1)):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Já existe uma máquina com o código {codigo}."
+                ),
+            )
+
+    if nome:
+        stmt_nome = select(
+            Maquina
+        ).where(
+            Maquina.nome.ilike(nome)
+        )
+
+        if registro_id:
+            stmt_nome = stmt_nome.where(
+                Maquina.id != registro_id
+            )
+
+        if db.scalar(stmt_nome.limit(1)):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Já existe uma máquina cadastrada com o nome '{nome}'."
+                ),
+            )
+
+
 def _validar_criacao_abastecimento(
     dados_limpos: dict[str, Any],
 ):
@@ -761,6 +817,10 @@ def criar(
         _validar_maquina_sem_deposito(
             dados_limpos
         )
+        _validar_duplicidade_maquina(
+            db,
+            dados_limpos,
+        )
 
     registro = model(
         **dados_limpos
@@ -843,6 +903,11 @@ def atualizar(
     if entidade == "Maquina":
         _validar_maquina_sem_deposito(
             dados_limpos
+        )
+        _validar_duplicidade_maquina(
+            db,
+            dados_limpos,
+            registro_id=registro_id,
         )
 
     antes = serializar(
