@@ -7,7 +7,6 @@ import {
   Search,
   Tractor,
   Trash2,
-  Warehouse,
   Wrench,
   X,
 } from 'lucide-react';
@@ -51,7 +50,6 @@ const emptyForm = {
   codigo: '',
   nome: '',
   descricao: '',
-  deposito_id: '',
   permite_abastecimento: false,
   combustivel_id: '',
   combustivel_nome: '',
@@ -59,8 +57,6 @@ const emptyForm = {
 
 const QUICK_FILTERS = [
   { key: 'todos', label: 'Todos' },
-  { key: 'com_deposito', label: 'Com depósito' },
-  { key: 'sem_deposito', label: 'Sem depósito' },
   { key: 'abastecimento', label: 'Abastecimento' },
 ];
 
@@ -166,9 +162,8 @@ export default function MaquinaManager() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const { toast } = useToast();
 
-  const { data } = useEntidades({ Maquina: {}, Deposito: {}, Produto: {}, Setor: {} });
+  const { data } = useEntidades({ Maquina: {}, Produto: {}, Setor: {} });
   const items = data.Maquina || [];
-  const depositos = data.Deposito || [];
   const produtos = data.Produto || [];
   const setores = data.Setor || [];
 
@@ -181,11 +176,6 @@ export default function MaquinaManager() {
 
   const currentCode = editingId ? form.codigo : nextMaquinaCodigo(items);
 
-  const depositoLabel = (id) => {
-    const deposito = depositos.find((x) => x.id === id);
-    return deposito ? (deposito.nome ? `${deposito.numero} · ${deposito.nome}` : deposito.numero) : '—';
-  };
-
   const combustivelLabel = (id) => {
     const combustivel = combustiveis.find((x) => x.id === id);
     return combustivel ? combustivel.nome : '—';
@@ -193,12 +183,10 @@ export default function MaquinaManager() {
 
   const counters = useMemo(() => {
     const total = items.length;
-    const comDeposito = items.filter((item) => !!item.deposito_id).length;
     const permiteAbastecimento = items.filter((item) => item.permite_abastecimento === true).length;
 
     return {
       total,
-      comDeposito,
       permiteAbastecimento,
     };
   }, [items]);
@@ -215,8 +203,6 @@ export default function MaquinaManager() {
           .some((value) => String(value).toLowerCase().includes(query));
       })
       .filter((item) => {
-        if (quickFilter === 'com_deposito') return !!item.deposito_id;
-        if (quickFilter === 'sem_deposito') return !item.deposito_id;
         if (quickFilter === 'abastecimento') return item.permite_abastecimento === true;
         return true;
       })
@@ -248,7 +234,6 @@ export default function MaquinaManager() {
         await api.entities.Maquina.update(editingId, {
           nome: form.nome,
           descricao: form.descricao,
-          deposito_id: form.deposito_id,
           permite_abastecimento: form.permite_abastecimento,
           ...combustivelPayload,
         });
@@ -288,7 +273,6 @@ export default function MaquinaManager() {
       codigo: item.codigo || '',
       nome: item.nome || '',
       descricao: item.descricao || '',
-      deposito_id: item.deposito_id || '',
       permite_abastecimento: item.permite_abastecimento === true,
       combustivel_id: item.combustivel_id || '',
       combustivel_nome: item.combustivel_nome || '',
@@ -409,30 +393,6 @@ export default function MaquinaManager() {
                   <section>
                     <SectionTitle
                       number="2"
-                      title="Vínculo operacional"
-                      description="Depósito padrão utilizado pela máquina, quando houver."
-                    />
-
-                    <div className="space-y-1.5">
-                      <Label>Depósito</Label>
-                      <SearchSelect
-                        value={form.deposito_id}
-                        onChange={(value) => setForm({ ...form, deposito_id: value === 'all' ? '' : value })}
-                        allLabel="— Nenhum depósito —"
-                        placeholder="Buscar depósito..."
-                        options={depositos
-                          .map((deposito) => ({
-                            value: deposito.id,
-                            label: `${deposito.numero}${deposito.nome ? ` · ${deposito.nome}` : ''}`,
-                          }))
-                          .sort((a, b) => a.label.localeCompare(b.label))}
-                      />
-                    </div>
-                  </section>
-
-                  <section>
-                    <SectionTitle
-                      number="3"
                       title="Configuração de abastecimento"
                       description="Defina se a máquina pode abastecer e um combustível padrão opcional."
                     />
@@ -501,9 +461,8 @@ export default function MaquinaManager() {
             </div>
 
             <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 <StatCard icon={Tractor} label="Total de máquinas" value={counters.total} tone="default" />
-                <StatCard icon={Warehouse} label="Com depósito" value={counters.comDeposito} tone="blue" />
                 <StatCard icon={Fuel} label="Liberadas p/ abastecimento" value={counters.permiteAbastecimento} tone="amber" />
               </div>
 
@@ -575,7 +534,6 @@ export default function MaquinaManager() {
                             <TableRow>
                               <TableHead className="w-[140px]">Código</TableHead>
                               <TableHead>Máquina</TableHead>
-                              <TableHead>Depósito</TableHead>
                               <TableHead>Abastecimento</TableHead>
                               <TableHead>Combustível padrão</TableHead>
                               <TableHead className="w-[140px] text-right">Ações</TableHead>
@@ -607,17 +565,6 @@ export default function MaquinaManager() {
                                         </p>
                                       </div>
                                     </div>
-                                  </TableCell>
-
-                                  <TableCell>
-                                    {item.deposito_id ? (
-                                      <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">
-                                        <Warehouse className="mr-1 h-3.5 w-3.5" />
-                                        {depositoLabel(item.deposito_id)}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">Não vinculado</span>
-                                    )}
                                   </TableCell>
 
                                   <TableCell>
