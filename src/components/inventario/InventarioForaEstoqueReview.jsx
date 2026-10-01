@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, ClipboardCheck, Loader2, PackageSearch, X } from 'lucide-react';
 
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,7 @@ export default function InventarioForaEstoqueReview({ itens, produtos, depositos
 
     setSaving(true);
     try {
-      await base44.entities.InventarioForaEstoque.revisar(selected.id, {
+      await api.entities.InventarioForaEstoque.revisar(selected.id, {
         decisao: 'aprovado',
         data_validade: validade || null,
         produto_id: produto.id,
@@ -73,7 +73,7 @@ export default function InventarioForaEstoqueReview({ itens, produtos, depositos
     }
     setSaving(true);
     try {
-      await base44.entities.InventarioForaEstoque.revisar(selected.id, {
+      await api.entities.InventarioForaEstoque.revisar(selected.id, {
         decisao: 'rejeitado',
         motivo: motivo.trim(),
       });

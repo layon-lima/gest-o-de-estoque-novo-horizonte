@@ -37,7 +37,7 @@ import { useBalanca } from '@/lib/balancaContext';
 import { useAuth } from '@/lib/AuthContext';
 import { podeDigitarPeso } from '@/lib/permissions';
 import { useToast } from '@/components/ui/use-toast';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { safeDelete } from '@/lib/entityOps';
 import {
   calcLiquido,
@@ -416,7 +416,7 @@ export default function TicketsWorkspace({
     if (!id) return null;
 
     try {
-      return await base44.entities.PedidoPesagem.get(id);
+      return await api.entities.PedidoPesagem.get(id);
     } catch {
       return pedidos.find((p) => p.id === id) || null;
     }
@@ -532,7 +532,7 @@ export default function TicketsWorkspace({
       let ticketsAtuais = tickets;
 
       try {
-        ticketsAtuais = await base44.entities.TicketPesagem.list(
+        ticketsAtuais = await api.entities.TicketPesagem.list(
           '-created_date',
           1000
         );
@@ -561,7 +561,7 @@ export default function TicketsWorkspace({
         (p) => p.id === transportadoraId
       );
 
-      const created = await base44.entities.TicketPesagem.create({
+      const created = await api.entities.TicketPesagem.create({
         numero,
         tipo: form.tipo,
         data_abertura: new Date().toISOString(),
@@ -738,7 +738,7 @@ export default function TicketsWorkspace({
             ) * 1000
           ) / 1000;
 
-        await base44.entities.PedidoPesagem.update(
+        await api.entities.PedidoPesagem.update(
           pedidoVenda.id,
           {
             status: statusPorSaldo(

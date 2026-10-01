@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { safeDelete, safeUpdate, isNotFoundError } from '@/lib/entityOps';
 import { useToast } from '@/components/ui/use-toast';
 import { formatKg, formatPlaca, round3, statusPorSaldo } from '@/lib/pesagem';
@@ -25,7 +25,7 @@ export default function DesvincularTicketDialog({ ticket, pedido, onClose, onDon
     if (!pedido) return;
     const novoSaldo = round3((Number(pedido.saldo_kg) || 0) + liq);
     try {
-      await base44.entities.PedidoPesagem.update(pedido.id, {
+      await api.entities.PedidoPesagem.update(pedido.id, {
         saldo_kg: novoSaldo,
         status: statusPorSaldo(novoSaldo, pedido.total_kg, pedido.status),
       });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { estoqueApi } from '@/api/estoqueClient';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -364,7 +364,7 @@ export function useNfeImport({
           dados,
         } = atualizacao;
 
-        await base44.entities
+        await api.entities
           .Produto
           .update(
             produto.id,

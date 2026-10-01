@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -166,10 +166,10 @@ export default function GavetaManager() {
 
     try {
       if (editingId) {
-        await base44.entities.Gaveta.update(editingId, form);
+        await api.entities.Gaveta.update(editingId, form);
         toast({ title: 'Gaveta atualizada' });
       } else {
-        await base44.entities.Gaveta.create(form);
+        await api.entities.Gaveta.create(form);
         toast({ title: 'Gaveta cadastrada' });
       }
       resetForm();

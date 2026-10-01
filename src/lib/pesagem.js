@@ -1,5 +1,5 @@
 // Utilitários do módulo de Pesagem Rodoviária.
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
 import { convertQtyForProduto } from '@/lib/units';
@@ -247,14 +247,14 @@ export async function fecharTicket({ ticket, pesoBruto, isInverted, liquido, isV
     observacao: observacao || '',
   };
 
-  await base44.entities.TicketPesagem.update(ticket.id, updateData);
+  await api.entities.TicketPesagem.update(ticket.id, updateData);
 
   const closedTicket = { ...ticket, ...updateData };
   let baixaError = null;
 
   if (isVenda && pedidoSel) {
     if (!semLimite) {
-      await base44.entities.PedidoPesagem.update(pedidoId, {
+      await api.entities.PedidoPesagem.update(pedidoId, {
         saldo_kg: novoSaldo,
       });
     }
@@ -306,7 +306,7 @@ export async function ajustarEstoqueVendaTicket({
   if (ticket?.pedido_id) {
     try {
       pedido =
-        await base44.entities
+        await api.entities
           .PedidoPesagem
           .get(
             ticket.pedido_id
@@ -379,7 +379,7 @@ export async function ajustarEstoqueVendaTicket({
         - novoLiq
       );
 
-    await base44.entities
+    await api.entities
       .PedidoPesagem
       .update(
         pedido.id,
@@ -451,19 +451,19 @@ export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pe
     data_fechamento: now,
     observacao: observacao || '',
   };
-  await base44.entities.TicketPesagem.update(ticket.id, updateOriginal);
+  await api.entities.TicketPesagem.update(ticket.id, updateOriginal);
   const closedOriginal = { ...ticket, ...updateOriginal };
 
   // 2. Cria o novo ticket complementar — número gerado de uma listagem FRESCA do banco
   //    para evitar colisão com tickets criados concorrentemente (lista em cache pode estar desatualizada).
   let novoNumero;
   try {
-    const freshTickets = await base44.entities.TicketPesagem.list('-created_date', 200);
+    const freshTickets = await api.entities.TicketPesagem.list('-created_date', 200);
     novoNumero = nextTicketNumber(freshTickets);
   } catch {
     novoNumero = nextTicketNumber(tickets || []);
   }
-  const novoTicket = await base44.entities.TicketPesagem.create({
+  const novoTicket = await api.entities.TicketPesagem.create({
     numero: novoNumero,
     tipo: 'venda',
     produto_id: pedidoSel.produto_id,
@@ -485,14 +485,14 @@ export async function quebrarTicket({ ticket, pesoBruto, isInverted, liquido, pe
 
   // 3. Atualiza os pedidos
   if (!pedidoSel.sem_limite) {
-    await base44.entities.PedidoPesagem.update(pedidoSel.id, {
+    await api.entities.PedidoPesagem.update(pedidoSel.id, {
       saldo_kg: 0,
       status: 'concluido',
     });
   }
   if (!novoPedido.sem_limite) {
     const novoSaldo = round3((Number(novoPedido.saldo_kg) || 0) - liquidoExcesso);
-    await base44.entities.PedidoPesagem.update(novoPedido.id, {
+    await api.entities.PedidoPesagem.update(novoPedido.id, {
       saldo_kg: novoSaldo,
       status: novoSaldo <= 0 ? 'concluido' : 'aberto',
     });
@@ -555,13 +555,13 @@ export async function vincularConverterTicket({ ticket, pedido, produtos, client
   if (!jaVenda) updateTicket.tipo = 'venda';
 
   // 1. Atualiza o ticket (vincula + converte o tipo quando necessário)
-  await base44.entities.TicketPesagem.update(ticket.id, updateTicket);
+  await api.entities.TicketPesagem.update(ticket.id, updateTicket);
   const updatedTicket = { ...ticket, ...updateTicket };
 
   // 2. Consome o saldo do pedido (pedidos "sem limite" não debitam)
   if (!semLimite) {
     const novoSaldo = round3((Number(pedido.saldo_kg) || 0) - liq);
-    await base44.entities.PedidoPesagem.update(pedido.id, {
+    await api.entities.PedidoPesagem.update(pedido.id, {
       saldo_kg: novoSaldo,
       status: statusPorSaldo(novoSaldo, pedido.total_kg, pedido.status),
     });

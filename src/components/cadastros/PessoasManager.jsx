@@ -40,7 +40,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import {
   useEntidades,
@@ -330,7 +330,7 @@ export default function PessoasManager() {
 
     try {
       if (editingId) {
-        await base44.entities.Pessoa.update(
+        await api.entities.Pessoa.update(
           editingId,
           form
         );
@@ -341,7 +341,7 @@ export default function PessoasManager() {
             'As informações da pessoa foram atualizadas.',
         });
       } else {
-        await base44.entities.Pessoa.create(
+        await api.entities.Pessoa.create(
           form
         );
 

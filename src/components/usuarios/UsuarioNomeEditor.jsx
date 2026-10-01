@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Pencil, Check, X, Loader2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { getDisplayName, getDisplayInitial } from '@/lib/userName';
@@ -35,9 +35,9 @@ export default function UsuarioNomeEditor({ user, onSaved }) {
     try {
       // full_name é built-in e só-leitura; usamos o campo customizado display_name.
       if (isSelf) {
-        await base44.auth.updateMe({ display_name: valor });
+        await api.auth.updateMe({ display_name: valor });
       } else {
-        await base44.entities.User.update(user.id, { display_name: valor });
+        await api.entities.User.update(user.id, { display_name: valor });
       }
       toast({ title: 'Nome atualizado', description: `${valor} foi nomeado.` });
       onSaved?.();

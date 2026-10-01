@@ -1,7 +1,7 @@
 // Lógica de negócio das Ordens de Serviço de Aplicação (OS).
 // Numeração sequencial, cálculo de previsto (dose × hectares),
 // lançamento de consumo real com baixa de estoque (Movimentacao + SaldoEstoque).
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { estoqueApi } from '@/api/estoqueClient';
 import { parseQtd } from '@/lib/format';
 import { construirItensSaida } from '@/lib/estoqueOperacoes';
@@ -252,7 +252,7 @@ export async function executarOS({
       valorItem;
   }
 
-  await base44.entities
+  await api.entities
     .OrdemServicoAplicacao
     .update(
       os.id,
@@ -322,7 +322,7 @@ export function custoPorLavoura(lavouraId, ordens) {
 // Atualiza custo_unitario/custo_total de cada item e custo_total da OS.
 export async function recalcularCustosPorProduto(produtoId, novoCustoUnit) {
   const custo = Number(novoCustoUnit) || 0;
-  const ordens = await base44.entities.OrdemServicoAplicacao.list('-data', 1000);
+  const ordens = await api.entities.OrdemServicoAplicacao.list('-data', 1000);
   const afetadas = [];
   for (const o of ordens) {
     const itens = parseItens(o.itens);
@@ -338,7 +338,7 @@ export async function recalcularCustosPorProduto(produtoId, novoCustoUnit) {
     afetadas.push({ id: o.id, itens: stringifyItens(itens), custo_total: custoTotal });
   }
   if (afetadas.length) {
-    await base44.entities.OrdemServicoAplicacao.bulkUpdate(afetadas);
+    await api.entities.OrdemServicoAplicacao.bulkUpdate(afetadas);
   }
   return afetadas.length;
 }

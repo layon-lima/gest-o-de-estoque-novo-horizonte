@@ -2,7 +2,7 @@
 // Substitui os useEffect + .list() manuais das telas por um único hook reativo.
 import { useEffect, useCallback } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { queryClientInstance } from '@/lib/query-client';
 // Ordem/limite padrão de cada entidade (espelha o que as telas já usavam).
 export const DEFAULTS = {
@@ -124,7 +124,7 @@ export const keyOf = (name, opts = {}) => ['ent', name, opts.sort ?? null, opts.
 const subscribed = new Set();
 function ensureSubscribe(name) {
   if (subscribed.has(name)) return;
-  const entity = base44.entities[name];
+  const entity = api.entities[name];
   if (!entity || typeof entity.subscribe !== 'function') return;
   try {
     entity.subscribe(() => {
@@ -141,7 +141,7 @@ function ensureSubscribe(name) {
 
 function fetcher(name, opts) {
   return async () => {
-    const entity = base44.entities[name];
+    const entity = api.entities[name];
     if (!entity) return [];
     const { sort, limit } = opts;
     if (sort && limit != null) return entity.list(sort, limit);
@@ -167,7 +167,7 @@ export function useEntidades(config = {}) {
       gcTime: 5 * 60_000,
       refetchOnWindowFocus: true,
       refetchOnMount: true,
-      enabled: !!base44.entities[name],
+      enabled: !!api.entities[name],
     })),
   });
 

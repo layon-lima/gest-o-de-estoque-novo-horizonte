@@ -16,7 +16,7 @@ import {
   Warehouse,
 } from 'lucide-react';
 
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -115,16 +115,16 @@ export default function UsuarioPermissoes() {
     let active = true;
 
     const carregarUsuario = async () => {
-      if (typeof base44.entities.User.get === 'function') {
+      if (typeof api.entities.User.get === 'function') {
         try {
-          return await base44.entities.User.get(userId);
+          return await api.entities.User.get(userId);
         } catch {
           // Compatibilidade com o backend que ainda pode estar executando a
           // versão anterior, sem a rota de consulta individual.
         }
       }
 
-      const usuarios = await base44.entities.User.list();
+      const usuarios = await api.entities.User.list();
       const encontrado = usuarios.find((item) => item.id === userId);
 
       if (!encontrado) {
@@ -136,7 +136,7 @@ export default function UsuarioPermissoes() {
 
     Promise.all([
       carregarUsuario(),
-      base44.entities.Setor.list(),
+      api.entities.Setor.list(),
     ])
       .then(([usuario, listaSetores]) => {
         if (!active) return;
@@ -192,7 +192,7 @@ export default function UsuarioPermissoes() {
     setSaving(true);
 
     try {
-      await base44.entities.User.update(user.id, {
+      await api.entities.User.update(user.id, {
         paginas_permitidas: paginas,
         setores_permitidos: setoresValidos,
         pode_digitar_peso: podeDigitarPeso,

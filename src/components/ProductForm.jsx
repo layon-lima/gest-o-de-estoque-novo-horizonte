@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import ProdutoFotoUpload from '@/components/cadastros/ProdutoFotoUpload';
 import { setorControlaValidade } from '@/lib/lotes';
@@ -131,7 +131,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           return;
         }
 
-        await base44.entities.Produto.update(produto.id, {
+        await api.entities.Produto.update(produto.id, {
           ...basePayload,
           quantidade: produto.quantidade,
         });
@@ -153,7 +153,7 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           return;
         }
 
-        await base44.entities.Produto.create({
+        await api.entities.Produto.create({
           ...basePayload,
           quantidade: 0,
           codigo: proximoCodigoInterno(produtos),

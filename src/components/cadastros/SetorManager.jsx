@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -151,10 +151,10 @@ export default function SetorManager() {
 
     try {
       if (editingId) {
-        await base44.entities.Setor.update(editingId, form);
+        await api.entities.Setor.update(editingId, form);
         toast({ title: 'Setor atualizado' });
       } else {
-        await base44.entities.Setor.create(form);
+        await api.entities.Setor.create(form);
         toast({ title: 'Setor cadastrado' });
       }
 

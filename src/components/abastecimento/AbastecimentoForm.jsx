@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatQtd, parseQtd } from '@/lib/format';
 
@@ -46,7 +46,7 @@ export default function AbastecimentoForm({
     setUploading(true);
     setErro('');
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.integrations.Core.UploadFile({ file });
       setFotoUrl(file_url);
     } catch (err) {
       setErro('Falha ao enviar a foto. Tente novamente.');

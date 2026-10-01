@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ProdutoFotoUpload({ value, onChange }) {
@@ -18,7 +18,7 @@ export default function ProdutoFotoUpload({ value, onChange }) {
     }
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.integrations.Core.UploadFile({ file });
       onChange(file_url);
       toast({ title: 'Imagem anexada' });
     } catch (err) {

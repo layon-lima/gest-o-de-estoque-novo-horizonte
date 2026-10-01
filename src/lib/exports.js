@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 
 // Trunca texto longo com "…" quando não cabe mesmo no tamanho mínimo de fonte.
 function fitText(doc, value, maxWidth) {
@@ -174,13 +174,13 @@ const sanitizeFilename = (titulo) =>
   `${titulo}`.replace(/[^\w\- ]/g, '').trim() || 'relatorio';
 
 /**
- * Envia o arquivo para o storage do Base44 e devolve a URL pública.
+ * Envia o arquivo para o storage do API local e devolve a URL pública.
  * No app nativo (APK/WebView) o download via anchor não funciona, então
  * usamos a URL hospedada para abrir no navegador do sistema ou compartilhar.
  */
 async function uploadToStorage(blob, filename) {
   const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-  const { file_url } = await base44.integrations.Core.UploadFile({ file });
+  const { file_url } = await api.integrations.Core.UploadFile({ file });
   if (!file_url) throw new Error('Não foi possível obter a URL do arquivo.');
   return file_url;
 }

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { UserPlus, Loader2, User, Lock } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 
 export default function InviteUserDialog({
   open,
@@ -55,7 +55,7 @@ export default function InviteUserDialog({
     setLoading(true);
 
     try {
-      await base44.users.createUser({
+      await api.users.createUser({
         display_name: displayName.trim(),
         username: username.trim(),
         password,

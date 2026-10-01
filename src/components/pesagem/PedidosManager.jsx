@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { queryClientInstance } from '@/lib/query-client';
 import {
@@ -323,7 +323,7 @@ export default function PedidosManager({
     setSaving(true);
 
     try {
-      await base44.entities.PedidoPesagem.update(
+      await api.entities.PedidoPesagem.update(
         cancelando.id,
         { status: 'cancelado' }
       );

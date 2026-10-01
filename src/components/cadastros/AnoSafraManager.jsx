@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import {
@@ -64,7 +64,7 @@ export default function AnoSafraManager() {
 
     setSaving(true);
     try {
-      await base44.entities.AnoSafra.create({ nome });
+      await api.entities.AnoSafra.create({ nome });
       invalidateEntidade('AnoSafra');
       setNovo('');
       toast({ title: 'Ano safra cadastrado', description: nome });
@@ -78,7 +78,7 @@ export default function AnoSafraManager() {
   async function confirmDelete() {
     if (!deleteTarget?.id) return;
     try {
-      await base44.entities.AnoSafra.delete(deleteTarget.id);
+      await api.entities.AnoSafra.delete(deleteTarget.id);
       invalidateEntidade('AnoSafra');
       toast({ title: 'Ano safra removido' });
     } catch (err) {

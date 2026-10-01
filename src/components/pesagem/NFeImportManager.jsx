@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { parseNfeVendaXml } from '@/lib/nfeVendaParser';
 import { matchNfeToTicket } from '@/lib/nfeMatching';
 import { formatPlaca, formatKg } from '@/lib/pesagem';
@@ -90,7 +90,7 @@ export default function NFeImportManager({ tickets, onReload }) {
 
     // Match único — marca automaticamente
     try {
-      await base44.entities.TicketPesagem.update(match.ticket.id, {
+      await api.entities.TicketPesagem.update(match.ticket.id, {
         nfe_importada: true,
         nfe_numero: nfeData.nNF,
         nfe_produto: nfeData.produto,
@@ -165,7 +165,7 @@ export default function NFeImportManager({ tickets, onReload }) {
   async function confirmarVinculo(resultado, ticket) {
     setProcessando(true);
     try {
-      await base44.entities.TicketPesagem.update(ticket.id, {
+      await api.entities.TicketPesagem.update(ticket.id, {
         nfe_importada: true,
         nfe_numero: resultado.nfeData.nNF,
         nfe_produto: resultado.nfeData.produto,

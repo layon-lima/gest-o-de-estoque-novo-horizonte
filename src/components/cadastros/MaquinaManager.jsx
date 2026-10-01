@@ -20,7 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import SearchSelect from '@/components/SearchSelect';
-import { base44 } from '@/api/base44Client';
+import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useEntidades, invalidateEntidade } from '@/lib/useEntidades';
 import { safeDelete } from '@/lib/entityOps';
@@ -244,7 +244,7 @@ export default function MaquinaManager() {
           };
 
       if (editingId) {
-        await base44.entities.Maquina.update(editingId, {
+        await api.entities.Maquina.update(editingId, {
           nome: form.nome,
           descricao: form.descricao,
           deposito_id: form.deposito_id,
@@ -259,7 +259,7 @@ export default function MaquinaManager() {
       } else {
         const codigo = nextMaquinaCodigo(items);
 
-        await base44.entities.Maquina.create({
+        await api.entities.Maquina.create({
           ...form,
           codigo,
           ...combustivelPayload,
