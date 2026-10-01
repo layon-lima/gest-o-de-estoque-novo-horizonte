@@ -12,7 +12,6 @@ from fastapi import (
 from sqlalchemy import (
     asc,
     desc,
-    or_,
     select,
 )
 from sqlalchemy.orm import Session
