@@ -218,11 +218,11 @@ export default function Cadastros() {
         <main className="cadastros-main">
           <div className="cadastros-mobile-select lg:hidden">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Cadastros
               </p>
 
-              <h1 className="mt-0.5 text-xl font-semibold">
+              <h1 className="text-base font-semibold">
                 Central de dados mestres
               </h1>
             </div>
@@ -235,8 +235,8 @@ export default function Cadastros() {
             />
           </div>
 
-          <div className="mb-4 hidden rounded-xl border bg-card p-3 shadow-sm lg:block">
-            <div className="mb-3">
+          <div className="cadastros-tabs-panel mb-2 hidden rounded-xl border bg-card p-2 shadow-sm lg:block">
+            <div className="mb-2 flex items-baseline gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Cadastros
               </p>
@@ -246,7 +246,7 @@ export default function Cadastros() {
               </h1>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {codigosDisponiveis.map((codigo) => {
                 const cadastro = CADASTROS[codigo];
                 const ativo = cadastroSelecionado === codigo;
@@ -258,13 +258,13 @@ export default function Cadastros() {
                     type="button"
                     onClick={() => selecionarCadastro(codigo)}
                     className={[
-                      'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                      'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
                       ativo
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'bg-background text-foreground hover:border-primary/30 hover:bg-primary/[0.04]',
                     ].join(' ')}
                   >
-                    <TabIcone className="h-4 w-4" />
+                    <TabIcone className="h-3.5 w-3.5" />
                     <span>
                       {cadastro.label}
                       {codigo === 'mobile_pendentes' && mobilePendentes > 0

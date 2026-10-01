@@ -89,16 +89,17 @@ function StatCard({ icon: Icon, label, value, tone = 'default' }) {
   };
 
   return (
-    <div className={`rounded-xl border p-3 ${tones[tone] || tones.default}`}>
-      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-background/80 text-current shadow-sm">
-        <Icon className="h-[18px] w-[18px]" />
+    <div className={`flex min-h-[52px] items-center gap-2.5 rounded-lg border px-3 py-2 ${tones[tone] || tones.default}`}>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background/80 text-current shadow-sm">
+        <Icon className="h-4 w-4" />
       </div>
 
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-
-      <p className="mt-1 text-2xl font-semibold leading-none">{value}</p>
+      <div className="min-w-0">
+        <p className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="mt-0.5 text-lg font-semibold leading-none">{value}</p>
+      </div>
     </div>
   );
 }
@@ -106,42 +107,43 @@ function StatCard({ icon: Icon, label, value, tone = 'default' }) {
 function FeatureCard({ enabled, onToggle, combustivelNome }) {
   return (
     <div
-      className={`w-full rounded-xl border p-4 text-left transition-all ${
+      className={`w-full rounded-lg border px-3 py-2.5 text-left transition-all ${
         enabled
           ? 'border-primary bg-primary/[0.055] shadow-[0_0_0_1px_hsl(var(--primary)/0.08)]'
           : 'border-border bg-background'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
           <div
-            className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
               enabled ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
             }`}
           >
-            <Fuel className="h-5 w-5" />
+            <Fuel className="h-4 w-4" />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Permite abastecimento</span>
-            {enabled && (
-              <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                <Check className="mr-1 h-3.5 w-3.5" />
-                Ativo
-              </Badge>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-sm font-semibold">Permite abastecimento</span>
+              {enabled && (
+                <Badge className="h-5 border-emerald-200 bg-emerald-50 px-1.5 text-[10px] text-emerald-700 hover:bg-emerald-50">
+                  <Check className="mr-1 h-3 w-3" />
+                  Ativo
+                </Badge>
+              )}
+            </div>
+
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+              Libera a máquina para abastecimento e permite definir combustível preferencial.
+            </p>
+
+            {enabled && combustivelNome && (
+              <p className="mt-1 truncate text-[11px] font-medium text-amber-800">
+                Padrão: {combustivelNome}
+              </p>
             )}
           </div>
-
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Libera esta máquina para aparecer na operação de abastecimento e permite
-            definir um combustível preferencial.
-          </p>
-
-          {enabled && combustivelNome && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Combustível padrão: <span className="font-semibold">{combustivelNome}</span>
-            </div>
-          )}
         </div>
 
         <Switch
@@ -307,33 +309,15 @@ export default function MaquinaManager() {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="maquina-manager-page space-y-3">
         <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-          <div className="border-b bg-muted/20 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
-                <Tractor className="h-5 w-5" />
-              </div>
-
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Operação
-                </p>
-                <h3 className="text-[30px] font-semibold leading-none tracking-tight">Máquinas</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Máquinas e equipamentos utilizados pela operação.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 px-5 py-5 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <div className="space-y-4">
-              <Card className="rounded-2xl border shadow-none">
-                <div className="border-b px-4 py-3">
+          <div className="grid gap-3 p-3 lg:grid-cols-[330px_minmax(0,1fr)]">
+            <div className="space-y-3">
+              <Card className="rounded-xl border shadow-none">
+                <div className="border-b px-3 py-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="text-lg font-semibold">
+                      <h4 className="text-base font-semibold">
                         {editingId ? 'Editar máquina' : 'Nova máquina'}
                       </h4>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -341,13 +325,13 @@ export default function MaquinaManager() {
                       </p>
                     </div>
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       {editingId ? <Pencil className="h-4.5 w-4.5" /> : <Wrench className="h-4.5 w-4.5" />}
                     </div>
                   </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5 p-4">
+                <form onSubmit={handleSubmit} className="space-y-4 p-3">
                   <section>
                     <SectionTitle
                       number="1"
@@ -384,7 +368,7 @@ export default function MaquinaManager() {
                           value={form.descricao}
                           onChange={(e) => setForm({ ...form, descricao: e.target.value })}
                           placeholder="Detalhes adicionais, aplicação, implemento ou observações técnicas."
-                          className="min-h-[92px] resize-none"
+                          className="min-h-[72px] resize-none"
                         />
                       </div>
                     </div>
@@ -412,7 +396,7 @@ export default function MaquinaManager() {
                       />
 
                       {form.permite_abastecimento && (
-                        <div className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                        <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5">
                           <Label>Combustível padrão</Label>
                           <SearchSelect
                             value={form.combustivel_id}
@@ -460,15 +444,15 @@ export default function MaquinaManager() {
               </Card>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="grid gap-3 md:grid-cols-2">
                 <StatCard icon={Tractor} label="Total de máquinas" value={counters.total} tone="default" />
                 <StatCard icon={Fuel} label="Liberadas p/ abastecimento" value={counters.permiteAbastecimento} tone="amber" />
               </div>
 
-              <Card className="rounded-2xl border shadow-none">
-                <div className="space-y-4 p-4">
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <Card className="rounded-xl border shadow-none">
+                <div className="space-y-3 p-3">
+                  <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
                     <div className="relative w-full xl:max-w-2xl">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -485,7 +469,7 @@ export default function MaquinaManager() {
                           key={filter.key}
                           type="button"
                           onClick={() => setQuickFilter(filter.key)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                             quickFilter === filter.key
                               ? 'border-primary bg-primary text-primary-foreground'
                               : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'
@@ -498,7 +482,7 @@ export default function MaquinaManager() {
                   </div>
 
                   <div className="rounded-xl border">
-                    <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-3">
+                    <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-2">
                       <div>
                         <h4 className="text-sm font-semibold">Máquinas cadastradas</h4>
                         <p className="text-xs text-muted-foreground">
@@ -554,7 +538,7 @@ export default function MaquinaManager() {
 
                                   <TableCell className="min-w-[260px]">
                                     <div className="flex items-start gap-3">
-                                      <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                                      <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                                         <Tractor className="h-4.5 w-4.5" />
                                       </div>
 
@@ -594,7 +578,7 @@ export default function MaquinaManager() {
                                         size="icon"
                                         variant="ghost"
                                         onClick={() => handleEdit(item)}
-                                        className="h-9 w-9"
+                                        className="h-8 w-8"
                                       >
                                         <Pencil className="h-4 w-4" />
                                       </Button>
@@ -603,7 +587,7 @@ export default function MaquinaManager() {
                                         size="icon"
                                         variant="ghost"
                                         onClick={() => setDeleteTarget(item)}
-                                        className="h-9 w-9 text-destructive hover:text-destructive"
+                                        className="h-8 w-8 text-destructive hover:text-destructive"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
