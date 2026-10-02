@@ -180,7 +180,7 @@ export default function MobileEntradaSaldo() {
   const depositosDoSetor = useMemo(
     () =>
       depositos
-        .filter((item) => !form.setor_id || item.setor_id === form.setor_id)
+        .filter((item) => !!form.setor_id && item.setor_id === form.setor_id)
         .slice()
         .sort((a, b) =>
           `${a.numero || ''} ${a.nome || ''}`.localeCompare(
