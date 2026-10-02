@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   Camera,
   CheckCircle2,
   Clock3,
   Loader2,
-  PackagePlus,
   Send,
+  XCircle,
 } from 'lucide-react';
 
 import { api } from '@/api/apiClient';
@@ -15,11 +16,9 @@ import { entradaSaldoMobileApi } from '@/api/entradaSaldoMobileClient';
 import MobileProductPhoto from '@/components/mobile/MobileProductPhoto';
 import SearchSelect from '@/components/SearchSelect';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Image } from '@/components/ui/image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
 import { setoresAcessiveis } from '@/lib/setoresAcesso';
@@ -104,15 +103,59 @@ async function recortarQuadrado(file) {
   );
 }
 
+function InlineNotice({ notice }) {
+  if (!notice) return null;
+
+  const tone = notice.type === 'error'
+    ? 'border-red-200 bg-red-50 text-red-800'
+    : notice.type === 'success'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+      : 'border-slate-200 bg-slate-50 text-slate-700';
+
+  const Icon = notice.type === 'error'
+    ? AlertCircle
+    : notice.type === 'success'
+      ? CheckCircle2
+      : Loader2;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm ${tone}`}
+    >
+      <Icon
+        className={`mt-0.5 h-4 w-4 shrink-0 ${
+          notice.type === 'info' ? 'animate-spin' : ''
+        }`}
+      />
+      <div className="min-w-0">
+        <strong className="block text-sm leading-5">{notice.title}</strong>
+        {notice.description ? (
+          <span className="mt-0.5 block text-xs leading-5 opacity-80">
+            {notice.description}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function StatusItem({ item }) {
   const status = item.status || 'PENDENTE';
   const aprovado = status === 'APROVADO';
   const rejeitado = status === 'REJEITADO';
 
+  const Icon = aprovado
+    ? CheckCircle2
+    : rejeitado
+      ? XCircle
+      : Clock3;
+
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card p-3">
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border bg-background px-3 py-2.5">
       <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
           aprovado
             ? 'bg-emerald-100 text-emerald-700'
             : rejeitado
@@ -120,17 +163,21 @@ function StatusItem({ item }) {
               : 'bg-amber-100 text-amber-700'
         }`}
       >
-        {aprovado ? (
-          <CheckCircle2 className="h-4 w-4" />
-        ) : (
-          <Clock3 className="h-4 w-4" />
-        )}
+        <Icon className="h-4 w-4" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <strong className="block truncate text-sm">{item.nome_produto}</strong>
-        <span className="text-xs text-muted-foreground">
-          {item.quantidade} {item.unidade || 'un'} · {status === 'PENDENTE' ? 'Aguardando revisão' : status === 'APROVADO' ? 'Aprovado' : 'Rejeitado'}
+        <strong className="block truncate text-sm font-semibold">
+          {item.nome_produto}
+        </strong>
+        <span className="block truncate text-[11px] text-muted-foreground">
+          {item.quantidade} {item.unidade || 'un'} · {
+            status === 'PENDENTE'
+              ? 'Aguardando revisão'
+              : status === 'APROVADO'
+                ? 'Aprovado'
+                : 'Rejeitado'
+          }
         </span>
       </div>
     </div>
@@ -140,7 +187,6 @@ function StatusItem({ item }) {
 export default function MobileEntradaSaldo() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const permitido =
     user?.role === 'admin'
@@ -166,6 +212,7 @@ export default function MobileEntradaSaldo() {
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState(null);
   const [recentes, setRecentes] = useState([]);
   const [loadingRecentes, setLoadingRecentes] = useState(false);
 
@@ -173,14 +220,23 @@ export default function MobileEntradaSaldo() {
     () =>
       setoresAcessiveis(setores, user)
         .slice()
-        .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')),
+        .sort((a, b) =>
+          String(a.nome || '').localeCompare(
+            String(b.nome || ''),
+            'pt-BR'
+          )
+        ),
     [setores, user]
   );
 
   const depositosDoSetor = useMemo(
     () =>
       depositos
-        .filter((item) => !!form.setor_id && item.setor_id === form.setor_id)
+        .filter(
+          (item) =>
+            !!form.setor_id
+            && item.setor_id === form.setor_id
+        )
         .slice()
         .sort((a, b) =>
           `${a.numero || ''} ${a.nome || ''}`.localeCompare(
@@ -194,22 +250,32 @@ export default function MobileEntradaSaldo() {
   const gavetasDoDeposito = useMemo(
     () =>
       gavetas
-        .filter((item) => item.deposito_id === form.deposito_id)
+        .filter(
+          (item) =>
+            item.deposito_id === form.deposito_id
+        )
         .slice()
-        .sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || ''), 'pt-BR')),
+        .sort((a, b) =>
+          String(a.codigo || '').localeCompare(
+            String(b.codigo || ''),
+            'pt-BR'
+          )
+        ),
     [gavetas, form.deposito_id]
   );
 
   const gavetaObrigatoria =
-    !!form.deposito_id && gavetasDoDeposito.length > 0;
+    !!form.deposito_id
+    && gavetasDoDeposito.length > 0;
 
   async function carregarRecentes() {
     if (!permitido) return;
 
     setLoadingRecentes(true);
+
     try {
       const itens = await entradaSaldoMobileApi.minhas();
-      setRecentes((itens || []).slice(0, 4));
+      setRecentes((itens || []).slice(0, 3));
     } catch {
       setRecentes([]);
     } finally {
@@ -222,42 +288,60 @@ export default function MobileEntradaSaldo() {
   }, [permitido]);
 
   function setCampo(campo, valor) {
+    setNotice(null);
+
     setForm((prev) => ({
       ...prev,
       [campo]: valor,
       ...(campo === 'setor_id'
-        ? { deposito_id: '', gaveta_id: '' }
+        ? {
+            deposito_id: '',
+            gaveta_id: '',
+          }
         : {}),
       ...(campo === 'deposito_id'
-        ? { gaveta_id: '' }
+        ? {
+            gaveta_id: '',
+          }
         : {}),
     }));
+  }
+
+  function erro(title, description = '') {
+    setNotice({
+      type: 'error',
+      title,
+      description,
+    });
   }
 
   async function enviarFoto(file) {
     if (!file) return;
 
     setUploading(true);
+    setNotice({
+      type: 'info',
+      title: 'Preparando foto...',
+      description: 'A imagem será ajustada automaticamente para 1:1.',
+    });
 
     try {
       const quadrada = await recortarQuadrado(file);
-      const result = await api.integrations.Core.UploadFile({ file: quadrada });
+      const result = await api.integrations.Core.UploadFile({
+        file: quadrada,
+      });
 
       setForm((prev) => ({
         ...prev,
         foto_url: result.file_url,
       }));
 
-      toast({
-        title: 'Foto pronta',
-        description: 'A imagem foi recortada automaticamente em 1:1.',
-      });
+      setNotice(null);
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Não foi possível preparar a foto',
-        description: error.message,
-      });
+      erro(
+        'Não foi possível usar esta foto',
+        error.message
+      );
     } finally {
       setUploading(false);
     }
@@ -269,35 +353,38 @@ export default function MobileEntradaSaldo() {
     const quantidade = numero(form.quantidade);
 
     if (!form.nome_produto.trim()) {
-      toast({ variant: 'destructive', title: 'Informe o nome do produto' });
+      erro('Informe o nome do produto.');
       return;
     }
 
     if (quantidade <= 0) {
-      toast({ variant: 'destructive', title: 'Informe uma quantidade maior que zero' });
+      erro('Informe uma quantidade maior que zero.');
       return;
     }
 
     if (!form.setor_id) {
-      toast({ variant: 'destructive', title: 'Selecione o setor' });
+      erro('Selecione o setor.');
       return;
     }
 
     if (!form.deposito_id) {
-      toast({ variant: 'destructive', title: 'Selecione o depósito' });
+      erro('Selecione o depósito.');
       return;
     }
 
     if (gavetaObrigatoria && !form.gaveta_id) {
-      toast({
-        variant: 'destructive',
-        title: 'Selecione a gaveta',
-        description: 'Este depósito possui gavetas vinculadas.',
-      });
+      erro(
+        'Selecione a gaveta.',
+        'Este depósito possui gavetas vinculadas.'
+      );
       return;
     }
 
     setSaving(true);
+    setNotice({
+      type: 'info',
+      title: 'Enviando para revisão...',
+    });
 
     try {
       await entradaSaldoMobileApi.criar({
@@ -318,18 +405,18 @@ export default function MobileEntradaSaldo() {
         foto_url: '',
       });
 
-      toast({
-        title: 'Enviado para revisão',
-        description: 'Nenhum saldo foi alterado. Um administrador precisa aprovar no computador.',
+      setNotice({
+        type: 'success',
+        title: 'Enviado para revisão.',
+        description: 'O estoque só será alterado depois da aprovação no computador.',
       });
 
       await carregarRecentes();
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Não foi possível enviar',
-        description: error.message,
-      });
+      erro(
+        'Não foi possível enviar.',
+        error.message
+      );
     } finally {
       setSaving(false);
     }
@@ -340,188 +427,232 @@ export default function MobileEntradaSaldo() {
   }
 
   return (
-    <div className="mobile-page space-y-4 pb-6">
-      <div className="flex items-center gap-3">
-        <Button
+    <div className="mobile-page pb-6">
+      <header className="mb-3 flex items-center gap-3">
+        <button
           type="button"
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 shrink-0 rounded-xl"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-background"
           onClick={() => navigate('/')}
           aria-label="Voltar"
         >
           <ArrowLeft className="h-4 w-4" />
-        </Button>
+        </button>
 
         <div className="min-w-0">
-          <span className="mobile-eyebrow">Carga inicial</span>
-          <h1 className="text-xl font-bold">Entrada Manual de Saldo</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Cadastre o produto no campo e envie para revisão do administrador.
+          <h1 className="truncate text-lg font-bold leading-tight">
+            Entrada Manual de Saldo
+          </h1>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Preencha e envie para revisão.
           </p>
         </div>
-      </div>
+      </header>
 
-      <Card className="overflow-hidden rounded-2xl border shadow-sm">
-        <div className="border-b bg-primary/[0.04] p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <PackagePlus className="h-5 w-5" />
-            </span>
-            <div>
-              <strong className="block text-sm">Novo saldo para revisão</strong>
-              <span className="text-xs text-muted-foreground">
-                O envio não altera o estoque até a aprovação no PC.
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <form onSubmit={enviar} className="space-y-4 p-4">
+      <form onSubmit={enviar} className="space-y-3">
+        <section className="space-y-3 rounded-2xl border bg-card p-3.5">
           <div className="space-y-1.5">
-            <Label htmlFor="entrada-mobile-produto">Nome do produto *</Label>
+            <Label htmlFor="entrada-mobile-produto">
+              Produto
+            </Label>
             <Input
               id="entrada-mobile-produto"
               value={form.nome_produto}
-              onChange={(e) => setCampo('nome_produto', e.target.value)}
-              placeholder="Ex.: Óleo Diesel B S10"
+              onChange={(e) =>
+                setCampo(
+                  'nome_produto',
+                  e.target.value
+                )
+              }
+              placeholder="Nome do produto"
               autoComplete="off"
+              className="h-12 rounded-xl text-base"
               required
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="entrada-mobile-qtd">Quantidade *</Label>
+            <Label htmlFor="entrada-mobile-qtd">
+              Quantidade
+            </Label>
             <Input
               id="entrada-mobile-qtd"
               inputMode="decimal"
               value={form.quantidade}
-              onChange={(e) => setCampo('quantidade', e.target.value)}
+              onChange={(e) =>
+                setCampo(
+                  'quantidade',
+                  e.target.value
+                )
+              }
               placeholder="0,00"
+              className="h-12 rounded-xl text-base"
               required
             />
           </div>
+        </section>
 
+        <section className="space-y-3 rounded-2xl border bg-card p-3.5">
           <div className="space-y-1.5">
-            <Label>Setor *</Label>
+            <Label>Setor</Label>
             <SearchSelect
               value={form.setor_id || 'all'}
-              onChange={(value) => setCampo('setor_id', value === 'all' ? '' : value)}
+              onChange={(value) =>
+                setCampo(
+                  'setor_id',
+                  value === 'all'
+                    ? ''
+                    : value
+                )
+              }
               allLabel="Selecione o setor"
-              placeholder="Buscar setor..."
-              options={setoresPermitidos.map((item) => ({
-                value: item.id,
-                label: item.nome,
-              }))}
+              placeholder="Selecione o setor"
+              options={setoresPermitidos.map(
+                (item) => ({
+                  value: item.id,
+                  label: item.nome,
+                })
+              )}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Depósito *</Label>
+            <Label>Depósito</Label>
             <SearchSelect
               value={form.deposito_id || 'all'}
-              onChange={(value) => setCampo('deposito_id', value === 'all' ? '' : value)}
-              allLabel={form.setor_id ? 'Selecione o depósito' : 'Selecione primeiro o setor'}
-              placeholder="Buscar depósito..."
-              options={depositosDoSetor.map((item) => ({
-                value: item.id,
-                label: `${item.numero || ''}${item.nome ? ` — ${item.nome}` : ''}`.trim(),
-              }))}
+              onChange={(value) =>
+                setCampo(
+                  'deposito_id',
+                  value === 'all'
+                    ? ''
+                    : value
+                )
+              }
+              allLabel={
+                form.setor_id
+                  ? 'Selecione o depósito'
+                  : 'Escolha o setor primeiro'
+              }
+              placeholder="Selecione o depósito"
+              options={depositosDoSetor.map(
+                (item) => ({
+                  value: item.id,
+                  label: `${item.numero || ''}${
+                    item.nome
+                      ? ` — ${item.nome}`
+                      : ''
+                  }`.trim(),
+                })
+              )}
             />
           </div>
 
-          {form.deposito_id ? (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Gaveta {gavetaObrigatoria ? '*' : ''}</Label>
-                {gavetaObrigatoria ? (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                    Obrigatória neste depósito
+          {form.deposito_id
+            && gavetasDoDeposito.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Gaveta</Label>
+                  <span className="text-[10px] font-semibold text-amber-700">
+                    OBRIGATÓRIA
                   </span>
-                ) : null}
-              </div>
+                </div>
 
-              {gavetasDoDeposito.length > 0 ? (
                 <SearchSelect
                   value={form.gaveta_id || 'all'}
-                  onChange={(value) => setCampo('gaveta_id', value === 'all' ? '' : value)}
+                  onChange={(value) =>
+                    setCampo(
+                      'gaveta_id',
+                      value === 'all'
+                        ? ''
+                        : value
+                    )
+                  }
                   allLabel="Selecione a gaveta"
-                  placeholder="Buscar gaveta..."
-                  options={gavetasDoDeposito.map((item) => ({
-                    value: item.id,
-                    label: `${item.codigo || ''}${item.descricao ? ` — ${item.descricao}` : ''}`,
-                  }))}
+                  placeholder="Selecione a gaveta"
+                  options={gavetasDoDeposito.map(
+                    (item) => ({
+                      value: item.id,
+                      label: `${item.codigo || ''}${
+                        item.descricao
+                          ? ` — ${item.descricao}`
+                          : ''
+                      }`,
+                    })
+                  )}
                 />
-              ) : (
-                <div className="rounded-xl border border-dashed px-3 py-3 text-sm text-muted-foreground">
-                  Este depósito não possui gavetas vinculadas.
-                </div>
-              )}
-            </div>
-          ) : null}
+              </div>
+            ) : null}
+        </section>
 
-          <div className="space-y-2">
+        <section className="rounded-2xl border bg-card p-3.5">
+          <div className="mb-2.5 flex items-center justify-between">
             <div>
-              <Label>Foto do produto</Label>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Opcional. A foto será cortada automaticamente em 1:1 e usada no cadastro do produto.
+              <Label>Foto</Label>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Opcional · corte automático 1:1
               </p>
             </div>
 
-            {form.foto_url ? (
-              <div className="mx-auto w-full max-w-[240px]">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/20">
+              {form.foto_url ? (
                 <Image
                   src={form.foto_url}
-                  alt="Prévia do produto"
-                  className="aspect-square w-full rounded-2xl border object-cover"
+                  alt="Foto do produto"
+                  className="h-full w-full object-cover"
                 />
-              </div>
-            ) : (
-              <div className="flex aspect-square max-h-[180px] w-full items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-muted-foreground">
-                <div className="text-center">
-                  <Camera className="mx-auto h-7 w-7" />
-                  <span className="mt-2 block text-xs">Sem foto</span>
-                </div>
-              </div>
-            )}
-
-            <MobileProductPhoto
-              uploading={uploading}
-              onFile={enviarFoto}
-            />
+              ) : (
+                <Camera className="h-5 w-5 text-muted-foreground/60" />
+              )}
+            </div>
           </div>
 
-          <Button
-            type="submit"
-            className="min-h-12 w-full gap-2 text-base"
-            disabled={saving || uploading || loading}
-          >
-            {saving ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-            {saving ? 'Enviando...' : 'Enviar para revisão'}
-          </Button>
-        </form>
-      </Card>
+          <MobileProductPhoto
+            uploading={uploading}
+            onFile={enviarFoto}
+          />
+        </section>
 
-      <section className="space-y-2">
-        <div className="mobile-section-heading mobile-section-heading--simple">
+        <InlineNotice notice={notice} />
+
+        <Button
+          type="submit"
+          className="h-12 w-full rounded-xl text-base font-semibold"
+          disabled={saving || uploading || loading}
+        >
+          {saving ? (
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          ) : (
+            <Send className="mr-2 h-5 w-5" />
+          )}
+          {saving
+            ? 'Enviando...'
+            : 'Enviar para revisão'}
+        </Button>
+      </form>
+
+      <section className="mt-5">
+        <div className="mb-2 flex items-center justify-between">
           <div>
-            <span className="mobile-eyebrow">Seus envios</span>
-            <p className="mobile-section-copy">Últimas Entradas Manuais de Saldo.</p>
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Últimos envios
+            </span>
           </div>
+
+          {loadingRecentes ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : null}
         </div>
 
-        {loadingRecentes ? (
-          <div className="mobile-loading-card">Carregando...</div>
-        ) : recentes.length === 0 ? (
-          <div className="mobile-loading-card">Nenhum envio realizado ainda.</div>
+        {!loadingRecentes && recentes.length === 0 ? (
+          <p className="rounded-xl border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">
+            Nenhum envio ainda.
+          </p>
         ) : (
           <div className="space-y-2">
             {recentes.map((item) => (
-              <StatusItem key={item.id} item={item} />
+              <StatusItem
+                key={item.id}
+                item={item}
+              />
             ))}
           </div>
         )}
