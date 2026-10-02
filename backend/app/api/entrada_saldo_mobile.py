@@ -381,25 +381,9 @@ def aprovar(
             db.commit()
             db.refresh(produto)
         else:
-            alterou_produto = False
-
-            if item.foto_url:
-                produto.foto_url = item.foto_url
-                alterou_produto = True
-
-            if not produto.deposito_id:
-                produto.deposito_id = dados.deposito_id
-                alterou_produto = True
-
-            if not produto.gaveta_id and dados.gaveta_id:
-                produto.gaveta_id = dados.gaveta_id
-                alterou_produto = True
-
-            if alterou_produto:
-                db.commit()
-                db.refresh(produto)
-            else:
-                db.rollback()
+            # Produto existente: não altera o cadastro mestre antes
+            # de o movimento ser contabilizado com sucesso.
+            db.rollback()
 
         # O motor oficial controla sua própria transação.
         db.rollback()
@@ -432,6 +416,17 @@ def aprovar(
         db.rollback()
 
         item = db.get(EntradaSaldoMobilePendente, item_id)
+        produto = db.get(Produto, produto.id)
+
+        if item.foto_url:
+            produto.foto_url = item.foto_url
+
+        if not produto.deposito_id:
+            produto.deposito_id = dados.deposito_id
+
+        if not produto.gaveta_id and dados.gaveta_id:
+            produto.gaveta_id = dados.gaveta_id
+
         item.status = "APROVADO"
         item.nome_produto = nome
         item.quantidade = float(dados.quantidade)
