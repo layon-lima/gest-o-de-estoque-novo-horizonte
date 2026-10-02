@@ -2,6 +2,11 @@
 // Ausência da lista mantém compatibilidade: acesso liberado.
 export function mobilePageAllowed(user, pageKey) {
   if (!user) return false;
+
+  // Pesagem é uma operação exclusiva do desktop.
+  // Mantém a permissão desktop intacta, mas nunca expõe a aba/atalho no mobile.
+  if (pageKey === 'pesagem') return false;
+
   const allowed = user.paginas_permitidas;
   if (!Array.isArray(allowed)) return true;
   return allowed.includes(pageKey);
