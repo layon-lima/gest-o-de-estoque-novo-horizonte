@@ -322,6 +322,13 @@ def aprovar(
     nome = dados.nome_produto.strip()
     unidade = dados.unidade.strip().lower() or "un"
 
+    # Captura tudo que precisamos antes dos commits/rollbacks.
+    # Isso evita que o SQLAlchemy faça um SELECT implícito depois
+    # de um rollback e abra uma nova transação antes do motor de estoque.
+    admin_id = str(current_user.id)
+    admin_nome = _nome_usuario(current_user)
+    foto_url = item.foto_url
+
     setor, _, _, _ = _validar_local(
         db,
         setor_id=dados.setor_id,
@@ -337,9 +344,6 @@ def aprovar(
 
     item.status = "PROCESSANDO"
     db.commit()
-
-    produto = None
-    documento = None
 
     try:
         produto = _produto_por_nome(db, nome)
@@ -367,8 +371,8 @@ def aprovar(
                 estoque_minimo=0,
                 custo_unitario=0,
                 venda=False,
-                foto_url=item.foto_url,
-                created_by_id=current_user.id,
+                foto_url=foto_url,
+                created_by_id=admin_id,
             )
 
             db.add(produto)
@@ -381,26 +385,31 @@ def aprovar(
                 entidade="Produto",
                 registro_id=produto.id,
                 depois=serializar(produto),
-                detalhe=f"Criado pela Entrada Manual de Saldo mobile {item.id}.",
+                detalhe=f"Criado pela Entrada Manual de Saldo mobile {item_id}.",
             )
 
             db.commit()
             db.refresh(produto)
-        else:
-            # Produto existente: não altera o cadastro mestre antes
-            # de o movimento ser contabilizado com sucesso.
-            db.rollback()
 
-        # O motor oficial controla sua própria transação.
+        # IMPORTANTE:
+        # antes de liberar a sessão para o motor oficial, guardamos os
+        # valores escalares do produto. Após rollback, não acessamos mais
+        # atributos ORM até o motor terminar.
+        produto_id = str(produto.id)
+        produto_unidade = str(produto.unidade or unidade)
+        produto_custo = float(produto.custo_unitario or 0)
+
+        # Encerra qualquer transação de leitura aberta por consultas/refresh.
+        # movimentar_estoque() abre e controla a própria transação.
         db.rollback()
 
         movimento_item = {
-            "produto_id": produto.id,
+            "produto_id": produto_id,
             "quantidade": float(dados.quantidade),
-            "unidade": produto.unidade or unidade,
+            "unidade": produto_unidade,
             "deposito_destino_id": dados.deposito_id,
             "gaveta_destino_id": str(dados.gaveta_id or "").strip(),
-            "custo_unitario": float(produto.custo_unitario or 0),
+            "custo_unitario": produto_custo,
         }
 
         if dados.data_validade:
@@ -409,20 +418,30 @@ def aprovar(
         documento = movimentar_estoque(
             db,
             tipo_movimento="ENTRADA_SALDO_ADMIN",
-            usuario_id=current_user.id,
+            usuario_id=admin_id,
             itens=[movimento_item],
             origem_modulo="entrada_saldo_mobile",
             documento_origem_id=item_id,
             observacao=(
                 "Entrada Manual de Saldo enviada pelo mobile, "
-                f"revisada e aprovada por {_nome_usuario(current_user)}."
+                f"revisada e aprovada por {admin_nome}."
             ),
         )
 
+        # O motor retorna o documento já contabilizado. Guardamos os
+        # escalares antes de limpar a transação aberta pelo refresh interno.
+        documento_id = str(documento.id)
+        documento_numero = str(documento.numero)
         db.rollback()
 
         item = db.get(EntradaSaldoMobilePendente, item_id)
-        produto = db.get(Produto, produto.id)
+        produto = db.get(Produto, produto_id)
+
+        if item is None:
+            raise HTTPException(404, "Solicitação não encontrada após a contabilização.")
+
+        if produto is None:
+            raise HTTPException(404, "Produto não encontrado após a contabilização.")
 
         if item.foto_url:
             produto.foto_url = item.foto_url
@@ -436,15 +455,15 @@ def aprovar(
         item.status = "APROVADO"
         item.nome_produto = nome
         item.quantidade = float(dados.quantidade)
-        item.unidade = produto.unidade or unidade
+        item.unidade = produto_unidade
         item.setor_id = dados.setor_id
         item.deposito_id = dados.deposito_id
         item.gaveta_id = str(dados.gaveta_id or "").strip() or None
         item.data_validade = dados.data_validade
-        item.produto_id = produto.id
-        item.documento_estoque_id = documento.id
-        item.analisado_por_id = current_user.id
-        item.analisado_por_nome = _nome_usuario(current_user)
+        item.produto_id = produto_id
+        item.documento_estoque_id = documento_id
+        item.analisado_por_id = admin_id
+        item.analisado_por_nome = admin_nome
         item.analisado_em = datetime.now(timezone.utc)
 
         registrar_auditoria(
@@ -454,44 +473,60 @@ def aprovar(
             entidade="EntradaSaldoMobilePendente",
             registro_id=item.id,
             depois=_serializar(item),
-            detalhe=f"Saldo contabilizado no documento {documento.numero}.",
+            detalhe=f"Saldo contabilizado no documento {documento_numero}.",
         )
 
         db.commit()
         db.refresh(item)
+        db.refresh(produto)
 
         return {
             "solicitacao": _serializar(item),
             "produto": serializar(produto),
             "documento": {
-                "id": documento.id,
-                "numero": documento.numero,
+                "id": documento_id,
+                "numero": documento_numero,
             },
         }
 
     except HTTPException:
         db.rollback()
         item = db.get(EntradaSaldoMobilePendente, item_id)
+
         if item is not None and item.status == "PROCESSANDO":
             item.status = "PENDENTE"
             db.commit()
+
         raise
 
     except EstoqueErro as erro:
         db.rollback()
         item = db.get(EntradaSaldoMobilePendente, item_id)
+
         if item is not None and item.status == "PROCESSANDO":
             item.status = "PENDENTE"
             db.commit()
+
         raise HTTPException(400, str(erro)) from erro
 
-    except Exception:
+    except Exception as erro:
+        # Falha inesperada nunca deve consumir a solicitação.
+        # O usuário pode corrigir/repetir a aprovação sem perder dados/foto.
         db.rollback()
         item = db.get(EntradaSaldoMobilePendente, item_id)
+
         if item is not None and item.status == "PROCESSANDO":
             item.status = "PENDENTE"
             db.commit()
-        raise
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Não foi possível concluir a aprovação. "
+                "A solicitação foi preservada como pendente. "
+                "Tente novamente."
+            ),
+        ) from erro
 
 
 @router.post("/{item_id}/rejeitar")
