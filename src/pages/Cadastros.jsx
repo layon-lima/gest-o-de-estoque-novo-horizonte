@@ -336,7 +336,13 @@ export default function Cadastros() {
             </header>
 
             <div className="cadastros-content">
-              <Componente />
+              <Componente
+                {...(
+                  cadastroSelecionado === 'saldo_mobile_pendentes'
+                    ? { onPendingCountChange: setSaldoMobilePendentes }
+                    : {}
+                )}
+              />
             </div>
           </section>
         </main>

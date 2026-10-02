@@ -24,7 +24,9 @@ function norm(value) {
   return String(value || '').trim().toLocaleUpperCase('pt-BR');
 }
 
-export default function EntradaSaldoMobilePendentes() {
+export default function EntradaSaldoMobilePendentes({
+  onPendingCountChange,
+}) {
   const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState({});
@@ -53,10 +55,14 @@ export default function EntradaSaldoMobilePendentes() {
 
     try {
       const result = await entradaSaldoMobileApi.listar('PENDENTE');
-      setItems(result || []);
+      const pendentes = result || [];
+
+      setItems(pendentes);
+      onPendingCountChange?.(pendentes.length);
+
       setEditing(
         Object.fromEntries(
-          (result || []).map((item) => [
+          pendentes.map((item) => [
             item.id,
             {
               nome_produto: item.nome_produto || '',
