@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRightLeft,
+  Check,
   Loader2,
   PackageMinus,
+  Search,
   Warehouse,
 } from 'lucide-react';
 
@@ -21,6 +23,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { estoqueApi } from '@/api/estoqueClient';
 import { invalidateEstoque } from '@/lib/useEntidades';
 import { mobileStockActions } from '@/lib/mobileAccess';
+import { sortGavetas } from '@/lib/gavetas';
 
 const ACTIONS = {
   baixar: {
@@ -58,6 +61,144 @@ function depositoLabel(deposito) {
 function gavetaLabel(gaveta) {
   if (!gaveta) return 'Sem gaveta';
   return [gaveta.codigo, gaveta.descricao].filter(Boolean).join(' · ') || 'Gaveta';
+}
+
+function normalizarBusca(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function MobileGavetaSearch({
+  value,
+  onChange,
+  options = [],
+  disabled = false,
+}) {
+  const ordenadas = useMemo(
+    () => sortGavetas(options),
+    [options]
+  );
+
+  const selecionada = ordenadas.find(
+    (item) => item.id === value
+  );
+
+  const [aberto, setAberto] = useState(false);
+  const [busca, setBusca] = useState('');
+
+  useEffect(() => {
+    if (!aberto) {
+      setBusca(
+        selecionada
+          ? gavetaLabel(selecionada)
+          : ''
+      );
+    }
+  }, [aberto, selecionada]);
+
+  const filtradas = useMemo(() => {
+    const termo = normalizarBusca(busca);
+
+    if (
+      !termo
+      || (
+        selecionada
+        && termo === normalizarBusca(
+          gavetaLabel(selecionada)
+        )
+      )
+    ) {
+      return ordenadas;
+    }
+
+    return ordenadas.filter((item) =>
+      normalizarBusca(
+        gavetaLabel(item)
+      ).includes(termo)
+    );
+  }, [ordenadas, busca, selecionada]);
+
+  function escolher(item) {
+    onChange(item.id);
+    setBusca(gavetaLabel(item));
+    setAberto(false);
+  }
+
+  return (
+    <div className="mobile-gaveta-search">
+      <div className="mobile-gaveta-search__field">
+        <Search className="mobile-gaveta-search__icon h-4 w-4" />
+
+        <input
+          type="text"
+          value={busca}
+          disabled={disabled}
+          placeholder={
+            disabled
+              ? 'Selecione o depósito primeiro'
+              : 'Digite a gaveta...'
+          }
+          autoComplete="off"
+          inputMode="search"
+          onFocus={(event) => {
+            setAberto(true);
+            event.currentTarget.select();
+          }}
+          onChange={(event) => {
+            setBusca(event.target.value);
+            setAberto(true);
+
+            if (value) {
+              onChange('');
+            }
+          }}
+          onBlur={() => {
+            window.setTimeout(
+              () => setAberto(false),
+              120
+            );
+          }}
+        />
+      </div>
+
+      {aberto && !disabled ? (
+        <div className="mobile-gaveta-search__results">
+          {filtradas.length === 0 ? (
+            <div className="mobile-gaveta-search__empty">
+              Nenhuma gaveta encontrada.
+            </div>
+          ) : (
+            filtradas.map((gaveta) => {
+              const ativa = gaveta.id === value;
+
+              return (
+                <button
+                  key={gaveta.id}
+                  type="button"
+                  className={[
+                    'mobile-gaveta-search__option',
+                    ativa ? 'is-active' : '',
+                  ].join(' ')}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={() => escolher(gaveta)}
+                >
+                  <span>{gavetaLabel(gaveta)}</span>
+                  {ativa ? (
+                    <Check className="h-4 w-4" />
+                  ) : null}
+                </button>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function MobileStockActionDialog({
@@ -130,10 +271,12 @@ export default function MobileStockActionDialog({
         ? saldoSelecionado.deposito_id
         : destinoDepositoId;
 
-    return gavetas.filter(
-      (gaveta) =>
-        gaveta.deposito_id === depositoId &&
-        gaveta.id !== saldoSelecionado.gaveta_id
+    return sortGavetas(
+      gavetas.filter(
+        (gaveta) =>
+          gaveta.deposito_id === depositoId &&
+          gaveta.id !== saldoSelecionado.gaveta_id
+      )
     );
   }, [gavetas, acao, saldoSelecionado, destinoDepositoId]);
 
@@ -358,18 +501,12 @@ export default function MobileStockActionDialog({
             {acao === 'mudar_gaveta' || acao === 'mudar_deposito' ? (
               <label>
                 <span>Nova gaveta</span>
-                <select
+                <MobileGavetaSearch
                   value={destinoGavetaId}
-                  onChange={(event) => setDestinoGavetaId(event.target.value)}
+                  onChange={setDestinoGavetaId}
+                  options={gavetasDestino}
                   disabled={acao === 'mudar_deposito' && !destinoDepositoId}
-                >
-                  <option value="">Selecione outra gaveta</option>
-                  {gavetasDestino.map((gaveta) => (
-                    <option key={gaveta.id} value={gaveta.id}>
-                      {gavetaLabel(gaveta)}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
             ) : null}
 
@@ -385,7 +522,7 @@ export default function MobileStockActionDialog({
         )}
 
         {acao ? (
-          <DialogFooter>
+          <DialogFooter className="mobile-stock-action-footer">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
