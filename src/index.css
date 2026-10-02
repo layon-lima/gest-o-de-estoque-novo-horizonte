@@ -3334,6 +3334,28 @@ html .bg-\[\#12362f\] {
     padding-bottom: 0.78rem;
   }
 
+  /* Fechado continua compacto; expandido mostra o nome completo. */
+  .mobile-sector-product--v5.is-expanded .mobile-sector-product__main {
+    align-items: flex-start;
+  }
+
+  .mobile-sector-product--v5.is-expanded .mobile-sector-product__identity strong {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    line-height: 1.28;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-sector-product--v5.is-expanded .mobile-sector-product__identity span {
+    margin-top: 0.18rem;
+  }
+
+  .mobile-sector-product--v5.is-expanded .mobile-sector-product__qty,
+  .mobile-sector-product--v5.is-expanded .mobile-sector-product__chevron {
+    margin-top: 0.08rem;
+  }
+
   .mobile-sector-product--v5.is-low {
     border-color: #dfe7e2;
   }
