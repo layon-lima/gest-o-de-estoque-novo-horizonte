@@ -182,7 +182,7 @@ export default function EntradaSaldoMobilePendentes() {
         setor_id: dados.setor_id,
         deposito_id: dados.deposito_id,
         gaveta_id: dados.gaveta_id || null,
-        unidade: String(dados.unidade || 'un').trim() || 'un',
+        unidade: String(produtoExistente(item)?.unidade || dados.unidade || 'un').trim() || 'un',
         data_validade: dados.data_validade || null,
       });
 
@@ -328,10 +328,16 @@ export default function EntradaSaldoMobilePendentes() {
                   <div className="space-y-1">
                     <Label>Unidade</Label>
                     <Input
-                      value={dados.unidade || 'un'}
+                      value={existente?.unidade || dados.unidade || 'un'}
                       onChange={(e) => setField(item.id, 'unidade', e.target.value)}
                       placeholder="un"
+                      disabled={!!existente}
                     />
+                    {existente ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Produto existente: a entrada usará a unidade já cadastrada.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-1">
