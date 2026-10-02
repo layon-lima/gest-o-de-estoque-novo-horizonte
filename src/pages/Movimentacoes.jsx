@@ -116,7 +116,7 @@ const MOVIMENTO_SUBTIPOS = {
     },
     {
       value: 'ENTRADA_SALDO_ADMIN',
-      label: 'Entrada manual de saldo',
+      label: 'Entrada Manual de Saldo',
       description: 'Lançamento administrativo de saldo sem nota fiscal ou documento de origem.',
       adminOnly: true,
     },
@@ -146,7 +146,7 @@ const MOVIMENTO_SUBTIPO_LABELS = {
   ENTRADA_COMPRA: 'Compra / NF',
   DEVOLUCAO_ENTRADA: 'Devolução de entrada',
   AJUSTE_POSITIVO: 'Ajuste positivo',
-  ENTRADA_SALDO_ADMIN: 'Entrada manual de saldo',
+  ENTRADA_SALDO_ADMIN: 'Entrada Manual de Saldo',
   SAIDA_CONSUMO: 'Consumo',
   DEVOLUCAO_SAIDA: 'Devolução de saída',
   AJUSTE_NEGATIVO: 'Ajuste negativo',
