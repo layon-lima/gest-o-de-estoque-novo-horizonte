@@ -10,6 +10,7 @@ import {
   Monitor,
   MonitorSmartphone,
   PackageMinus,
+  PackagePlus,
   Save,
   Smartphone,
   UserRound,
@@ -106,6 +107,7 @@ export default function UsuarioPermissoes() {
   const [acoesMobile, setAcoesMobile] = useState([]);
   const [podeDigitarPeso, setPodeDigitarPeso] = useState(false);
   const [podeConfirmarAbastecimento, setPodeConfirmarAbastecimento] = useState(false);
+  const [podeEntradaManualSaldoMobile, setPodeEntradaManualSaldoMobile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -153,6 +155,7 @@ export default function UsuarioPermissoes() {
         setSetoresSel(Array.isArray(usuario.setores_permitidos) ? usuario.setores_permitidos : []);
         setPodeDigitarPeso(usuario.pode_digitar_peso === true);
         setPodeConfirmarAbastecimento(usuario.pode_confirmar_abastecimento === true);
+        setPodeEntradaManualSaldoMobile(usuario.pode_entrada_manual_saldo_mobile === true);
         setAcoesMobile([
           usuario.pode_baixar_mobile ? 'baixar' : null,
           usuario.pode_mudar_gaveta_mobile ? 'mudar_gaveta' : null,
@@ -200,6 +203,7 @@ export default function UsuarioPermissoes() {
         pode_baixar_mobile: acoesMobile.includes('baixar'),
         pode_mudar_gaveta_mobile: acoesMobile.includes('mudar_gaveta'),
         pode_mudar_deposito_mobile: acoesMobile.includes('mudar_deposito'),
+        pode_entrada_manual_saldo_mobile: podeEntradaManualSaldoMobile,
       });
 
       toast({
@@ -330,6 +334,22 @@ export default function UsuarioPermissoes() {
           </div>
         </PermissionSection>
       </div>
+
+      <PermissionSection
+        icon={PackagePlus}
+        eyebrow="Somente celular"
+        title="Entrada Manual de Saldo"
+        description="Libera no celular a página para enviar produto, quantidade e localização para revisão do administrador. O usuário não altera o estoque diretamente."
+        badge={podeEntradaManualSaldoMobile ? 'Liberado' : 'Bloqueado'}
+      >
+        <PermissionItem
+          checked={podeEntradaManualSaldoMobile}
+          onChange={setPodeEntradaManualSaldoMobile}
+          icon={PackagePlus}
+          title="Permitir Entrada Manual de Saldo"
+          description="Exibe o card de acesso rápido no mobile e permite enviar solicitações para aprovação no computador."
+        />
+      </PermissionSection>
 
       <PermissionSection
         icon={Warehouse}

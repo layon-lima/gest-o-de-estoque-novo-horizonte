@@ -25,6 +25,7 @@ import Balanca from '@/pages/Balanca';
 import MobileSetores from '@/pages/mobile/MobileSetores';
 import MobileMais from '@/pages/mobile/MobileMais';
 import MobileAdmin from '@/pages/mobile/MobileAdmin';
+import MobileEntradaSaldo from '@/pages/mobile/MobileEntradaSaldo';
 import { BalancaProvider } from '@/lib/balancaContext';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -105,6 +106,14 @@ const AuthenticatedApp = () => {
           element={
             <MobileOnly>
               <MobileAdmin />
+            </MobileOnly>
+          }
+        />
+        <Route
+          path="/entrada-manual-saldo"
+          element={
+            <MobileOnly>
+              <MobileEntradaSaldo />
             </MobileOnly>
           }
         />

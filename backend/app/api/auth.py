@@ -182,6 +182,9 @@ def user_publico(user: User) -> dict:
         "pode_mudar_deposito_mobile": (
             user.pode_mudar_deposito_mobile
         ),
+        "pode_entrada_manual_saldo_mobile": (
+            user.pode_entrada_manual_saldo_mobile
+        ),
         "paginas_permitidas": (
             paginas_publicas(
                 user.paginas_permitidas

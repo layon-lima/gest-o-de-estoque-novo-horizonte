@@ -61,6 +61,7 @@ class AtualizarUsuarioRequest(BaseModel):
     pode_baixar_mobile: bool | None = None
     pode_mudar_gaveta_mobile: bool | None = None
     pode_mudar_deposito_mobile: bool | None = None
+    pode_entrada_manual_saldo_mobile: bool | None = None
     paginas_permitidas: (
         list[str] | None
     ) = None
@@ -259,6 +260,7 @@ def criar_usuario(
         pode_baixar_mobile=False,
         pode_mudar_gaveta_mobile=False,
         pode_mudar_deposito_mobile=False,
+        pode_entrada_manual_saldo_mobile=False,
         paginas_permitidas=json.dumps(
             [],
             ensure_ascii=False,
@@ -402,6 +404,11 @@ def atualizar_usuario(
 
     if dados.pode_mudar_deposito_mobile is not None:
         user.pode_mudar_deposito_mobile = dados.pode_mudar_deposito_mobile
+
+    if dados.pode_entrada_manual_saldo_mobile is not None:
+        user.pode_entrada_manual_saldo_mobile = (
+            dados.pode_entrada_manual_saldo_mobile
+        )
 
     if (
         dados.paginas_permitidas

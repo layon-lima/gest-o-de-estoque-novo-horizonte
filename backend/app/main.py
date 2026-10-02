@@ -16,6 +16,7 @@ from app.api.files import router as files_router
 from app.api.users import router as users_router
 from app.api.inventario_pendencias import router as inventario_pendencias_router
 from app.api.cadastros_mobile import router as cadastros_mobile_router
+from app.api.entrada_saldo_mobile import router as entrada_saldo_mobile_router
 from app.core.logging_config import configurar_logging
 from app.core.scheduler import (
     iniciar_agendador,
@@ -74,6 +75,7 @@ app.include_router(admin_router)
 app.include_router(users_router)
 app.include_router(inventario_pendencias_router)
 app.include_router(cadastros_mobile_router)
+app.include_router(entrada_saldo_mobile_router)
 app.include_router(files_router)
 app.include_router(entities_router)
 app.include_router(relatorios_router)

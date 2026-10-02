@@ -68,6 +68,27 @@ class CadastroMobilePendente(EntityBaseMixin, Base):
     registro_criado_id = mapped_column(String(100), nullable=True, index=True)
 
 
+class EntradaSaldoMobilePendente(EntityBaseMixin, Base):
+    __tablename__ = "entradas_saldo_mobile_pendentes"
+
+    nome_produto = mapped_column(String(255), nullable=False, index=True)
+    quantidade = mapped_column(Float, nullable=False)
+    unidade = mapped_column(String(30), nullable=False, default="un")
+    setor_id = mapped_column(String(100), nullable=False, index=True)
+    deposito_id = mapped_column(String(100), nullable=False, index=True)
+    gaveta_id = mapped_column(String(100), nullable=True, index=True)
+    foto_url = mapped_column(Text, nullable=True)
+    status = mapped_column(String(30), nullable=False, default="PENDENTE", index=True)
+    solicitante_nome = mapped_column(String(255), nullable=True)
+    analisado_por_id = mapped_column(String(100), nullable=True, index=True)
+    analisado_por_nome = mapped_column(String(255), nullable=True)
+    analisado_em = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_rejeicao = mapped_column(Text, nullable=True)
+    produto_id = mapped_column(String(100), nullable=True, index=True)
+    documento_estoque_id = mapped_column(String(100), nullable=True, index=True)
+    data_validade = mapped_column(Date, nullable=True)
+
+
 class Inventario(EntityBaseMixin, Base):
     __tablename__ = "inventarios"
 
@@ -307,6 +328,7 @@ class User(EntityBaseMixin, Base):
     pode_baixar_mobile = mapped_column(Boolean, nullable=False, default=False)
     pode_mudar_gaveta_mobile = mapped_column(Boolean, nullable=False, default=False)
     pode_mudar_deposito_mobile = mapped_column(Boolean, nullable=False, default=False)
+    pode_entrada_manual_saldo_mobile = mapped_column(Boolean, nullable=False, default=False)
 
     paginas_permitidas = mapped_column(Text, nullable=True)
     setores_permitidos = mapped_column(Text, nullable=True)
