@@ -8,6 +8,7 @@ import {
   Contact,
   MapPinned,
   Package,
+  PackagePlus,
   Smartphone,
   Tractor,
   Users,
@@ -26,12 +27,14 @@ import VeiculosManager from '@/components/cadastros/VeiculosManager';
 import LavourasManager from '@/components/cadastros/LavourasManager';
 import AnoSafraManager from '@/components/cadastros/AnoSafraManager';
 import CadastrosMobilePendentes from '@/components/cadastros/CadastrosMobilePendentes';
+import EntradaSaldoMobilePendentes from '@/components/cadastros/EntradaSaldoMobilePendentes';
 
 import Usuarios from '@/pages/Usuarios';
 
 import { useAuth } from '@/lib/AuthContext';
 import { canAccessUsuarios } from '@/lib/permissions';
 import { cadastrosMobileApi } from '@/api/cadastrosMobileClient';
+import { entradaSaldoMobileApi } from '@/api/entradaSaldoMobileClient';
 
 
 const CADASTROS = {
@@ -132,6 +135,14 @@ const CADASTROS = {
     componente: CadastrosMobilePendentes,
     grupo: 'Administração',
   },
+
+  saldo_mobile_pendentes: {
+    label: 'Entradas Mobile Pendentes',
+    descricao: 'Entradas Manuais de Saldo enviadas pelo celular aguardando revisão.',
+    icon: PackagePlus,
+    componente: EntradaSaldoMobilePendentes,
+    grupo: 'Administração',
+  },
 };
 
 
@@ -139,13 +150,27 @@ export default function Cadastros() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [mobilePendentes, setMobilePendentes] = useState(0);
+  const [saldoMobilePendentes, setSaldoMobilePendentes] = useState(0);
 
   useEffect(() => {
-    if (canAccessUsuarios(user)) {
-      cadastrosMobileApi.contador()
-        .then((result) => setMobilePendentes(result.pendentes || 0))
-        .catch(() => setMobilePendentes(0));
+    if (!canAccessUsuarios(user)) {
+      setMobilePendentes(0);
+      setSaldoMobilePendentes(0);
+      return;
     }
+
+    Promise.all([
+      cadastrosMobileApi.contador(),
+      entradaSaldoMobileApi.contador(),
+    ])
+      .then(([cadastros, saldos]) => {
+        setMobilePendentes(cadastros.pendentes || 0);
+        setSaldoMobilePendentes(saldos.pendentes || 0);
+      })
+      .catch(() => {
+        setMobilePendentes(0);
+        setSaldoMobilePendentes(0);
+      });
   }, [user]);
 
 
@@ -165,6 +190,7 @@ export default function Cadastros() {
     if (canAccessUsuarios(user)) {
       lista.push('usuarios');
       lista.push('mobile_pendentes');
+      lista.push('saldo_mobile_pendentes');
     }
 
     return lista;
@@ -195,11 +221,14 @@ export default function Cadastros() {
     () =>
       codigosDisponiveis.map((codigo) => ({
         value: codigo,
-        label: codigo === 'mobile_pendentes' && mobilePendentes > 0
-          ? `${CADASTROS[codigo].label} (${mobilePendentes})`
-          : CADASTROS[codigo].label,
+        label:
+          codigo === 'mobile_pendentes' && mobilePendentes > 0
+            ? `${CADASTROS[codigo].label} (${mobilePendentes})`
+            : codigo === 'saldo_mobile_pendentes' && saldoMobilePendentes > 0
+              ? `${CADASTROS[codigo].label} (${saldoMobilePendentes})`
+              : CADASTROS[codigo].label,
       })),
-    [codigosDisponiveis, mobilePendentes]
+    [codigosDisponiveis, mobilePendentes, saldoMobilePendentes]
   );
 
 
@@ -269,7 +298,9 @@ export default function Cadastros() {
                       {cadastro.label}
                       {codigo === 'mobile_pendentes' && mobilePendentes > 0
                         ? ` (${mobilePendentes})`
-                        : ''}
+                        : codigo === 'saldo_mobile_pendentes' && saldoMobilePendentes > 0
+                          ? ` (${saldoMobilePendentes})`
+                          : ''}
                     </span>
                   </button>
                 );
@@ -293,7 +324,9 @@ export default function Cadastros() {
                   {configuracao.label}
                   {cadastroSelecionado === 'mobile_pendentes' && mobilePendentes > 0
                     ? ` (${mobilePendentes})`
-                    : ''}
+                    : cadastroSelecionado === 'saldo_mobile_pendentes' && saldoMobilePendentes > 0
+                      ? ` (${saldoMobilePendentes})`
+                      : ''}
                 </h2>
 
                 <p className="cadastros-content-header__description">
