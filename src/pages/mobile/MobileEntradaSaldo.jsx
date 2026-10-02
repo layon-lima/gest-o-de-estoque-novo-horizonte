@@ -711,11 +711,11 @@ export default function MobileEntradaSaldo() {
 
             {depositoUnico ? (
               <div className="flex h-12 items-center rounded-xl border bg-muted/30 px-3 text-sm font-medium text-foreground">
-                `${depositoUnico.numero || ''}${
+                {`${depositoUnico.numero || ''}${
                   depositoUnico.nome
                     ? ` — ${depositoUnico.nome}`
                     : ''
-                }`.trim()
+                }`.trim()}
               </div>
             ) : (
               <SearchSelect
