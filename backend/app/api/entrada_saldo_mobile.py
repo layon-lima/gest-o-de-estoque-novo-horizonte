@@ -195,6 +195,12 @@ def criar(
         gaveta_id=dados.gaveta_id,
     )
 
+    if dados.foto_url and _caminho_imagem_temporaria(dados.foto_url) is None:
+        raise HTTPException(
+            400,
+            "A foto do produto deve ser uma imagem enviada pelo próprio sistema.",
+        )
+
     pendente_igual = db.scalar(
         select(EntradaSaldoMobilePendente)
         .where(
