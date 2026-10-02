@@ -4,6 +4,8 @@ import {
   AlertCircle,
   ArrowLeft,
   Camera,
+  Check,
+  Search,
   CheckCircle2,
   Clock3,
   Loader2,
@@ -22,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/AuthContext';
 import { useEntidades } from '@/lib/useEntidades';
 import { setoresAcessiveis } from '@/lib/setoresAcesso';
+import { sortGavetas } from '@/lib/gavetas';
 
 function numero(value) {
   const text = String(value ?? '').trim();
@@ -100,6 +103,152 @@ async function recortarQuadrado(file) {
     [blob],
     `produto-1x1-${Date.now()}.jpg`,
     { type: 'image/jpeg' }
+  );
+}
+
+function numeroDaGaveta(gaveta) {
+  const grupos = String(gaveta?.codigo || '').match(/\d+/g);
+  if (!grupos?.length) return null;
+
+  const numero = Number(grupos[grupos.length - 1]);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function digitosDaGaveta(gaveta) {
+  const grupos = String(gaveta?.codigo || '').match(/\d+/g);
+  return grupos?.[grupos.length - 1] || '';
+}
+
+function labelGaveta(gaveta) {
+  return `${gaveta?.codigo || 'Gaveta'}${
+    gaveta?.descricao
+      ? ` — ${gaveta.descricao}`
+      : ''
+  }`;
+}
+
+function GavetaExactSearch({
+  value,
+  onChange,
+  options = [],
+}) {
+  const ordenadas = useMemo(
+    () => sortGavetas(options),
+    [options]
+  );
+
+  const selecionada = ordenadas.find(
+    (item) => item.id === value
+  );
+
+  const [query, setQuery] = useState(
+    selecionada
+      ? digitosDaGaveta(selecionada)
+      : ''
+  );
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery(
+        selecionada
+          ? digitosDaGaveta(selecionada)
+          : ''
+      );
+    }
+  }, [selecionada, open]);
+
+  const resultado = useMemo(() => {
+    const somenteDigitos = String(query || '').replace(/\D/g, '');
+
+    if (!somenteDigitos) {
+      return [];
+    }
+
+    const alvo = Number(somenteDigitos);
+
+    if (!Number.isFinite(alvo)) {
+      return [];
+    }
+
+    return ordenadas.filter(
+      (gaveta) => numeroDaGaveta(gaveta) === alvo
+    );
+  }, [ordenadas, query]);
+
+  function escolher(gaveta) {
+    onChange(gaveta.id);
+    setQuery(digitosDaGaveta(gaveta));
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="off"
+        value={query}
+        placeholder="Digite o número da gaveta"
+        className="h-12 w-full rounded-xl border border-input bg-background pl-10 pr-3 text-base outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+        onFocus={(event) => {
+          setOpen(true);
+          event.currentTarget.select();
+        }}
+        onChange={(event) => {
+          const digits = event.target.value
+            .replace(/\D/g, '')
+            .slice(0, 3);
+
+          setQuery(digits);
+          setOpen(true);
+
+          if (value) {
+            onChange('');
+          }
+        }}
+        onBlur={() => {
+          window.setTimeout(
+            () => setOpen(false),
+            120
+          );
+        }}
+      />
+
+      {open && query ? (
+        <div className="absolute inset-x-0 top-[calc(100%+0.35rem)] z-50 overflow-hidden rounded-xl border bg-background shadow-xl">
+          {resultado.length === 0 ? (
+            <div className="px-3 py-3 text-sm text-muted-foreground">
+              Nenhuma gaveta {Number(query) || query} neste depósito.
+            </div>
+          ) : (
+            resultado.map((gaveta) => {
+              const ativa = gaveta.id === value;
+
+              return (
+                <button
+                  key={gaveta.id}
+                  type="button"
+                  className="flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-accent"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => escolher(gaveta)}
+                >
+                  <span className="font-semibold">
+                    {labelGaveta(gaveta)}
+                  </span>
+                  {ativa ? (
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                  ) : null}
+                </button>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -249,20 +398,19 @@ export default function MobileEntradaSaldo() {
 
   const gavetasDoDeposito = useMemo(
     () =>
-      gavetas
-        .filter(
+      sortGavetas(
+        gavetas.filter(
           (item) =>
             item.deposito_id === form.deposito_id
         )
-        .slice()
-        .sort((a, b) =>
-          String(a.codigo || '').localeCompare(
-            String(b.codigo || ''),
-            'pt-BR'
-          )
-        ),
+      ),
     [gavetas, form.deposito_id]
   );
+
+  const depositoUnico =
+    depositosDoSetor.length === 1
+      ? depositosDoSetor[0]
+      : null;
 
   const gavetaObrigatoria =
     !!form.deposito_id
@@ -286,6 +434,42 @@ export default function MobileEntradaSaldo() {
   useEffect(() => {
     carregarRecentes();
   }, [permitido]);
+
+  useEffect(() => {
+    if (!form.setor_id) {
+      return;
+    }
+
+    if (
+      depositoUnico
+      && form.deposito_id !== depositoUnico.id
+    ) {
+      setForm((prev) => ({
+        ...prev,
+        deposito_id: depositoUnico.id,
+        gaveta_id: '',
+      }));
+      return;
+    }
+
+    if (
+      form.deposito_id
+      && !depositosDoSetor.some(
+        (item) => item.id === form.deposito_id
+      )
+    ) {
+      setForm((prev) => ({
+        ...prev,
+        deposito_id: '',
+        gaveta_id: '',
+      }));
+    }
+  }, [
+    form.setor_id,
+    form.deposito_id,
+    depositoUnico,
+    depositosDoSetor,
+  ]);
 
   function setCampo(campo, valor) {
     setNotice(null);
@@ -516,34 +700,53 @@ export default function MobileEntradaSaldo() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Depósito</Label>
-            <SearchSelect
-              value={form.deposito_id || 'all'}
-              onChange={(value) =>
-                setCampo(
-                  'deposito_id',
-                  value === 'all'
-                    ? ''
-                    : value
-                )
-              }
-              allLabel={
-                form.setor_id
-                  ? 'Selecione o depósito'
-                  : 'Escolha o setor primeiro'
-              }
-              placeholder="Selecione o depósito"
-              options={depositosDoSetor.map(
-                (item) => ({
-                  value: item.id,
-                  label: `${item.numero || ''}${
-                    item.nome
-                      ? ` — ${item.nome}`
-                      : ''
-                  }`.trim(),
-                })
-              )}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <Label>Depósito</Label>
+              {depositoUnico ? (
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                  Automático
+                </span>
+              ) : null}
+            </div>
+
+            {depositoUnico ? (
+              <div className="flex h-12 items-center rounded-xl border bg-muted/30 px-3 text-sm font-medium text-foreground">
+                {`${depositoUnico.numero || ''}${
+                  depositoUnico.nome
+                    ? ` — ${depositoUnico.nome}`
+                    : ''
+                }`.trim()}
+              </div>
+            ) : (
+              <SearchSelect
+                value={form.deposito_id || 'all'}
+                onChange={(value) =>
+                  setCampo(
+                    'deposito_id',
+                    value === 'all'
+                      ? ''
+                      : value
+                  )
+                }
+                disabled={!form.setor_id}
+                allLabel={
+                  form.setor_id
+                    ? 'Selecione o depósito'
+                    : 'Escolha o setor primeiro'
+                }
+                placeholder="Selecione o depósito"
+                options={depositosDoSetor.map(
+                  (item) => ({
+                    value: item.id,
+                    label: `${item.numero || ''}${
+                      item.nome
+                        ? ` — ${item.nome}`
+                        : ''
+                    }`.trim(),
+                  })
+                )}
+              />
+            )}
           </div>
 
           {form.deposito_id
@@ -556,29 +759,20 @@ export default function MobileEntradaSaldo() {
                   </span>
                 </div>
 
-                <SearchSelect
-                  value={form.gaveta_id || 'all'}
+                <GavetaExactSearch
+                  value={form.gaveta_id}
                   onChange={(value) =>
                     setCampo(
                       'gaveta_id',
-                      value === 'all'
-                        ? ''
-                        : value
+                      value
                     )
                   }
-                  allLabel="Selecione a gaveta"
-                  placeholder="Selecione a gaveta"
-                  options={gavetasDoDeposito.map(
-                    (item) => ({
-                      value: item.id,
-                      label: `${item.codigo || ''}${
-                        item.descricao
-                          ? ` — ${item.descricao}`
-                          : ''
-                      }`,
-                    })
-                  )}
+                  options={gavetasDoDeposito}
                 />
+
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  Digite o número exato. Ex.: 1 ou 01 → GAVETA 01; 10 → somente GAVETA 10.
+                </p>
               </div>
             ) : null}
         </section>
