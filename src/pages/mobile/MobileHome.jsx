@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileBarChart,
   Fuel,
+  PackagePlus,
   Scale,
   Settings,
   ShieldCheck,
