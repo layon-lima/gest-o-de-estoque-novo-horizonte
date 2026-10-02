@@ -102,9 +102,26 @@ export default function MobileHome() {
     (atalho) => mobilePageAllowed(user, atalho.key)
   );
 
-  const atalhosComAdmin = user?.role === 'admin'
-    ? [{ key: 'admin-mobile', label: 'Modo Admin', description: 'Cadastros para aprovação', path: '/admin-mobile', icon: ShieldCheck, tone: 'violet' }, ...atalhosPermitidos]
+  const entradaManualPermitida =
+    user?.role === 'admin'
+    || user?.pode_entrada_manual_saldo_mobile === true;
+
+  const atalhoEntradaManual = {
+    key: 'entrada-manual-saldo',
+    label: 'Entrada Manual de Saldo',
+    description: 'Cadastrar saldo para revisão',
+    path: '/entrada-manual-saldo',
+    icon: PackagePlus,
+    tone: 'emerald',
+  };
+
+  const atalhosComEntrada = entradaManualPermitida
+    ? [atalhoEntradaManual, ...atalhosPermitidos]
     : atalhosPermitidos;
+
+  const atalhosComAdmin = user?.role === 'admin'
+    ? [{ key: 'admin-mobile', label: 'Modo Admin', description: 'Cadastros para aprovação', path: '/admin-mobile', icon: ShieldCheck, tone: 'violet' }, ...atalhosComEntrada]
+    : atalhosComEntrada;
 
   const { data, loading } = useEntidades({
     Produto: {},
