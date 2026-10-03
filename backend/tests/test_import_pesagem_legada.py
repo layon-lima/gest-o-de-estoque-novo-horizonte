@@ -29,6 +29,22 @@ class ImportacaoPesagemLegadaTest(unittest.TestCase):
         migration = carregar_migracao()
         migration._validar_fonte()
 
+    def test_aliases_de_produtos_historicos(self):
+        migration = carregar_migracao()
+
+        self.assertIn(
+            "MILHO",
+            migration._aliases_produto("MILHO A GRANEL"),
+        )
+        self.assertIn(
+            "MILHETO",
+            migration._aliases_produto("MILHETO A GRANEL"),
+        )
+        self.assertIn(
+            "CALCARIO AGRICOLA",
+            migration._aliases_produto("CALCARIO"),
+        )
+
     def test_quantidades_e_correcao_de_placa(self):
         migration = carregar_migracao()
 
