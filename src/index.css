@@ -4145,3 +4145,61 @@ html .bg-\[\#12362f\] {
     height: 34px !important;
   }
 }
+
+
+/* ============================================================
+   PESAGEM DESKTOP — AJUSTE DE LARGURA
+   Usa melhor o espaço horizontal e evita compressão/overlap no
+   painel lateral sem voltar a desperdiçar altura.
+   ============================================================ */
+@media (min-width: 1280px) {
+  .pesagem-pedidos-workspace .pesagem-manager-split {
+    grid-template-columns: minmax(0, 1fr) 420px !important;
+  }
+
+  .pesagem-pagamentos-workspace .pesagem-manager-split {
+    grid-template-columns: minmax(0, 1fr) 460px !important;
+  }
+
+  .pesagem-manager-detail {
+    min-width: 0;
+  }
+
+  .pesagem-manager-detail .border-b > .flex {
+    min-width: 0;
+  }
+
+  .pesagem-manager-detail .border-b > .flex > div:first-child {
+    min-width: 0;
+  }
+
+  .pesagem-pedido-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .pesagem-pedido-actions button {
+    width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pesagem-pedido-actions button:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .pesagem-manager-table table {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1536px) {
+  .pesagem-pedidos-workspace .pesagem-manager-split {
+    grid-template-columns: minmax(0, 1fr) 440px !important;
+  }
+
+  .pesagem-pagamentos-workspace .pesagem-manager-split {
+    grid-template-columns: minmax(0, 1fr) 480px !important;
+  }
+}
