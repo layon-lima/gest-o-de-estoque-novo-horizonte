@@ -1122,8 +1122,8 @@ def _pagamentos_resumo_mobile_rows(
 
     for pedido in sorted(
         pedidos.values(),
-        key=lambda item: (
-            item.created_date or item.updated_date or datetime.min
+        key=lambda item: str(
+            item.created_date or item.updated_date or ""
         ),
         reverse=True,
     ):
