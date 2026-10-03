@@ -538,8 +538,18 @@ def upgrade() -> None:
         ),
         None,
     )
+    setor_historico_id = (
+        setor_historico["id"]
+        if setor_historico is not None
+        else None
+    )
 
-    if setor_historico is None:
+    def garantir_setor_historico() -> str:
+        nonlocal setor_historico_id
+
+        if setor_historico_id:
+            return setor_historico_id
+
         setor_historico_id = _id("setor:pesagem-historico")
         bind.execute(
             setores.insert().values(
@@ -559,8 +569,7 @@ def upgrade() -> None:
                 created_by_id=None,
             )
         )
-    else:
-        setor_historico_id = setor_historico["id"]
+        return setor_historico_id
 
     produto_ids = {}
     specs_historicos = {
@@ -610,7 +619,7 @@ def upgrade() -> None:
                     id=historico_id,
                     codigo=spec["codigo"],
                     nome=nome,
-                    setor_id=setor_historico_id,
+                    setor_id=garantir_setor_historico(),
                     deposito_id=None,
                     gaveta_id=None,
                     quantidade=0.0,
