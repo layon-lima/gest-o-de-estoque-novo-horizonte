@@ -393,16 +393,16 @@ export default function PedidosManager({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+    <div className="pesagem-pedidos-workspace space-y-3">
+      <div className="pesagem-manager-heading flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+          <p className="pesagem-manager-eyebrow text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
             Comercial / Pesagem
           </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">
+          <h2 className="pesagem-manager-title mt-1 text-xl font-semibold tracking-tight">
             Pedidos de Venda
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="pesagem-manager-description mt-1 text-sm text-muted-foreground">
             Central para criar, acompanhar e gerenciar os pedidos usados nos tickets de venda.
           </p>
         </div>
@@ -424,7 +424,7 @@ export default function PedidosManager({
         </div>
       </div>
 
-      <Card className="rounded-2xl border p-3 shadow-none">
+      <Card className="pesagem-manager-filters rounded-2xl border p-3 shadow-none">
         <div className="flex flex-col gap-3 xl:flex-row">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -549,8 +549,8 @@ export default function PedidosManager({
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <Card className="overflow-hidden rounded-2xl border shadow-none">
+      <div className="pesagem-manager-split grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <Card className="pesagem-manager-list overflow-hidden rounded-2xl border shadow-none">
           {filtrados.length === 0 ? (
             <div className="py-16 text-center">
               <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground/35" />
@@ -563,7 +563,7 @@ export default function PedidosManager({
             </div>
           ) : (
             <>
-              <div className="overflow-auto">
+              <div className="pesagem-manager-table overflow-auto">
                 <table className="min-w-[1050px] w-full text-xs">
                   <thead className="bg-muted/35">
                     <tr>
@@ -665,7 +665,7 @@ export default function PedidosManager({
                 </table>
               </div>
 
-              <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="pesagem-manager-footer flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {paginaRows.length} de {filtrados.length} pedido(s)
                 </p>
@@ -706,7 +706,7 @@ export default function PedidosManager({
           )}
         </Card>
 
-        <Card className="h-fit overflow-hidden rounded-2xl border shadow-none xl:sticky xl:top-4">
+        <Card className="pesagem-manager-detail h-fit overflow-hidden rounded-2xl border shadow-none xl:sticky xl:top-4">
           {!selecionado ? (
             <div className="py-16 text-center">
               <FileText className="mx-auto h-10 w-10 text-muted-foreground/35" />
@@ -738,7 +738,7 @@ export default function PedidosManager({
                   </Badge>
                 </div>
 
-                <div className="mt-4 grid gap-2">
+                <div className="pesagem-pedido-actions mt-4 grid gap-2">
                   <Button
                     onClick={() => editarPedido(selecionado)}
                     disabled={
