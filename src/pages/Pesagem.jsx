@@ -99,7 +99,7 @@ export default function Pesagem() {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 p-3 sm:p-6">
+    <div className="mx-auto w-full max-w-[1840px] space-y-4 p-3 sm:px-4 sm:py-5 2xl:px-5">
       <header className="flex items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
