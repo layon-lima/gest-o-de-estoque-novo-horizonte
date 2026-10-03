@@ -3936,3 +3936,212 @@ html .bg-\[\#12362f\] {
     line-height: 1.1;
   }
 }
+
+
+/* ============================================================
+   PESAGEM DESKTOP — PEDIDOS E PAGAMENTOS
+   Layout operacional compacto: filtros e resumos ocupam pouco
+   espaço; tabela e painel lateral usam a altura útil da tela.
+   ============================================================ */
+@media (min-width: 1280px) {
+  .pesagem-pedidos-workspace,
+  .pesagem-pagamentos-workspace {
+    min-height: 0;
+  }
+
+  .pesagem-manager-heading {
+    min-height: 34px;
+    align-items: center !important;
+  }
+
+  .pesagem-manager-eyebrow,
+  .pesagem-manager-description {
+    display: none;
+  }
+
+  .pesagem-manager-title {
+    margin-top: 0 !important;
+    font-size: 1rem !important;
+    line-height: 1.1;
+  }
+
+  .pesagem-manager-heading button {
+    height: 34px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .pesagem-manager-filters {
+    border-radius: 0.75rem !important;
+    padding: 0.5rem 0.6rem !important;
+  }
+
+  .pesagem-manager-filters > .mt-3 {
+    margin-top: 0.45rem !important;
+  }
+
+  .pesagem-manager-filters input {
+    height: 34px !important;
+  }
+
+  .pesagem-manager-filters button {
+    min-height: 32px;
+  }
+
+  .pesagem-manager-filters button[class*="px-3"] {
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
+  }
+
+  .pesagem-manager-split {
+    align-items: stretch;
+    gap: 0.55rem !important;
+    min-height: 0;
+  }
+
+  .pesagem-pedidos-workspace .pesagem-manager-split {
+    height: calc(100dvh - 245px);
+    min-height: 470px;
+    grid-template-columns: minmax(0, 1fr) 350px !important;
+  }
+
+  .pesagem-pagamentos-workspace .pesagem-manager-split {
+    height: calc(100dvh - 285px);
+    min-height: 440px;
+    grid-template-columns: minmax(0, 1fr) 400px !important;
+  }
+
+  .pesagem-manager-list {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    border-radius: 0.75rem !important;
+  }
+
+  .pesagem-manager-table {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+  }
+
+  .pesagem-manager-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+
+  .pesagem-manager-table th,
+  .pesagem-manager-table td {
+    padding: 0.48rem 0.6rem !important;
+  }
+
+  .pesagem-manager-footer {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 0.4rem 0.65rem !important;
+  }
+
+  .pesagem-manager-footer button {
+    height: 28px !important;
+    width: 28px !important;
+  }
+
+  .pesagem-manager-detail {
+    position: sticky !important;
+    top: 0.5rem !important;
+    height: 100% !important;
+    max-height: 100%;
+    overflow-y: auto !important;
+    border-radius: 0.75rem !important;
+  }
+
+  .pesagem-manager-detail > .border-b {
+    padding: 0.65rem !important;
+  }
+
+  .pesagem-manager-detail > .p-4,
+  .pesagem-manager-detail > .space-y-4.p-4 {
+    padding: 0.65rem !important;
+  }
+
+  .pesagem-manager-detail .mt-4 {
+    margin-top: 0.65rem !important;
+  }
+
+  .pesagem-manager-detail .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.65rem !important;
+  }
+
+  .pesagem-pedido-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem !important;
+  }
+
+  .pesagem-pedido-actions button {
+    min-width: 0;
+    height: 34px;
+    padding: 0 0.4rem;
+    font-size: 0.66rem;
+  }
+
+  .pesagem-pedido-actions button svg {
+    width: 13px;
+    height: 13px;
+    margin-right: 0.25rem;
+  }
+
+  .pesagem-finance-summary {
+    gap: 0.5rem !important;
+  }
+
+  .pesagem-finance-kpi {
+    border-radius: 0.75rem !important;
+    padding: 0.55rem 0.7rem !important;
+  }
+
+  .pesagem-finance-kpi > div {
+    align-items: center;
+    gap: 0.55rem !important;
+  }
+
+  .pesagem-finance-kpi > div > div:first-child {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 9px !important;
+  }
+
+  .pesagem-finance-kpi > div > div:first-child svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .pesagem-finance-kpi > div > div:last-child > p:first-child {
+    font-size: 8px !important;
+    line-height: 1;
+  }
+
+  .pesagem-finance-kpi > div > div:last-child > p:nth-child(2) {
+    margin-top: 0.15rem !important;
+    font-size: 1.05rem !important;
+    line-height: 1.1;
+  }
+
+  .pesagem-finance-kpi > div > div:last-child > p:last-child {
+    margin-top: 0.1rem !important;
+    font-size: 0.62rem !important;
+    line-height: 1.15;
+  }
+
+  .pesagem-pagamentos-workspace .pesagem-manager-detail .grid.grid-cols-2.gap-2 > div {
+    border-radius: 0.65rem !important;
+    padding: 0.55rem !important;
+  }
+
+  .pesagem-pagamentos-workspace .pesagem-manager-detail button[class*="py-2"],
+  .pesagem-pagamentos-workspace .pesagem-manager-detail .h-11 {
+    min-height: 34px !important;
+    height: 34px !important;
+  }
+}
