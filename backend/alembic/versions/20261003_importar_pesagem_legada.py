@@ -208,6 +208,35 @@ def _norm(value: object) -> str:
     return re.sub(r"\s+", " ", text.strip().upper())
 
 
+_PRODUTO_ALIASES = {
+    "MILHO A GRANEL": {
+        "MILHO A GRANEL",
+        "MILHO",
+        "MILHO EM GRAO",
+        "MILHO EM GRÃO",
+    },
+    "MILHETO A GRANEL": {
+        "MILHETO A GRANEL",
+        "MILHETO",
+        "MILHETO EM GRAO",
+        "MILHETO EM GRÃO",
+    },
+    "CALCARIO": {
+        "CALCARIO",
+        "CALCÁRIO",
+        "CALCARIO AGRICOLA",
+        "CALCÁRIO AGRÍCOLA",
+    },
+}
+
+
+def _aliases_produto(nome: str) -> set[str]:
+    return {
+        _norm(alias)
+        for alias in _PRODUTO_ALIASES.get(nome, {nome})
+    }
+
+
 def _placa(value: object) -> str:
     return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
 
@@ -453,30 +482,40 @@ def upgrade() -> None:
         sa.column("created_by_id", sa.String(100)),
     )
 
-    # Produtos não são criados aqui porque exigem setor/localização reais.
-    # A migração aborta antes de gravar caso algum produto histórico não exista.
+    # Produtos históricos precisam apontar para produtos reais do cadastro.
+    # Aceitamos apenas aliases conhecidos/seguros; nunca criamos produto, setor ou
+    # localização automaticamente.
     produto_rows = bind.execute(
         sa.select(produtos.c.id, produtos.c.nome)
     ).mappings().all()
-    produtos_por_nome = defaultdict(list)
-
-    for row in produto_rows:
-        produtos_por_nome[_norm(row["nome"])].append(row)
 
     produto_ids = {}
+
     for nome in ("MILHO A GRANEL", "MILHETO A GRANEL", "CALCARIO"):
-        matches = produtos_por_nome[_norm(nome)]
+        aliases = _aliases_produto(nome)
+        matches = [
+            row
+            for row in produto_rows
+            if _norm(row["nome"]) in aliases
+        ]
 
         if not matches:
+            aliases_legiveis = ", ".join(sorted(aliases))
             raise RuntimeError(
-                f"Importação legada abortada: produto '{nome}' não existe. "
-                "Cadastre/valide o produto antes de aplicar a migração."
+                f"Importação legada abortada: produto histórico '{nome}' "
+                f"não pôde ser associado ao cadastro atual. "
+                f"Aliases aceitos: {aliases_legiveis}."
             )
 
-        if len(matches) > 1:
+        ids = {row["id"] for row in matches}
+
+        if len(ids) > 1:
+            nomes = ", ".join(
+                sorted(str(row["nome"]) for row in matches)
+            )
             raise RuntimeError(
-                f"Importação legada abortada: há mais de um produto equivalente "
-                f"a '{nome}'. Corrija a duplicidade antes da migração."
+                f"Importação legada abortada: produto histórico '{nome}' "
+                f"corresponde a mais de um cadastro atual: {nomes}."
             )
 
         produto_ids[nome] = matches[0]["id"]
