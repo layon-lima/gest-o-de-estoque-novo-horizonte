@@ -412,9 +412,9 @@ export default function PagamentosManager({
       : 0;
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        <Card className="rounded-2xl border p-4 shadow-none">
+    <div className="pesagem-pagamentos-workspace space-y-3">
+      <div className="pesagem-finance-summary grid gap-3 md:grid-cols-3">
+        <Card className="pesagem-finance-kpi rounded-2xl border p-4 shadow-none">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <WalletCards className="h-5 w-5" />
@@ -434,7 +434,7 @@ export default function PagamentosManager({
           </div>
         </Card>
 
-        <Card className="rounded-2xl border p-4 shadow-none">
+        <Card className="pesagem-finance-kpi rounded-2xl border p-4 shadow-none">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
               <CheckCircle2 className="h-5 w-5" />
@@ -457,7 +457,7 @@ export default function PagamentosManager({
           </div>
         </Card>
 
-        <Card className="rounded-2xl border p-4 shadow-none">
+        <Card className="pesagem-finance-kpi rounded-2xl border p-4 shadow-none">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
               <CircleDollarSign className="h-5 w-5" />
@@ -481,7 +481,7 @@ export default function PagamentosManager({
         </Card>
       </div>
 
-      <Card className="rounded-2xl border p-3 shadow-none">
+      <Card className="pesagem-manager-filters rounded-2xl border p-3 shadow-none">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="flex flex-wrap gap-2">
             {[
@@ -572,8 +572,8 @@ export default function PagamentosManager({
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
-        <Card className="overflow-hidden rounded-2xl border shadow-none">
+      <div className="pesagem-manager-split grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
+        <Card className="pesagem-manager-list overflow-hidden rounded-2xl border shadow-none">
           <div className="flex items-center justify-between border-b bg-muted/15 px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">
@@ -600,7 +600,7 @@ export default function PagamentosManager({
             </div>
           ) : (
             <>
-              <div className="overflow-auto">
+              <div className="pesagem-manager-table overflow-auto">
                 <table className="min-w-[1050px] w-full text-xs">
                   <thead className="bg-muted/35">
                     <tr>
@@ -708,7 +708,7 @@ export default function PagamentosManager({
                 </table>
               </div>
 
-              <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="pesagem-manager-footer flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground">
                   Exibindo {paginaRows.length} de {filtrados.length} pedido(s)
                 </p>
@@ -751,7 +751,7 @@ export default function PagamentosManager({
           )}
         </Card>
 
-        <Card className="h-fit overflow-hidden rounded-2xl border shadow-none xl:sticky xl:top-4">
+        <Card className="pesagem-manager-detail h-fit overflow-hidden rounded-2xl border shadow-none xl:sticky xl:top-4">
           {!selecionado ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
               Selecione um pedido para ver os pagamentos.

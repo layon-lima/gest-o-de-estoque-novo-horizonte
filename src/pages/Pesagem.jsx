@@ -153,7 +153,7 @@ export default function Pesagem() {
           )}
         </TabsContent>
 
-        <TabsContent value="pedidos" className="mt-4">
+        <TabsContent value="pedidos" className="mt-2">
           {coreLoading || financeLoading ? (
             <InlineLoader label="Carregando pedidos de venda..." />
           ) : (
@@ -171,7 +171,7 @@ export default function Pesagem() {
           )}
         </TabsContent>
 
-        <TabsContent value="pagamentos" className="mt-4">
+        <TabsContent value="pagamentos" className="mt-2">
           {coreLoading || financeLoading ? (
             <InlineLoader label="Carregando pagamentos..." />
           ) : (
