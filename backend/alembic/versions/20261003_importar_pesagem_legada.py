@@ -413,7 +413,34 @@ def upgrade() -> None:
     produtos = sa.table(
         "produtos",
         sa.column("id", sa.String(100)),
+        sa.column("codigo", sa.String(100)),
         sa.column("nome", sa.String(255)),
+        sa.column("setor_id", sa.String(100)),
+        sa.column("deposito_id", sa.String(100)),
+        sa.column("gaveta_id", sa.String(100)),
+        sa.column("quantidade", sa.Float()),
+        sa.column("unidade", sa.String(30)),
+        sa.column("estoque_minimo", sa.Float()),
+        sa.column("custo_unitario", sa.Float()),
+        sa.column("venda", sa.Boolean()),
+        sa.column("created_date", sa.DateTime(timezone=True)),
+        sa.column("updated_date", sa.DateTime(timezone=True)),
+        sa.column("created_by_id", sa.String(100)),
+    )
+
+    setores = sa.table(
+        "setores",
+        sa.column("id", sa.String(100)),
+        sa.column("nome", sa.String(255)),
+        sa.column("descricao", sa.Text()),
+        sa.column("cor", sa.String(30)),
+        sa.column("icon", sa.String(100)),
+        sa.column("controla_validade", sa.Boolean()),
+        sa.column("tem_aba_mobile", sa.Boolean()),
+        sa.column("permite_inventario", sa.Boolean()),
+        sa.column("created_date", sa.DateTime(timezone=True)),
+        sa.column("updated_date", sa.DateTime(timezone=True)),
+        sa.column("created_by_id", sa.String(100)),
     )
 
     pedidos = sa.table(
@@ -482,16 +509,76 @@ def upgrade() -> None:
         sa.column("created_by_id", sa.String(100)),
     )
 
-    # Produtos históricos precisam apontar para produtos reais do cadastro.
-    # Aceitamos apenas aliases conhecidos/seguros; nunca criamos produto, setor ou
-    # localização automaticamente.
+    now = datetime.now(timezone.utc)
+
+    # Produtos históricos: primeiro tentamos reutilizar um cadastro real por
+    # alias exato. Quando ele não existe, criamos um produto histórico isolado,
+    # sem depósito/gaveta e com quantidade zero. Isso preserva a referência dos
+    # tickets/pedidos sem alterar o estoque físico atual.
     produto_rows = bind.execute(
-        sa.select(produtos.c.id, produtos.c.nome)
+        sa.select(
+            produtos.c.id,
+            produtos.c.codigo,
+            produtos.c.nome,
+        )
     ).mappings().all()
 
-    produto_ids = {}
+    setor_rows = bind.execute(
+        sa.select(
+            setores.c.id,
+            setores.c.nome,
+        )
+    ).mappings().all()
 
-    for nome in ("MILHO A GRANEL", "MILHETO A GRANEL", "CALCARIO"):
+    setor_historico = next(
+        (
+            row
+            for row in setor_rows
+            if _norm(row["nome"]) == "PESAGEM - HISTORICO"
+        ),
+        None,
+    )
+
+    if setor_historico is None:
+        setor_historico_id = _id("setor:pesagem-historico")
+        bind.execute(
+            setores.insert().values(
+                id=setor_historico_id,
+                nome="PESAGEM - HISTÓRICO",
+                descricao=(
+                    "Setor técnico criado para preservar produtos de tickets "
+                    "históricos importados. Não representa saldo físico atual."
+                ),
+                cor="#64748b",
+                icon="",
+                controla_validade=False,
+                tem_aba_mobile=False,
+                permite_inventario=False,
+                created_date=now,
+                updated_date=now,
+                created_by_id=None,
+            )
+        )
+    else:
+        setor_historico_id = setor_historico["id"]
+
+    produto_ids = {}
+    specs_historicos = {
+        "MILHO A GRANEL": {
+            "codigo": "HIST-PES-MILHO",
+            "venda": True,
+        },
+        "MILHETO A GRANEL": {
+            "codigo": "HIST-PES-MILHETO",
+            "venda": True,
+        },
+        "CALCARIO": {
+            "codigo": "HIST-PES-CALCARIO",
+            "venda": False,
+        },
+    }
+
+    for nome, spec in specs_historicos.items():
         aliases = _aliases_produto(nome)
         matches = [
             row
@@ -499,26 +586,53 @@ def upgrade() -> None:
             if _norm(row["nome"]) in aliases
         ]
 
-        if not matches:
-            aliases_legiveis = ", ".join(sorted(aliases))
-            raise RuntimeError(
-                f"Importação legada abortada: produto histórico '{nome}' "
-                f"não pôde ser associado ao cadastro atual. "
-                f"Aliases aceitos: {aliases_legiveis}."
-            )
-
         ids = {row["id"] for row in matches}
 
-        if len(ids) > 1:
-            nomes = ", ".join(
-                sorted(str(row["nome"]) for row in matches)
-            )
-            raise RuntimeError(
-                f"Importação legada abortada: produto histórico '{nome}' "
-                f"corresponde a mais de um cadastro atual: {nomes}."
+        if len(ids) == 1:
+            produto_ids[nome] = matches[0]["id"]
+            continue
+
+        # Se houver múltiplos candidatos, não escolhemos arbitrariamente.
+        # Procuramos somente o produto histórico determinístico desta migração.
+        historico_id = _id(f"produto-historico:{_norm(nome)}")
+        historico_existente = next(
+            (
+                row
+                for row in produto_rows
+                if row["id"] == historico_id
+            ),
+            None,
+        )
+
+        if historico_existente is None:
+            bind.execute(
+                produtos.insert().values(
+                    id=historico_id,
+                    codigo=spec["codigo"],
+                    nome=nome,
+                    setor_id=setor_historico_id,
+                    deposito_id=None,
+                    gaveta_id=None,
+                    quantidade=0.0,
+                    unidade="kg",
+                    estoque_minimo=0.0,
+                    custo_unitario=0.0,
+                    venda=spec["venda"],
+                    created_date=now,
+                    updated_date=now,
+                    created_by_id=None,
+                )
             )
 
-        produto_ids[nome] = matches[0]["id"]
+            produto_rows.append(
+                {
+                    "id": historico_id,
+                    "codigo": spec["codigo"],
+                    "nome": nome,
+                }
+            )
+
+        produto_ids[nome] = historico_id
 
     pessoa_rows = bind.execute(
         sa.select(
@@ -536,7 +650,6 @@ def upgrade() -> None:
         pessoas_por_nome[_norm(row["nome"])].append(row)
 
     pessoa_ids = {}
-    now = datetime.now(timezone.utc)
 
     for nome, papeis in PESSOAS.items():
         matches = pessoas_por_nome[_norm(nome)]
