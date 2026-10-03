@@ -57,6 +57,7 @@ class ExecutarRelatorioRequest(BaseModel):
     data_ate: date | None = None
     filtros: dict[str, Any] = Field(default_factory=dict)
     limite: int = Field(default=50000, ge=1, le=50000)
+    mobile_view: bool = False
 
 
 def _num(valor: Any) -> float:
@@ -1043,6 +1044,144 @@ def _movimento_rows(db: Session, ctx: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def _resumo_financeiro_pedido(
+    pedido: PedidoPesagem,
+    tickets: list[TicketPesagem],
+    pagamentos: list[Pagamento],
+) -> dict[str, Any]:
+    carregado_kg = sum(
+        _num(ticket.peso_liquido)
+        for ticket in tickets
+        if ticket.status == "fechado"
+    )
+
+    peso_saca = _num(pedido.peso_saca_kg)
+    valor_saca = _num(pedido.valor_saca)
+    valor_carregado = (
+        (carregado_kg / peso_saca) * valor_saca
+        if peso_saca > 0 and valor_saca > 0
+        else 0.0
+    )
+
+    valor_contratado = _num(pedido.valor_total)
+    valor_pedido = (
+        valor_carregado
+        if bool(pedido.sem_limite)
+        else (
+            valor_contratado
+            if valor_contratado > 0
+            else valor_carregado
+        )
+    )
+
+    valor_pago = sum(_num(pag.valor) for pag in pagamentos)
+    saldo_receber = max(0.0, valor_pedido - valor_pago)
+    credito = max(0.0, valor_pago - valor_pedido)
+
+    if pedido.status == "cancelado":
+        status_financeiro = "Cancelado"
+    elif valor_pedido > 0 and saldo_receber <= 0.005:
+        status_financeiro = "Pago"
+    elif valor_pago > 0:
+        status_financeiro = "Parcial"
+    else:
+        status_financeiro = "Pendente"
+
+    return {
+        "carregado_kg": carregado_kg,
+        "valor_pedido": valor_pedido,
+        "valor_pago": valor_pago,
+        "saldo_receber": saldo_receber,
+        "credito": credito,
+        "status_financeiro": status_financeiro,
+    }
+
+
+def _pagamentos_resumo_mobile_rows(
+    db: Session,
+    ctx: dict[str, Any],
+) -> list[dict[str, Any]]:
+    pedidos = ctx["pedidos"]
+    pessoas = ctx["pessoas"]
+    produtos = ctx["produtos"]
+
+    tickets_por_pedido: dict[str, list[TicketPesagem]] = defaultdict(list)
+    for ticket in db.scalars(
+        select(TicketPesagem).order_by(TicketPesagem.data_abertura.desc())
+    ).all():
+        if ticket.pedido_id:
+            tickets_por_pedido[ticket.pedido_id].append(ticket)
+
+    pagamentos_por_pedido: dict[str, list[Pagamento]] = defaultdict(list)
+    for pagamento in db.scalars(
+        select(Pagamento).order_by(Pagamento.data_pagamento.desc())
+    ).all():
+        pagamentos_por_pedido[pagamento.pedido_id].append(pagamento)
+
+    rows = []
+
+    for pedido in sorted(
+        pedidos.values(),
+        key=lambda item: str(
+            item.created_date or item.updated_date or ""
+        ),
+        reverse=True,
+    ):
+        cliente = pessoas.get(pedido.cliente_id)
+        produto = produtos.get(pedido.produto_id)
+        pagtos = pagamentos_por_pedido.get(pedido.id, [])
+        resumo = _resumo_financeiro_pedido(
+            pedido,
+            tickets_por_pedido.get(pedido.id, []),
+            pagtos,
+        )
+
+        ultimo_pagamento = (
+            max(
+                (pag.data_pagamento for pag in pagtos if pag.data_pagamento),
+                default=None,
+            )
+        )
+
+        rows.append({
+            "pedido": pedido.numero or pedido.id,
+            "pedido_id": pedido.id,
+            "cliente": _texto_local(cliente.nome if cliente else None),
+            "cliente_id": pedido.cliente_id or "",
+            "produto": _texto_local(produto.nome if produto else None),
+            "produto_id": pedido.produto_id or "",
+            "sem_limite": bool(pedido.sem_limite),
+            "carregado_kg": resumo["carregado_kg"],
+            "valor_pedido": resumo["valor_pedido"],
+            "valor_pago": resumo["valor_pago"],
+            "saldo_receber": resumo["saldo_receber"],
+            "credito": resumo["credito"],
+            "status_financeiro": resumo["status_financeiro"],
+            "data_pedido": pedido.created_date or pedido.updated_date,
+            "ultimo_pagamento": ultimo_pagamento,
+        })
+
+    return rows
+
+
+MOBILE_PAGAMENTOS_META = {
+    "columns": [
+        _col("pedido", "Pedido"),
+        _col("cliente", "Cliente"),
+        _col("produto", "Produto"),
+        _col("valor_pedido", "Valor do pedido", "currency"),
+        _col("valor_pago", "Pago", "currency"),
+        _col("saldo_receber", "Falta receber", "currency"),
+        _col("status_financeiro", "Status"),
+        _col("carregado_kg", "Carregado", "number"),
+        _col("sem_limite", "Sem limite", "boolean"),
+    ],
+    "filters": [
+        _filtro("cliente_id", "Cliente", "clientes"),
+    ],
+}
+
+
 def _build_rows(codigo: str, db: Session, current_user: User) -> list[dict[str, Any]]:
     ctx = _contexto(db)
     produtos = ctx["produtos"]
@@ -1874,14 +2013,35 @@ def executar_relatorio(
     if meta.get("admin_only") and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Relatório disponível somente para administradores.")
 
-    rows = _build_rows(codigo, db, current_user)
-    rows = _filtrar_rows(rows, meta, dados, current_user)
+    if codigo == "pagamentos" and dados.mobile_view:
+        rows = _pagamentos_resumo_mobile_rows(
+            db,
+            _contexto(db),
+        )
+        mobile_meta = {
+            **meta,
+            **MOBILE_PAGAMENTOS_META,
+        }
+        mobile_meta.pop("date_key", None)
+        rows = _filtrar_rows(
+            rows,
+            mobile_meta,
+            dados,
+            current_user,
+        )
+        visible_keys = [
+            c["key"]
+            for c in MOBILE_PAGAMENTOS_META["columns"]
+        ]
+    else:
+        rows = _build_rows(codigo, db, current_user)
+        rows = _filtrar_rows(rows, meta, dados, current_user)
+        visible_keys = [c["key"] for c in meta.get("columns", [])]
 
     total = len(rows)
     truncado = total > dados.limite
     rows = rows[: dados.limite]
 
-    visible_keys = [c["key"] for c in meta.get("columns", [])]
     cleaned = [
         {key: row.get(key) for key in visible_keys}
         for row in rows
@@ -1894,4 +2054,9 @@ def executar_relatorio(
         "returned": len(cleaned),
         "truncated": truncado,
         "generated_at": datetime.now().astimezone(),
+        "view": (
+            "mobile_order_summary"
+            if codigo == "pagamentos" and dados.mobile_view
+            else "table"
+        ),
     }
