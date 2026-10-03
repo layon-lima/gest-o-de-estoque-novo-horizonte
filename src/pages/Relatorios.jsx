@@ -60,6 +60,10 @@ import SearchSelect from '@/components/SearchSelect';
 import { useToast } from '@/components/ui/use-toast';
 import { relatoriosApi } from '@/api/relatoriosClient';
 import { exportExcel, exportPDF } from '@/lib/exports';
+import {
+  MobileReportCatalog,
+  MobileReportRunner,
+} from '@/components/relatorios/MobileRelatorios';
 
 
 const ICONS = {
@@ -157,6 +161,30 @@ function formatCell(value, type) {
 function reportIcon(report, className = 'h-5 w-5') {
   const Icon = ICONS[report.icon] || FileText;
   return <Icon className={className} />;
+}
+
+
+function useMobileReports() {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+
+    update();
+    media.addEventListener?.('change', update);
+
+    return () => {
+      media.removeEventListener?.('change', update);
+    };
+  }, []);
+
+  return isMobile;
 }
 
 
@@ -732,6 +760,7 @@ function ReportRunner({ report, options, onBack }) {
 
 export default function Relatorios() {
   const { toast } = useToast();
+  const isMobile = useMobileReports();
 
   const [loading, setLoading] = useState(true);
   const [catalog, setCatalog] = useState({
@@ -801,11 +830,40 @@ export default function Relatorios() {
   }, [filtered]);
 
   if (selected) {
+    if (isMobile) {
+      return (
+        <MobileReportRunner
+          report={selected}
+          options={catalog.options}
+          onBack={() => setSelected(null)}
+          renderIcon={reportIcon}
+          formatCell={formatCell}
+        />
+      );
+    }
+
     return (
       <ReportRunner
         report={selected}
         options={catalog.options}
         onBack={() => setSelected(null)}
+      />
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <MobileReportCatalog
+        catalog={catalog}
+        filtered={filtered}
+        grouped={grouped}
+        category={category}
+        setCategory={setCategory}
+        search={search}
+        setSearch={setSearch}
+        loading={loading}
+        onOpen={setSelected}
+        renderIcon={reportIcon}
       />
     );
   }
