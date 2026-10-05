@@ -417,6 +417,7 @@ export default function Abastecimento() {
             produtoPredefinido={produtoPredefinido}
             saving={saving}
             fotoOpcional={user?.role === 'admin'}
+            userId={user?.id}
             onSubmit={handleSubmit}
             onBack={() => { setMaquinaSelecionada(null); setMaquinaId(null); }}
           />
