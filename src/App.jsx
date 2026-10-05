@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import UsuarioPermissoes from '@/pages/UsuarioPermissoes';
 import { ThemeProvider } from 'next-themes';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -28,6 +29,7 @@ import MobileAdmin from '@/pages/mobile/MobileAdmin';
 import MobileEntradaSaldo from '@/pages/mobile/MobileEntradaSaldo';
 import { BalancaProvider } from '@/lib/balancaContext';
 import { Toaster } from '@/components/ui/toaster';
+import { sincronizarAbastecimentosOffline } from '@/lib/abastecimentoOffline';
 
 function MobileOnly({ children }) {
   const isMobile = useIsMobile();
@@ -40,6 +42,7 @@ function ResponsiveInventario() {
 }
 
 const AuthenticatedApp = () => {
+  const isMobile = useIsMobile();
   const {
     isLoadingAuth,
     isLoadingPublicSettings,
@@ -47,6 +50,61 @@ const AuthenticatedApp = () => {
     isAuthenticated,
     navigateToLogin,
   } = useAuth();
+
+  useEffect(() => {
+    if (
+      !isMobile
+      || !isAuthenticated
+      || !user?.id
+    ) {
+      return undefined;
+    }
+
+    const sincronizar = () => {
+      if (
+        typeof document !== 'undefined'
+        && document.visibilityState === 'hidden'
+      ) {
+        return;
+      }
+
+      sincronizarAbastecimentosOffline({
+        userId: user.id,
+      }).catch(() => {
+        // Sincronização silenciosa: uma próxima retomada tentará novamente.
+      });
+    };
+
+    const aoVisivel = () => {
+      if (document.visibilityState === 'visible') {
+        sincronizar();
+      }
+    };
+
+    sincronizar();
+
+    window.addEventListener('online', sincronizar);
+    window.addEventListener('focus', sincronizar);
+    window.addEventListener('pageshow', sincronizar);
+    document.addEventListener(
+      'visibilitychange',
+      aoVisivel
+    );
+
+    return () => {
+      window.removeEventListener('online', sincronizar);
+      window.removeEventListener('focus', sincronizar);
+      window.removeEventListener('pageshow', sincronizar);
+      document.removeEventListener(
+        'visibilitychange',
+        aoVisivel
+      );
+    };
+  }, [
+    isMobile,
+    isAuthenticated,
+    user?.id,
+  ]);
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
