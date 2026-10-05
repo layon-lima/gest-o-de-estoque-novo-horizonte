@@ -229,15 +229,22 @@ export default function AbastecimentoForm({
     }
 
     if (isMobile) {
+      setFotoFile(file);
+      setFotoUrl('');
+      setFotoPreview(
+        URL.createObjectURL(file)
+      );
       setUploading(true);
 
       try {
         const otimizada = await otimizarFotoMobile(file);
-        setFotoFile(otimizada);
-        setFotoUrl('');
-        setFotoPreview(
-          URL.createObjectURL(otimizada)
-        );
+
+        if (otimizada !== file) {
+          setFotoFile(otimizada);
+          setFotoPreview(
+            URL.createObjectURL(otimizada)
+          );
+        }
       } finally {
         setUploading(false);
       }
