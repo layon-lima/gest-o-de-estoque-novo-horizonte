@@ -117,6 +117,14 @@ const AuthenticatedApp = () => {
             </MobileOnly>
           }
         />
+        <Route
+          path="/entrada-manual-saldo/:setorId"
+          element={
+            <MobileOnly>
+              <MobileEntradaSaldo />
+            </MobileOnly>
+          }
+        />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

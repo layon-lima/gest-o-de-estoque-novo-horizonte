@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
   Camera,
   Check,
-  Search,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   Loader2,
+  Search,
   Send,
   XCircle,
 } from 'lucide-react';
@@ -45,7 +50,9 @@ async function carregarImagem(file) {
     const image = await new Promise((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Não foi possível abrir a imagem.'));
+      img.onerror = () => reject(
+        new Error('Não foi possível abrir a imagem.')
+      );
       img.src = url;
     });
 
@@ -73,7 +80,9 @@ async function recortarQuadrado(file) {
 
   const context = canvas.getContext('2d');
   if (!context) {
-    throw new Error('O navegador não conseguiu preparar a foto.');
+    throw new Error(
+      'O navegador não conseguiu preparar a foto.'
+    );
   }
 
   const sx = Math.max(0, (width - side) / 2);
@@ -101,7 +110,7 @@ async function recortarQuadrado(file) {
 
   return new File(
     [blob],
-    `produto-1x1-${Date.now()}.jpg`,
+    'produto-1x1-' + Date.now() + '.jpg',
     { type: 'image/jpeg' }
   );
 }
@@ -110,8 +119,8 @@ function numeroDaGaveta(gaveta) {
   const grupos = String(gaveta?.codigo || '').match(/\d+/g);
   if (!grupos?.length) return null;
 
-  const numero = Number(grupos[grupos.length - 1]);
-  return Number.isFinite(numero) ? numero : null;
+  const valor = Number(grupos[grupos.length - 1]);
+  return Number.isFinite(valor) ? valor : null;
 }
 
 function digitosDaGaveta(gaveta) {
@@ -120,11 +129,23 @@ function digitosDaGaveta(gaveta) {
 }
 
 function labelGaveta(gaveta) {
-  return `${gaveta?.codigo || 'Gaveta'}${
-    gaveta?.descricao
-      ? ` — ${gaveta.descricao}`
-      : ''
-  }`;
+  return (
+    (gaveta?.codigo || 'Gaveta') +
+    (gaveta?.descricao ? ' — ' + gaveta.descricao : '')
+  );
+}
+
+function labelDeposito(deposito) {
+  const numeroDeposito = String(
+    deposito?.numero || ''
+  ).trim();
+  const nome = String(deposito?.nome || '').trim();
+
+  if (numeroDeposito && nome) {
+    return numeroDeposito + ' — ' + nome;
+  }
+
+  return numeroDeposito || nome || 'Depósito';
 }
 
 function GavetaExactSearch({
@@ -159,7 +180,8 @@ function GavetaExactSearch({
   }, [selecionada, open]);
 
   const resultado = useMemo(() => {
-    const somenteDigitos = String(query || '').replace(/\D/g, '');
+    const somenteDigitos = String(query || '')
+      .replace(/\D/g, '');
 
     if (!somenteDigitos) {
       return [];
@@ -233,12 +255,15 @@ function GavetaExactSearch({
                   key={gaveta.id}
                   type="button"
                   className="flex min-h-12 w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-accent"
-                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseDown={(event) =>
+                    event.preventDefault()
+                  }
                   onClick={() => escolher(gaveta)}
                 >
                   <span className="font-semibold">
                     {labelGaveta(gaveta)}
                   </span>
+
                   {ativa ? (
                     <Check className="h-4 w-4 shrink-0 text-primary" />
                   ) : null}
@@ -271,15 +296,23 @@ function InlineNotice({ notice }) {
     <div
       role="status"
       aria-live="polite"
-      className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm ${tone}`}
+      className={
+        'flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm ' +
+        tone
+      }
     >
       <Icon
-        className={`mt-0.5 h-4 w-4 shrink-0 ${
-          notice.type === 'info' ? 'animate-spin' : ''
-        }`}
+        className={
+          'mt-0.5 h-4 w-4 shrink-0 ' +
+          (notice.type === 'info' ? 'animate-spin' : '')
+        }
       />
+
       <div className="min-w-0">
-        <strong className="block text-sm leading-5">{notice.title}</strong>
+        <strong className="block text-sm leading-5">
+          {notice.title}
+        </strong>
+
         {notice.description ? (
           <span className="mt-0.5 block text-xs leading-5 opacity-80">
             {notice.description}
@@ -304,13 +337,14 @@ function StatusItem({ item }) {
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-xl border bg-background px-3 py-2.5">
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          aprovado
+        className={
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ' +
+          (aprovado
             ? 'bg-emerald-100 text-emerald-700'
             : rejeitado
               ? 'bg-red-100 text-red-700'
-              : 'bg-amber-100 text-amber-700'
-        }`}
+              : 'bg-amber-100 text-amber-700')
+        }
       >
         <Icon className="h-4 w-4" />
       </span>
@@ -319,6 +353,7 @@ function StatusItem({ item }) {
         <strong className="block truncate text-sm font-semibold">
           {item.nome_produto}
         </strong>
+
         <span className="block truncate text-[11px] text-muted-foreground">
           {item.quantidade} {item.unidade || 'un'} · {
             status === 'PENDENTE'
@@ -333,8 +368,91 @@ function StatusItem({ item }) {
   );
 }
 
+// A seleção de setor é uma etapa própria para manter o usuário no contexto escolhido.
+function SectorSelection({
+  setores,
+  depositos,
+  loading,
+  onBack,
+  onSelect,
+}) {
+  return (
+    <div className="mobile-page pb-6">
+      <header className="mb-4 flex items-center gap-3">
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-background"
+          onClick={onBack}
+          aria-label="Voltar"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-bold leading-tight">
+            Entrada Manual de Saldo
+          </h1>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Selecione o setor onde será feita a entrada.
+          </p>
+        </div>
+      </header>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : setores.length === 0 ? (
+        <div className="rounded-2xl border border-dashed p-5 text-center">
+          <p className="text-sm font-semibold">
+            Nenhum setor disponível
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Seu usuário não possui setores liberados para esta operação.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {setores.map((setor) => {
+            const totalDepositos = depositos.filter(
+              (deposito) =>
+                deposito.setor_id === setor.id
+            ).length;
+
+            return (
+              <button
+                key={setor.id}
+                type="button"
+                onClick={() => onSelect(setor.id)}
+                className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border bg-card px-3.5 py-3 text-left active:bg-muted/35"
+              >
+                <div className="min-w-0 flex-1">
+                  <strong className="block break-words text-sm font-bold leading-tight">
+                    {setor.nome}
+                  </strong>
+
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {totalDepositos === 1
+                      ? '1 depósito · seleção automática'
+                      : totalDepositos > 1
+                        ? totalDepositos + ' depósitos'
+                        : 'Sem depósito cadastrado'}
+                  </span>
+                </div>
+
+                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/60" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MobileEntradaSaldo() {
   const navigate = useNavigate();
+  const { setorId } = useParams();
   const { user } = useAuth();
 
   const permitido =
@@ -351,20 +469,6 @@ export default function MobileEntradaSaldo() {
   const depositos = data.Deposito || [];
   const gavetas = data.Gaveta || [];
 
-  const [form, setForm] = useState({
-    nome_produto: '',
-    quantidade: '',
-    setor_id: '',
-    deposito_id: '',
-    gaveta_id: '',
-    foto_url: '',
-  });
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState(null);
-  const [recentes, setRecentes] = useState([]);
-  const [loadingRecentes, setLoadingRecentes] = useState(false);
-
   const setoresPermitidos = useMemo(
     () =>
       setoresAcessiveis(setores, user)
@@ -378,23 +482,90 @@ export default function MobileEntradaSaldo() {
     [setores, user]
   );
 
+  const setorSelecionado = useMemo(
+    () =>
+      setoresPermitidos.find(
+        (item) => String(item.id) === String(setorId || '')
+      ) || null,
+    [setoresPermitidos, setorId]
+  );
+
   const depositosDoSetor = useMemo(
     () =>
-      depositos
-        .filter(
-          (item) =>
-            !!form.setor_id
-            && item.setor_id === form.setor_id
-        )
-        .slice()
-        .sort((a, b) =>
-          `${a.numero || ''} ${a.nome || ''}`.localeCompare(
-            `${b.numero || ''} ${b.nome || ''}`,
-            'pt-BR'
-          )
-        ),
-    [depositos, form.setor_id]
+      setorSelecionado
+        ? depositos
+            .filter(
+              (item) =>
+                item.setor_id === setorSelecionado.id
+            )
+            .slice()
+            .sort((a, b) =>
+              labelDeposito(a).localeCompare(
+                labelDeposito(b),
+                'pt-BR'
+              )
+            )
+        : [],
+    [depositos, setorSelecionado]
   );
+
+  const depositoUnico =
+    depositosDoSetor.length === 1
+      ? depositosDoSetor[0]
+      : null;
+
+  const [form, setForm] = useState({
+    nome_produto: '',
+    quantidade: '',
+    deposito_id: '',
+    gaveta_id: '',
+    foto_url: '',
+  });
+
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const [recentes, setRecentes] = useState([]);
+  const [loadingRecentes, setLoadingRecentes] = useState(false);
+
+  useEffect(() => {
+    if (!setorSelecionado) {
+      return;
+    }
+
+    setNotice(null);
+
+    setForm((prev) => {
+      const depositoAtualValido =
+        !!prev.deposito_id
+        && depositosDoSetor.some(
+          (item) => item.id === prev.deposito_id
+        );
+
+      const proximoDeposito = depositoUnico
+        ? depositoUnico.id
+        : depositoAtualValido
+          ? prev.deposito_id
+          : '';
+
+      if (
+        prev.deposito_id === proximoDeposito
+        && !prev.gaveta_id
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        deposito_id: proximoDeposito,
+        gaveta_id: '',
+      };
+    });
+  }, [
+    setorSelecionado,
+    depositoUnico,
+    depositosDoSetor,
+  ]);
 
   const gavetasDoDeposito = useMemo(
     () =>
@@ -407,14 +578,22 @@ export default function MobileEntradaSaldo() {
     [gavetas, form.deposito_id]
   );
 
-  const depositoUnico =
-    depositosDoSetor.length === 1
-      ? depositosDoSetor[0]
-      : null;
-
   const gavetaObrigatoria =
     !!form.deposito_id
     && gavetasDoDeposito.length > 0;
+
+  const recentesDoSetor = useMemo(
+    () =>
+      setorSelecionado
+        ? recentes
+            .filter(
+              (item) =>
+                item.setor_id === setorSelecionado.id
+            )
+            .slice(0, 3)
+        : [],
+    [recentes, setorSelecionado]
+  );
 
   async function carregarRecentes() {
     if (!permitido) return;
@@ -423,7 +602,7 @@ export default function MobileEntradaSaldo() {
 
     try {
       const itens = await entradaSaldoMobileApi.minhas();
-      setRecentes((itens || []).slice(0, 3));
+      setRecentes(itens || []);
     } catch {
       setRecentes([]);
     } finally {
@@ -435,58 +614,14 @@ export default function MobileEntradaSaldo() {
     carregarRecentes();
   }, [permitido]);
 
-  useEffect(() => {
-    if (!form.setor_id) {
-      return;
-    }
-
-    if (
-      depositoUnico
-      && form.deposito_id !== depositoUnico.id
-    ) {
-      setForm((prev) => ({
-        ...prev,
-        deposito_id: depositoUnico.id,
-        gaveta_id: '',
-      }));
-      return;
-    }
-
-    if (
-      form.deposito_id
-      && !depositosDoSetor.some(
-        (item) => item.id === form.deposito_id
-      )
-    ) {
-      setForm((prev) => ({
-        ...prev,
-        deposito_id: '',
-        gaveta_id: '',
-      }));
-    }
-  }, [
-    form.setor_id,
-    form.deposito_id,
-    depositoUnico,
-    depositosDoSetor,
-  ]);
-
   function setCampo(campo, valor) {
     setNotice(null);
 
     setForm((prev) => ({
       ...prev,
       [campo]: valor,
-      ...(campo === 'setor_id'
-        ? {
-            deposito_id: '',
-            gaveta_id: '',
-          }
-        : {}),
       ...(campo === 'deposito_id'
-        ? {
-            gaveta_id: '',
-          }
+        ? { gaveta_id: '' }
         : {}),
     }));
   }
@@ -506,7 +641,8 @@ export default function MobileEntradaSaldo() {
     setNotice({
       type: 'info',
       title: 'Preparando foto...',
-      description: 'A imagem será ajustada automaticamente para 1:1.',
+      description:
+        'A imagem será ajustada automaticamente para 1:1.',
     });
 
     try {
@@ -534,6 +670,11 @@ export default function MobileEntradaSaldo() {
   async function enviar(event) {
     event.preventDefault();
 
+    if (!setorSelecionado) {
+      erro('Selecione um setor.');
+      return;
+    }
+
     const quantidade = numero(form.quantidade);
 
     if (!form.nome_produto.trim()) {
@@ -546,13 +687,12 @@ export default function MobileEntradaSaldo() {
       return;
     }
 
-    if (!form.setor_id) {
-      erro('Selecione o setor.');
-      return;
-    }
-
     if (!form.deposito_id) {
-      erro('Selecione o depósito.');
+      erro(
+        depositosDoSetor.length === 0
+          ? 'Este setor não possui depósito cadastrado.'
+          : 'Selecione o depósito.'
+      );
       return;
     }
 
@@ -574,25 +714,25 @@ export default function MobileEntradaSaldo() {
       await entradaSaldoMobileApi.criar({
         nome_produto: form.nome_produto.trim(),
         quantidade,
-        setor_id: form.setor_id,
+        setor_id: setorSelecionado.id,
         deposito_id: form.deposito_id,
         gaveta_id: form.gaveta_id || null,
         foto_url: form.foto_url || null,
       });
 
-      setForm({
+      setForm((prev) => ({
         nome_produto: '',
         quantidade: '',
-        setor_id: '',
-        deposito_id: '',
+        deposito_id: prev.deposito_id,
         gaveta_id: '',
         foto_url: '',
-      });
+      }));
 
       setNotice({
         type: 'success',
         title: 'Enviado para revisão.',
-        description: 'O estoque só será alterado depois da aprovação no computador.',
+        description:
+          'Você continua neste setor para lançar o próximo produto.',
       });
 
       await carregarRecentes();
@@ -610,26 +750,60 @@ export default function MobileEntradaSaldo() {
     return <Navigate to="/" replace />;
   }
 
+  if (!setorId || (!loading && !setorSelecionado)) {
+    return (
+      <SectorSelection
+        setores={setoresPermitidos}
+        depositos={depositos}
+        loading={loading}
+        onBack={() => navigate('/')}
+        onSelect={(id) =>
+          navigate(
+            '/entrada-manual-saldo/' +
+            encodeURIComponent(id)
+          )
+        }
+      />
+    );
+  }
+
+  if (loading || !setorSelecionado) {
+    return (
+      <div className="mobile-page flex min-h-[45vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="mobile-page pb-6">
       <header className="mb-3 flex items-center gap-3">
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-background"
-          onClick={() => navigate('/')}
-          aria-label="Voltar"
+          onClick={() => navigate('/entrada-manual-saldo')}
+          aria-label="Trocar setor"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
 
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+            Entrada Manual
+          </span>
+
           <h1 className="truncate text-lg font-bold leading-tight">
-            Entrada Manual de Saldo
+            {setorSelecionado.nome}
           </h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Preencha e envie para revisão.
-          </p>
         </div>
+
+        <button
+          type="button"
+          className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-primary"
+          onClick={() => navigate('/entrada-manual-saldo')}
+        >
+          Trocar setor
+        </button>
       </header>
 
       <form onSubmit={enviar} className="space-y-3">
@@ -638,13 +812,14 @@ export default function MobileEntradaSaldo() {
             <Label htmlFor="entrada-mobile-produto">
               Produto
             </Label>
+
             <Input
               id="entrada-mobile-produto"
               value={form.nome_produto}
-              onChange={(e) =>
+              onChange={(event) =>
                 setCampo(
                   'nome_produto',
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="Nome do produto"
@@ -658,14 +833,15 @@ export default function MobileEntradaSaldo() {
             <Label htmlFor="entrada-mobile-qtd">
               Quantidade
             </Label>
+
             <Input
               id="entrada-mobile-qtd"
               inputMode="decimal"
               value={form.quantidade}
-              onChange={(e) =>
+              onChange={(event) =>
                 setCampo(
                   'quantidade',
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="0,00"
@@ -673,51 +849,11 @@ export default function MobileEntradaSaldo() {
               required
             />
           </div>
-        </section>
 
-        <section className="space-y-3 rounded-2xl border bg-card p-3.5">
-          <div className="space-y-1.5">
-            <Label>Setor</Label>
-            <SearchSelect
-              value={form.setor_id || 'all'}
-              onChange={(value) =>
-                setCampo(
-                  'setor_id',
-                  value === 'all'
-                    ? ''
-                    : value
-                )
-              }
-              allLabel="Selecione o setor"
-              placeholder="Selecione o setor"
-              options={setoresPermitidos.map(
-                (item) => ({
-                  value: item.id,
-                  label: item.nome,
-                })
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
+          {depositosDoSetor.length > 1 ? (
+            <div className="space-y-1.5">
               <Label>Depósito</Label>
-              {depositoUnico ? (
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                  Automático
-                </span>
-              ) : null}
-            </div>
 
-            {depositoUnico ? (
-              <div className="flex h-12 items-center rounded-xl border bg-muted/30 px-3 text-sm font-medium text-foreground">
-                {`${depositoUnico.numero || ''}${
-                  depositoUnico.nome
-                    ? ` — ${depositoUnico.nome}`
-                    : ''
-                }`.trim()}
-              </div>
-            ) : (
               <SearchSelect
                 value={form.deposito_id || 'all'}
                 onChange={(value) =>
@@ -728,32 +864,30 @@ export default function MobileEntradaSaldo() {
                       : value
                   )
                 }
-                disabled={!form.setor_id}
-                allLabel={
-                  form.setor_id
-                    ? 'Selecione o depósito'
-                    : 'Escolha o setor primeiro'
-                }
+                allLabel="Selecione o depósito"
                 placeholder="Selecione o depósito"
                 options={depositosDoSetor.map(
                   (item) => ({
                     value: item.id,
-                    label: `${item.numero || ''}${
-                      item.nome
-                        ? ` — ${item.nome}`
-                        : ''
-                    }`.trim(),
+                    label: labelDeposito(item),
                   })
                 )}
               />
-            )}
-          </div>
+            </div>
+          ) : null}
+
+          {depositosDoSetor.length === 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+              Este setor ainda não possui depósito cadastrado.
+            </div>
+          ) : null}
 
           {form.deposito_id
             && gavetasDoDeposito.length > 0 ? (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label>Gaveta</Label>
+
                   <span className="text-[10px] font-semibold text-amber-700">
                     OBRIGATÓRIA
                   </span>
@@ -781,6 +915,7 @@ export default function MobileEntradaSaldo() {
           <div className="mb-2.5 flex items-center justify-between">
             <div>
               <Label>Foto</Label>
+
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Opcional · corte automático 1:1
               </p>
@@ -810,13 +945,19 @@ export default function MobileEntradaSaldo() {
         <Button
           type="submit"
           className="h-12 w-full rounded-xl text-base font-semibold"
-          disabled={saving || uploading || loading}
+          disabled={
+            saving
+            || uploading
+            || loading
+            || depositosDoSetor.length === 0
+          }
         >
           {saving ? (
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
             <Send className="mr-2 h-5 w-5" />
           )}
+
           {saving
             ? 'Enviando...'
             : 'Enviar para revisão'}
@@ -825,31 +966,30 @@ export default function MobileEntradaSaldo() {
 
       <section className="mt-5">
         <div className="mb-2 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Últimos envios
-            </span>
-          </div>
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            Últimos envios deste setor
+          </span>
 
           {loadingRecentes ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : null}
         </div>
 
-        {!loadingRecentes && recentes.length === 0 ? (
-          <p className="rounded-xl border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">
-            Nenhum envio ainda.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {recentes.map((item) => (
-              <StatusItem
-                key={item.id}
-                item={item}
-              />
-            ))}
-          </div>
-        )}
+        {!loadingRecentes
+          && recentesDoSetor.length === 0 ? (
+            <p className="rounded-xl border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">
+              Nenhum envio neste setor ainda.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {recentesDoSetor.map((item) => (
+                <StatusItem
+                  key={item.id}
+                  item={item}
+                />
+              ))}
+            </div>
+          )}
       </section>
     </div>
   );
