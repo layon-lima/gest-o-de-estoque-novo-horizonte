@@ -9,6 +9,7 @@ import SearchSelect from '@/components/SearchSelect';
 import { api } from '@/api/apiClient';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatQtd, parseQtd } from '@/lib/format';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function AbastecimentoForm({
   maquina,
@@ -19,11 +20,14 @@ export default function AbastecimentoForm({
   onSubmit,
   onBack,
 }) {
+  const isMobile = useIsMobile();
   const [produtoId, setProdutoId] = useState(produtoPredefinido?.id || '');
   const [quantidade, setQuantidade] = useState('');
   const [observacao, setObservacao] = useState('');
   const [erro, setErro] = useState('');
   const [fotoUrl, setFotoUrl] = useState('');
+  const [fotoFile, setFotoFile] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
@@ -31,6 +35,14 @@ export default function AbastecimentoForm({
   useEffect(() => {
     if (produtoPredefinido) setProdutoId(produtoPredefinido.id);
   }, [produtoPredefinido]);
+
+  useEffect(() => {
+    return () => {
+      if (fotoPreview) {
+        URL.revokeObjectURL(fotoPreview);
+      }
+    };
+  }, [fotoPreview]);
 
   const produto = useMemo(
     () => combustiveis.find((p) => p.id === produtoId),
@@ -43,12 +55,28 @@ export default function AbastecimentoForm({
   async function handleFoto(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+
     setErro('');
+
+    if (fotoPreview) {
+      URL.revokeObjectURL(fotoPreview);
+    }
+
+    if (isMobile) {
+      setFotoFile(file);
+      setFotoUrl('');
+      setFotoPreview(URL.createObjectURL(file));
+      return;
+    }
+
+    setUploading(true);
+
     try {
       const { file_url } = await api.integrations.Core.UploadFile({ file });
       setFotoUrl(file_url);
-    } catch (err) {
+      setFotoFile(null);
+      setFotoPreview('');
+    } catch {
       setErro('Falha ao enviar a foto. Tente novamente.');
     } finally {
       setUploading(false);
@@ -60,10 +88,11 @@ export default function AbastecimentoForm({
     setErro('');
     if (!produto) { setErro('Selecione o combustível.'); return; }
     if (!(qtd > 0)) { setErro('Informe uma quantidade maior que zero.'); return; }
-    if (!fotoOpcional && !fotoUrl) { setErro('Tire a foto do painel do abastecedor para confirmação.'); return; }
+    if (!fotoOpcional && !fotoUrl && !fotoFile) { setErro('Tire a foto do painel do abastecedor para confirmação.'); return; }
     try {
-      await onSubmit({ produto, quantidade: qtd, observacao, foto_url: fotoUrl });
-      setProdutoId(''); setQuantidade(''); setObservacao(''); setFotoUrl('');
+      await onSubmit({ produto, quantidade: qtd, observacao, foto_url: fotoUrl, foto_file: fotoFile });
+      if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+      setProdutoId(''); setQuantidade(''); setObservacao(''); setFotoUrl(''); setFotoFile(null); setFotoPreview('');
       if (fileRef.current) fileRef.current.value = '';
     } catch (err) {
       setErro(err.message || 'Erro ao registrar abastecimento.');
@@ -117,12 +146,12 @@ export default function AbastecimentoForm({
 
         <div className="space-y-1.5">
           <Label>Foto do painel do abastecedor{fotoOpcional ? '' : ' *'}</Label>
-          {fotoUrl ? (
+          {(fotoUrl || fotoPreview) ? (
             <div className="relative rounded-lg overflow-hidden border">
-              <img src={resolveMediaUrl(fotoUrl)} alt="Painel" className="w-full max-h-56 object-cover" />
+              <img src={fotoPreview || resolveMediaUrl(fotoUrl)} alt="Painel" className="w-full max-h-56 object-cover" />
               <button
                 type="button"
-                onClick={() => { setFotoUrl(''); if (fileRef.current) fileRef.current.value = ''; }}
+                onClick={() => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); setFotoUrl(''); setFotoFile(null); setFotoPreview(''); if (fileRef.current) fileRef.current.value = ''; }}
                 className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
               >
                 <X className="w-4 h-4" />
@@ -151,8 +180,8 @@ export default function AbastecimentoForm({
           />
           <p className="text-xs text-muted-foreground">
             {fotoOpcional
-              ? 'Foto opcional para administradores. Fica anexa ao registro quando enviada.'
-              : 'A foto fica anexa ao registro até um usuário autorizado confirmar a baixa.'}
+              ? 'Foto opcional para administradores.'
+              : 'A foto será enviada junto com o abastecimento e ficará disponível para conferência.'}
           </p>
         </div>
 
