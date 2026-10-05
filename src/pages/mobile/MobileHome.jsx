@@ -110,7 +110,7 @@ export default function MobileHome() {
   const atalhoEntradaManual = {
     key: 'entrada-manual-saldo',
     label: 'Entrada Manual de Saldo',
-    description: 'Cadastrar saldo para revisão',
+    description: 'Escolher setor e lançar saldo',
     path: '/entrada-manual-saldo',
     icon: PackagePlus,
     tone: 'emerald',
