@@ -10,6 +10,28 @@ import { prefetchEntidades } from '@/lib/useEntidades';
 
 
 const AuthContext = createContext();
+const CACHED_USER_KEY = 'nh_cached_user';
+
+function readCachedUser() {
+  try {
+    const raw = localStorage.getItem(CACHED_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user) {
+  try {
+    if (user) {
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(CACHED_USER_KEY);
+    }
+  } catch {
+    // Cache de contingência; nunca bloqueia a autenticação normal.
+  }
+}
 
 
 export const AuthProvider = ({ children }) => {
@@ -35,25 +57,44 @@ export const AuthProvider = ({ children }) => {
   const checkUserAuth = async () => {
     setAuthError(null);
 
-    try {
-      const authenticated =
-        await api.auth.isAuthenticated();
-
-      if (authenticated) {
-        const currentUser =
-          await api.auth.me();
-
-        setUser(currentUser);
-        setIsAuthenticated(true);
-
-        prefetchEntidades(currentUser);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-    } catch {
+    if (!api.auth.hasToken()) {
       setUser(null);
       setIsAuthenticated(false);
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
+      return;
+    }
+
+    try {
+      const currentUser =
+        await api.auth.me();
+
+      writeCachedUser(currentUser);
+      setUser(currentUser);
+      setIsAuthenticated(true);
+
+      prefetchEntidades(currentUser);
+    } catch (error) {
+      if (
+        error?.status === 401
+        || error?.status === 403
+      ) {
+        api.auth.clearToken();
+        writeCachedUser(null);
+        setUser(null);
+        setIsAuthenticated(false);
+      } else {
+        const cachedUser =
+          readCachedUser();
+
+        if (cachedUser) {
+          setUser(cachedUser);
+          setIsAuthenticated(true);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      }
     } finally {
       setIsLoadingAuth(false);
       setAuthChecked(true);
@@ -84,6 +125,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
+    writeCachedUser(null);
 
     api.auth.logout();
   };
