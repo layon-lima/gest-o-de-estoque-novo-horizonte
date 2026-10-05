@@ -563,7 +563,7 @@ export async function registrarAbastecimentoMobileSeguro({
       userId,
     });
   } catch {
-    // O registro já está seguro no IndexedDB.
+    // O registro fica preservado até a próxima tentativa automática.
     // A próxima abertura/retomada do app tentará novamente.
   }
 
