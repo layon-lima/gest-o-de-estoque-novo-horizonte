@@ -1,8 +1,9 @@
 import { api } from '@/api/apiClient';
 
 const DB_NAME = 'estoque-nh-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'abastecimentos_pendentes';
+const DRAFT_STORE_NAME = 'abastecimento_rascunho';
 
 let dbPromise = null;
 let syncPromise = null;
@@ -38,6 +39,13 @@ function abrirBanco() {
           'user_id',
           'user_id',
           { unique: false }
+        );
+      }
+
+      if (!db.objectStoreNames.contains(DRAFT_STORE_NAME)) {
+        db.createObjectStore(
+          DRAFT_STORE_NAME,
+          { keyPath: 'user_id' }
         );
       }
     };
@@ -253,6 +261,109 @@ async function sincronizarRegistro(registro) {
 
   await excluirRegistro(atual.id);
 }
+
+export async function salvarRascunhoAbastecimento({
+  userId,
+  maquinaId,
+  produtoId,
+  quantidade,
+  observacao,
+  fotoFile,
+}) {
+  if (!userId || !maquinaId) return;
+
+  const db = await abrirBanco();
+
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(
+      DRAFT_STORE_NAME,
+      'readwrite'
+    );
+
+    tx.objectStore(DRAFT_STORE_NAME).put({
+      user_id: String(userId),
+      maquina_id: maquinaId,
+      produto_id: produtoId || '',
+      quantidade: quantidade || '',
+      observacao: observacao || '',
+      foto_blob: fotoFile || null,
+      foto_nome: fotoFile?.name || '',
+      foto_tipo: fotoFile?.type || '',
+      updated_at: new Date().toISOString(),
+    });
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(
+      tx.error
+      || new Error('Falha ao preservar o abastecimento em andamento.')
+    );
+  });
+}
+
+export async function carregarRascunhoAbastecimento({
+  userId,
+  maquinaId,
+}) {
+  if (!userId || !maquinaId) return null;
+
+  try {
+    const db = await abrirBanco();
+
+    const registro = await new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        DRAFT_STORE_NAME,
+        'readonly'
+      );
+      const request = tx
+        .objectStore(DRAFT_STORE_NAME)
+        .get(String(userId));
+
+      request.onsuccess = () =>
+        resolve(request.result || null);
+
+      request.onerror = () =>
+        reject(request.error);
+    });
+
+    if (
+      !registro
+      || String(registro.maquina_id)
+        !== String(maquinaId)
+    ) {
+      return null;
+    }
+
+    return registro;
+  } catch {
+    return null;
+  }
+}
+
+export async function limparRascunhoAbastecimento({
+  userId,
+}) {
+  if (!userId) return;
+
+  try {
+    const db = await abrirBanco();
+
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        DRAFT_STORE_NAME,
+        'readwrite'
+      );
+
+      tx.objectStore(DRAFT_STORE_NAME)
+        .delete(String(userId));
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Rascunho auxiliar: falha de limpeza não bloqueia o fluxo.
+  }
+}
+
 
 export async function contarAbastecimentosOffline({
   userId,
