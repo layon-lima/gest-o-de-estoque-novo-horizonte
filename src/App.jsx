@@ -44,6 +44,7 @@ function ResponsiveInventario() {
 const AuthenticatedApp = () => {
   const isMobile = useIsMobile();
   const {
+    user,
     isLoadingAuth,
     isLoadingPublicSettings,
     authError,
