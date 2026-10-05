@@ -39,11 +39,14 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       data?.detail ||
       data?.message ||
       `Erro ${response.status}`
     );
+
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -1044,6 +1047,16 @@ export const api = {
       return result.user;
     },
 
+    hasToken() {
+      return !!getToken();
+    },
+
+    clearToken() {
+      localStorage.removeItem(
+        TOKEN_KEY
+      );
+    },
+
     async isAuthenticated() {
       if (!getToken()) {
         return false;
@@ -1056,10 +1069,15 @@ export const api = {
 
         return true;
 
-      } catch {
-        localStorage.removeItem(
-          TOKEN_KEY
-        );
+      } catch (error) {
+        if (
+          error?.status === 401
+          || error?.status === 403
+        ) {
+          localStorage.removeItem(
+            TOKEN_KEY
+          );
+        }
 
         return false;
       }
