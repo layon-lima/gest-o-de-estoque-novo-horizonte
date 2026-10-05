@@ -10,6 +10,74 @@ import { api } from '@/api/apiClient';
 import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { formatQtd, parseQtd } from '@/lib/format';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  carregarRascunhoAbastecimento,
+  limparRascunhoAbastecimento,
+  salvarRascunhoAbastecimento,
+} from '@/lib/abastecimentoOffline';
+
+async function otimizarFotoMobile(file) {
+  if (
+    !file
+    || !String(file.type || '').startsWith('image/')
+    || file.size < 900 * 1024
+  ) {
+    return file;
+  }
+
+  const url = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    const largura = image.naturalWidth || image.width;
+    const altura = image.naturalHeight || image.height;
+    const maior = Math.max(largura, altura);
+
+    if (!largura || !altura || maior <= 1600) {
+      return file;
+    }
+
+    const escala = 1600 / maior;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(largura * escala));
+    canvas.height = Math.max(1, Math.round(altura * escala));
+
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+
+    context.drawImage(
+      image,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.82)
+    );
+
+    if (!blob || blob.size >= file.size) {
+      return file;
+    }
+
+    return new File(
+      [blob],
+      'abastecimento-' + Date.now() + '.jpg',
+      { type: 'image/jpeg' }
+    );
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 export default function AbastecimentoForm({
   maquina,
@@ -17,6 +85,7 @@ export default function AbastecimentoForm({
   produtoPredefinido,
   saving,
   fotoOpcional,
+  userId,
   onSubmit,
   onBack,
 }) {
@@ -29,6 +98,7 @@ export default function AbastecimentoForm({
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
   const fileRef = useRef(null);
 
   // Sincroniza quando o combustível predefinido da máquina muda.
@@ -43,6 +113,102 @@ export default function AbastecimentoForm({
       }
     };
   }, [fotoPreview]);
+
+  useEffect(() => {
+    if (!isMobile || !userId || !maquina?.id) {
+      setRascunhoCarregado(true);
+      return undefined;
+    }
+
+    let active = true;
+
+    carregarRascunhoAbastecimento({
+      userId,
+      maquinaId: maquina.id,
+    }).then((rascunho) => {
+      if (!active) return;
+
+      if (rascunho) {
+        if (rascunho.produto_id) {
+          setProdutoId(rascunho.produto_id);
+        }
+
+        setQuantidade(
+          String(rascunho.quantidade || '')
+        );
+        setObservacao(
+          rascunho.observacao || ''
+        );
+
+        if (rascunho.foto_blob) {
+          const file = rascunho.foto_blob instanceof File
+            ? rascunho.foto_blob
+            : new File(
+                [rascunho.foto_blob],
+                rascunho.foto_nome || 'abastecimento.jpg',
+                {
+                  type:
+                    rascunho.foto_tipo
+                    || rascunho.foto_blob.type
+                    || 'image/jpeg',
+                }
+              );
+
+          setFotoFile(file);
+          setFotoPreview(
+            URL.createObjectURL(file)
+          );
+        }
+      }
+
+      setRascunhoCarregado(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    isMobile,
+    userId,
+    maquina?.id,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isMobile
+      || !userId
+      || !maquina?.id
+      || !rascunhoCarregado
+    ) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      salvarRascunhoAbastecimento({
+        userId,
+        maquinaId: maquina.id,
+        produtoId,
+        quantidade,
+        observacao,
+        fotoFile,
+      }).catch(() => {
+        // O rascunho é uma proteção extra e não bloqueia o formulário.
+      });
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    isMobile,
+    userId,
+    maquina?.id,
+    produtoId,
+    quantidade,
+    observacao,
+    fotoFile,
+    rascunhoCarregado,
+  ]);
 
   const produto = useMemo(
     () => combustiveis.find((p) => p.id === produtoId),
@@ -63,9 +229,19 @@ export default function AbastecimentoForm({
     }
 
     if (isMobile) {
-      setFotoFile(file);
-      setFotoUrl('');
-      setFotoPreview(URL.createObjectURL(file));
+      setUploading(true);
+
+      try {
+        const otimizada = await otimizarFotoMobile(file);
+        setFotoFile(otimizada);
+        setFotoUrl('');
+        setFotoPreview(
+          URL.createObjectURL(otimizada)
+        );
+      } finally {
+        setUploading(false);
+      }
+
       return;
     }
 
@@ -91,6 +267,9 @@ export default function AbastecimentoForm({
     if (!fotoOpcional && !fotoUrl && !fotoFile) { setErro('Tire a foto do painel do abastecedor para confirmação.'); return; }
     try {
       await onSubmit({ produto, quantidade: qtd, observacao, foto_url: fotoUrl, foto_file: fotoFile });
+      if (isMobile) {
+        await limparRascunhoAbastecimento({ userId });
+      }
       if (fotoPreview) URL.revokeObjectURL(fotoPreview);
       setProdutoId(''); setQuantidade(''); setObservacao(''); setFotoUrl(''); setFotoFile(null); setFotoPreview('');
       if (fileRef.current) fileRef.current.value = '';
@@ -163,7 +342,7 @@ export default function AbastecimentoForm({
           ) : (
             <label htmlFor="ab-foto" className="flex flex-col items-center justify-center gap-2 h-28 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent transition-colors text-muted-foreground">
               {uploading ? (
-                <><Loader2 className="w-6 h-6 animate-spin" /><span className="text-xs">Enviando foto…</span></>
+                <><Loader2 className="w-6 h-6 animate-spin" /><span className="text-xs">{isMobile ? 'Preparando foto…' : 'Enviando foto…'}</span></>
               ) : (
                 <><Camera className="w-6 h-6" /><span className="text-xs">Tirar foto do painel</span></>
               )}
