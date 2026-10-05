@@ -254,6 +254,100 @@ async function sincronizarRegistro(registro) {
   await excluirRegistro(atual.id);
 }
 
+export async function contarAbastecimentosOffline({
+  userId,
+} = {}) {
+  try {
+    const registros = await listarRegistros();
+
+    return registros.filter((registro) => {
+      if (!userId) return true;
+
+      return (
+        !registro.user_id
+        || String(registro.user_id) === String(userId)
+      );
+    }).length;
+  } catch {
+    return 0;
+  }
+}
+
+const CATALOGO_KEY = 'abast:offline:catalogo:v1';
+
+export function salvarCatalogoAbastecimento({
+  maquinas = [],
+  produtos = [],
+  setores = [],
+}) {
+  if (typeof localStorage === 'undefined') return;
+
+  try {
+    localStorage.setItem(
+      CATALOGO_KEY,
+      JSON.stringify({
+        saved_at: new Date().toISOString(),
+        maquinas: maquinas.map((item) => ({
+          id: item.id,
+          codigo: item.codigo || '',
+          nome: item.nome || '',
+          permite_abastecimento:
+            item.permite_abastecimento === true,
+          combustivel_id: item.combustivel_id || '',
+        })),
+        produtos: produtos.map((item) => ({
+          id: item.id,
+          codigo: item.codigo || '',
+          nome: item.nome || '',
+          unidade: item.unidade || 'un',
+          quantidade: Number(item.quantidade || 0),
+          setor_id: item.setor_id || '',
+        })),
+        setores: setores.map((item) => ({
+          id: item.id,
+          nome: item.nome || '',
+        })),
+      })
+    );
+  } catch {
+    // Cache auxiliar: nunca bloqueia o fluxo principal.
+  }
+}
+
+export function carregarCatalogoAbastecimento() {
+  if (typeof localStorage === 'undefined') {
+    return {
+      maquinas: [],
+      produtos: [],
+      setores: [],
+    };
+  }
+
+  try {
+    const raw = localStorage.getItem(CATALOGO_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+
+    return {
+      maquinas: Array.isArray(parsed?.maquinas)
+        ? parsed.maquinas
+        : [],
+      produtos: Array.isArray(parsed?.produtos)
+        ? parsed.produtos
+        : [],
+      setores: Array.isArray(parsed?.setores)
+        ? parsed.setores
+        : [],
+    };
+  } catch {
+    return {
+      maquinas: [],
+      produtos: [],
+      setores: [],
+    };
+  }
+}
+
+
 export async function sincronizarAbastecimentosOffline({
   userId,
 } = {}) {
