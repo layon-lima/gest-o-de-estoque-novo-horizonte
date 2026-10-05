@@ -9,6 +9,13 @@ import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
 import { useToast } from '@/components/ui/use-toast';
 import { getDisplayName } from '@/lib/userName';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  carregarCatalogoAbastecimento,
+  contarAbastecimentosOffline,
+  registrarAbastecimentoMobileSeguro,
+  salvarCatalogoAbastecimento,
+} from '@/lib/abastecimentoOffline';
 import {
   findSetorCombustivel, produtosCombustivel,
   registrarAbastecimentoPendente, confirmarAbastecimento, cancelarAbastecimento,
@@ -20,10 +27,15 @@ import AbastecimentoPendentes from '@/components/abastecimento/AbastecimentoPend
 
 export default function Abastecimento() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [savingId, setSavingId] = useState(null);
   const [sucesso, setSucesso] = useState(false);
+  const [pendentesSync, setPendentesSync] = useState(0);
+  const [catalogoOffline, setCatalogoOffline] = useState(() =>
+    carregarCatalogoAbastecimento()
+  );
 
   const [maquinaSelecionada, setMaquinaSelecionada] = useState(null);
   const [buscaMaquina, setBuscaMaquina] = usePersistentState('abast:busca', '');
@@ -40,9 +52,93 @@ export default function Abastecimento() {
     Abastecimento: { sort: '-data', limit: 200 },
   });
   const {
-    Maquina: maquinas, Produto: produtos, Setor: setores, Lote: lotes,
-    SaldoEstoque: saldos, Movimentacao: movimentacoes, Abastecimento: abastecimentos,
+    Maquina: maquinasRede,
+    Produto: produtosRede,
+    Setor: setoresRede,
+    Lote: lotes,
+    SaldoEstoque: saldos,
+    Movimentacao: movimentacoes,
+    Abastecimento: abastecimentos,
   } = data;
+
+  const maquinas =
+    isMobile && (maquinasRede || []).length === 0
+      ? catalogoOffline.maquinas
+      : (maquinasRede || []);
+
+  const produtos =
+    isMobile && (produtosRede || []).length === 0
+      ? catalogoOffline.produtos
+      : (produtosRede || []);
+
+  const setores =
+    isMobile && (setoresRede || []).length === 0
+      ? catalogoOffline.setores
+      : (setoresRede || []);
+
+  useEffect(() => {
+    if (
+      !isMobile
+      || loading
+      || (maquinasRede || []).length === 0
+      || (produtosRede || []).length === 0
+      || (setoresRede || []).length === 0
+    ) {
+      return;
+    }
+
+    salvarCatalogoAbastecimento({
+      maquinas: maquinasRede,
+      produtos: produtosRede,
+      setores: setoresRede,
+    });
+
+    setCatalogoOffline(
+      carregarCatalogoAbastecimento()
+    );
+  }, [
+    isMobile,
+    loading,
+    maquinasRede,
+    produtosRede,
+    setoresRede,
+  ]);
+
+  useEffect(() => {
+    if (!isMobile) return undefined;
+
+    let active = true;
+
+    const atualizar = async () => {
+      const total = await contarAbastecimentosOffline({
+        userId: user?.id,
+      });
+
+      if (active) {
+        setPendentesSync(total);
+      }
+    };
+
+    const sincronizado = () => {
+      atualizar();
+      load();
+    };
+
+    atualizar();
+
+    window.addEventListener(
+      'abastecimento:offline-synced',
+      sincronizado
+    );
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        'abastecimento:offline-synced',
+        sincronizado
+      );
+    };
+  }, [isMobile, user?.id, load]);
 
   const podeConfirmar = user?.role === 'admin' || user?.pode_confirmar_abastecimento === true;
 
@@ -88,25 +184,70 @@ export default function Abastecimento() {
     }
   }, [maquinas, maquinaId, maquinaSelecionada]);
 
-  async function handleSubmit({ produto, quantidade, observacao, foto_url }) {
+  async function handleSubmit({
+    produto,
+    quantidade,
+    observacao,
+    foto_url,
+    foto_file,
+  }) {
     setSaving(true);
+
     try {
-      await registrarAbastecimentoPendente({
-        maquina: maquinaSelecionada,
-        produto,
-        quantidade,
-        observacao,
-        operador: getDisplayName(user),
-        foto_url,
-      });
-      toast({ title: 'Abastecimento registrado', description: 'Aguardando confirmação de um usuário autorizado para baixar o estoque.' });
+      if (isMobile) {
+        const resultado =
+          await registrarAbastecimentoMobileSeguro({
+            maquina: maquinaSelecionada,
+            produto,
+            quantidade,
+            observacao,
+            operador: getDisplayName(user),
+            fotoFile: foto_file || null,
+            userId: user?.id,
+          });
+
+        const total = await contarAbastecimentosOffline({
+          userId: user?.id,
+        });
+
+        setPendentesSync(total);
+
+        if (resultado.sincronizado) {
+          load();
+        }
+
+        toast({
+          title: 'Abastecimento registrado',
+        });
+      } else {
+        await registrarAbastecimentoPendente({
+          maquina: maquinaSelecionada,
+          produto,
+          quantidade,
+          observacao,
+          operador: getDisplayName(user),
+          foto_url,
+        });
+
+        toast({
+          title: 'Abastecimento registrado',
+          description:
+            'Aguardando confirmação de um usuário autorizado para baixar o estoque.',
+        });
+
+        load();
+      }
+
       setMaquinaSelecionada(null);
       setMaquinaId(null);
       setSucesso(true);
       setTimeout(() => setSucesso(false), 4000);
-      load();
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Erro ao registrar', description: err.message });
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao registrar',
+        description: err.message,
+      });
       throw err;
     } finally {
       setSaving(false);
@@ -158,10 +299,24 @@ export default function Abastecimento() {
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto">
       <header>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Fuel className="w-6 h-6 text-amber-500" />
-          Abastecimento
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Fuel className="w-6 h-6 text-amber-500" />
+            Abastecimento
+          </h1>
+
+          {isMobile && pendentesSync > 0 ? (
+            <Badge
+              variant="outline"
+              className="border-amber-200 bg-amber-50/70 px-2 py-0.5 text-[10px] font-medium text-amber-700"
+            >
+              Sincronização pendente
+              {pendentesSync > 1
+                ? ' · ' + pendentesSync
+                : ''}
+            </Badge>
+          ) : null}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           {podeConfirmar
             ? 'Registre abastecimentos e confirme as baixas pendentes.'
@@ -178,7 +333,7 @@ export default function Abastecimento() {
       {sucesso && (
         <Card className="p-4 border-emerald-300 bg-emerald-50 text-emerald-800 text-sm flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
-          Abastecimento enviado! Aguarde a confirmação da baixa por um usuário autorizado.
+          Abastecimento registrado.
         </Card>
       )}
 
@@ -262,6 +417,7 @@ export default function Abastecimento() {
             produtoPredefinido={produtoPredefinido}
             saving={saving}
             fotoOpcional={user?.role === 'admin'}
+            userId={user?.id}
             onSubmit={handleSubmit}
             onBack={() => { setMaquinaSelecionada(null); setMaquinaId(null); }}
           />
