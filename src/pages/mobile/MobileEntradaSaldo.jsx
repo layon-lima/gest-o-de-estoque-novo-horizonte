@@ -368,7 +368,8 @@ function StatusItem({ item }) {
   );
 }
 
-// A seleção de setor é uma etapa própria para manter o usuário no contexto escolhido.\nfunction SectorSelection({
+// A seleção de setor é uma etapa própria para manter o usuário no contexto escolhido.
+function SectorSelection({
   setores,
   depositos,
   loading,
