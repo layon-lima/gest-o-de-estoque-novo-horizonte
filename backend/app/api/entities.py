@@ -517,6 +517,66 @@ def _validar_duplicidade_maquina(
             )
 
 
+def _abastecimento_mesmo_conteudo(
+    registro: Abastecimento,
+    dados_limpos: dict[str, Any],
+) -> bool:
+    campos_texto = (
+        "maquina_id",
+        "produto_id",
+        "unidade",
+        "operador",
+        "observacao",
+        "foto_url",
+    )
+
+    for campo in campos_texto:
+        if campo not in dados_limpos:
+            continue
+
+        atual = str(
+            getattr(
+                registro,
+                campo,
+                None,
+            )
+            or ""
+        ).strip()
+
+        novo = str(
+            dados_limpos.get(
+                campo
+            )
+            or ""
+        ).strip()
+
+        if atual != novo:
+            return False
+
+    if "quantidade" in dados_limpos:
+        try:
+            atual = float(
+                registro.quantidade
+                or 0
+            )
+            novo = float(
+                dados_limpos.get(
+                    "quantidade"
+                )
+                or 0
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            return False
+
+        if abs(atual - novo) > 0.000001:
+            return False
+
+    return True
+
+
 def _validar_criacao_abastecimento(
     dados_limpos: dict[str, Any],
 ):
@@ -875,6 +935,37 @@ def criar(
         _validar_criacao_abastecimento(
             dados_limpos
         )
+
+        abastecimento_id = str(
+            dados_limpos.get(
+                "id"
+            )
+            or ""
+        ).strip()
+
+        if abastecimento_id:
+            existente = db.get(
+                Abastecimento,
+                abastecimento_id,
+            )
+
+            if existente is not None:
+                if _abastecimento_mesmo_conteudo(
+                    existente,
+                    dados_limpos,
+                ):
+                    return serializar(
+                        existente
+                    )
+
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Já existe um abastecimento "
+                        "com este identificador e "
+                        "dados diferentes."
+                    ),
+                )
 
     if entidade == "Maquina":
         _validar_maquina_sem_deposito(
