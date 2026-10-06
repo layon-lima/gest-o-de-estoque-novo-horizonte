@@ -17,14 +17,14 @@
       "purpose": "any"
     },
     {
-      "src": "/logo-app.png",
-      "sizes": "256x256",
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo-app.png",
-      "sizes": "256x256",
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }

@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Lock, Loader2 } from "lucide-react";
+import { User, Lock, Loader2, Leaf } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { api } from "@/api/apiClient";
 
@@ -33,6 +33,7 @@ export default function Login() {
 
   return (
     <AuthLayout
+      icon={Leaf}
       title="Novo Horizonte"
       subtitle="Controle de Estoque — Acesse o sistema"
     >

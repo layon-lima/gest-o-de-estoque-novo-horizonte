@@ -219,13 +219,6 @@ export default function Layout() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <img
-          src="/logo-app.png"
-          alt=""
-          className="h-8 w-8 rounded-lg bg-white object-contain"
-          aria-hidden="true"
-        />
-
         <span className="font-bold">Controle de Estoque</span>
       </header>
 
