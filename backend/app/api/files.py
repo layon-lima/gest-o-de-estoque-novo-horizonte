@@ -4,7 +4,9 @@ from html.parser import HTMLParser
 import ipaddress
 import json
 from pathlib import Path
+import re
 import socket
+import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote_plus, urljoin, urlparse
 from urllib.request import (
@@ -683,6 +685,367 @@ def _detectar_imagem(
     return None
 
 
+SEARCH_STOPWORDS = {
+    "a",
+    "as",
+    "com",
+    "da",
+    "das",
+    "de",
+    "do",
+    "dos",
+    "e",
+    "em",
+    "imagem",
+    "o",
+    "os",
+    "para",
+    "peca",
+    "produto",
+    "sem",
+}
+
+
+def _normalizar_texto_busca(
+    value: str | None,
+) -> str:
+    texto = unicodedata.normalize(
+        "NFKD",
+        str(value or ""),
+    )
+
+    texto = "".join(
+        char
+        for char in texto
+        if not unicodedata.combining(
+            char
+        )
+    ).lower()
+
+    return re.sub(
+        r"[^a-z0-9]+",
+        " ",
+        texto,
+    ).strip()
+
+
+def _compactar_texto_busca(
+    value: str | None,
+) -> str:
+    return re.sub(
+        r"[^a-z0-9]+",
+        "",
+        _normalizar_texto_busca(
+            value
+        ),
+    )
+
+
+def _tokens_busca(
+    termo: str,
+) -> list[str]:
+    tokens: list[str] = []
+
+    for token in (
+        _normalizar_texto_busca(
+            termo
+        ).split()
+    ):
+        if (
+            len(token) < 2
+            or token in tokens
+        ):
+            continue
+
+        tokens.append(
+            token
+        )
+
+    return tokens
+
+
+def _codigos_busca(
+    termo: str,
+) -> list[str]:
+    codigos: list[str] = []
+
+    for token in _tokens_busca(
+        termo
+    ):
+        if (
+            len(token) >= 5
+            and any(
+                ch.isalpha()
+                for ch in token
+            )
+            and any(
+                ch.isdigit()
+                for ch in token
+            )
+        ):
+            codigos.append(
+                token
+            )
+
+    return codigos
+
+
+def _palavras_busca(
+    termo: str,
+) -> list[str]:
+    codigos = set(
+        _codigos_busca(
+            termo
+        )
+    )
+
+    return [
+        token
+        for token in _tokens_busca(
+            termo
+        )
+        if (
+            token not in codigos
+            and token not in SEARCH_STOPWORDS
+            and len(token) >= 3
+        )
+    ]
+
+
+def _consultas_bing(
+    termo: str,
+) -> list[str]:
+    codigos = _codigos_busca(
+        termo
+    )
+    palavras = _palavras_busca(
+        termo
+    )
+
+    consultas: list[str] = []
+
+    if codigos:
+        codigo_exato = " ".join(
+            f'"{codigo}"'
+            for codigo in codigos
+        )
+
+        complemento = " ".join(
+            palavras[:5]
+        )
+
+        consultas.append(
+            " ".join(
+                part
+                for part in (
+                    codigo_exato,
+                    complemento,
+                )
+                if part
+            )
+        )
+
+        consultas.append(
+            codigo_exato
+        )
+
+    consultas.append(
+        termo
+    )
+
+    resultado: list[str] = []
+
+    for consulta in consultas:
+        consulta = str(
+            consulta or ""
+        ).strip()
+
+        if (
+            not consulta
+            or consulta in resultado
+        ):
+            continue
+
+        resultado.append(
+            consulta
+        )
+
+    return resultado
+
+
+def _buscar_bing_imagens(
+    consulta: str,
+) -> list[dict[str, str]]:
+    search_url = (
+        "https://www.bing.com/images/search"
+        f"?q={quote_plus(consulta)}"
+        "&form=HDRSC3&first=1"
+        "&cc=br&setlang=pt-BR"
+    )
+
+    req = Request(
+        search_url,
+        headers={
+            **_BROWSER_HEADERS,
+            "Accept": (
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,*/*;q=0.8"
+            ),
+        },
+    )
+
+    opener = build_opener()
+
+    with opener.open(
+        req,
+        timeout=10,
+    ) as response:
+        raw = response.read(
+            IMAGE_SEARCH_MAX_HTML_BYTES
+            + 1
+        )
+
+    if (
+        len(raw)
+        > IMAGE_SEARCH_MAX_HTML_BYTES
+    ):
+        raw = raw[
+            :IMAGE_SEARCH_MAX_HTML_BYTES
+        ]
+
+    parser = _BingImagesParser()
+
+    parser.feed(
+        raw.decode(
+            "utf-8",
+            errors="ignore",
+        )
+    )
+
+    return parser.results
+
+
+def _pontuar_resultado_imagem(
+    item: dict[str, str],
+    termo: str,
+) -> int | None:
+    codigos = _codigos_busca(
+        termo
+    )
+    palavras = _palavras_busca(
+        termo
+    )
+
+    titulo = _normalizar_texto_busca(
+        item.get("title")
+    )
+    origem = _normalizar_texto_busca(
+        item.get("source_url")
+    )
+    imagem = _normalizar_texto_busca(
+        item.get("image_url")
+    )
+
+    haystack = " ".join(
+        part
+        for part in (
+            titulo,
+            origem,
+            imagem,
+        )
+        if part
+    )
+
+    compacto = _compactar_texto_busca(
+        haystack
+    )
+
+    score = 0
+
+    if codigos:
+        hits_codigo = sum(
+            1
+            for codigo in codigos
+            if (
+                _compactar_texto_busca(
+                    codigo
+                )
+                in compacto
+            )
+        )
+
+        # Para peças com código, código exato é obrigatório.
+        # Isso evita resultados visualmente bonitos, mas de outro produto.
+        if hits_codigo <= 0:
+            return None
+
+        score += (
+            100
+            * hits_codigo
+        )
+
+    hits_palavra = sum(
+        1
+        for palavra in palavras
+        if re.search(
+            rf"\b{re.escape(palavra)}\b",
+            haystack,
+        )
+    )
+
+    if not codigos:
+        minimo = (
+            1
+            if len(palavras) <= 1
+            else 2
+        )
+
+        if (
+            palavras
+            and hits_palavra
+            < minimo
+        ):
+            return None
+
+    score += (
+        8
+        * hits_palavra
+    )
+
+    # Resultado cujo título repete o código/nome tende a ser página de produto.
+    titulo_compacto = (
+        _compactar_texto_busca(
+            titulo
+        )
+    )
+
+    if codigos and any(
+        _compactar_texto_busca(
+            codigo
+        )
+        in titulo_compacto
+        for codigo in codigos
+    ):
+        score += 30
+
+    if palavras:
+        hits_titulo = sum(
+            1
+            for palavra in palavras
+            if re.search(
+                rf"\b{re.escape(palavra)}\b",
+                titulo,
+            )
+        )
+
+        score += (
+            5
+            * hits_titulo
+        )
+
+    return score
+
+
 @router.get(
     "/image-search"
 )
@@ -709,80 +1072,133 @@ def buscar_imagens_produto(
             ),
         )
 
-    search_url = (
-        "https://www.bing.com/images/search"
-        f"?q={quote_plus(termo)}"
-        "&form=HDRSC3&first=1"
-    )
+    encontrados: dict[
+        str,
+        dict[str, str],
+    ] = {}
+    alguma_consulta_ok = False
+    ultimo_erro: Exception | None = None
 
-    req = Request(
-        search_url,
-        headers={
-            **_BROWSER_HEADERS,
-            "Accept": (
-                "text/html,application/xhtml+xml,"
-                "application/xml;q=0.9,*/*;q=0.8"
-            ),
-        },
-    )
+    for consulta in _consultas_bing(
+        termo
+    ):
+        try:
+            resultados = (
+                _buscar_bing_imagens(
+                    consulta
+                )
+            )
+            alguma_consulta_ok = True
 
-    try:
-        opener = build_opener()
-        with opener.open(
-            req,
-            timeout=10,
-        ) as response:
-            raw = response.read(
-                IMAGE_SEARCH_MAX_HTML_BYTES
-                + 1
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            OSError,
+            ValueError,
+        ) as exc:
+            ultimo_erro = exc
+            continue
+
+        except Exception as exc:
+            ultimo_erro = exc
+            continue
+
+        for item in resultados:
+            image_url = str(
+                item.get(
+                    "image_url"
+                )
+                or ""
+            ).strip()
+
+            if not image_url:
+                continue
+
+            score = (
+                _pontuar_resultado_imagem(
+                    item,
+                    termo,
+                )
             )
 
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        OSError,
-    ) as exc:
+            if score is None:
+                continue
+
+            atual = encontrados.get(
+                image_url
+            )
+
+            if (
+                atual is None
+                or score
+                > int(
+                    atual.get(
+                        "_score",
+                        -1,
+                    )
+                )
+            ):
+                encontrados[
+                    image_url
+                ] = {
+                    **item,
+                    "_score":
+                        score,
+                }
+
+        if (
+            len(encontrados)
+            >= IMAGE_SEARCH_MAX_RESULTS
+        ):
+            break
+
+    if (
+        not alguma_consulta_ok
+        and ultimo_erro is not None
+    ):
         raise HTTPException(
             status_code=502,
             detail=(
                 "Não foi possível pesquisar "
                 "imagens na internet agora."
             ),
-        ) from exc
+        ) from ultimo_erro
 
-    if (
-        len(raw)
-        > IMAGE_SEARCH_MAX_HTML_BYTES
-    ):
-        raw = raw[
-            :IMAGE_SEARCH_MAX_HTML_BYTES
-        ]
-
-    parser = _BingImagesParser()
-
-    try:
-        parser.feed(
-            raw.decode(
-                "utf-8",
-                errors="ignore",
+    ordenados = sorted(
+        encontrados.values(),
+        key=lambda item: int(
+            item.get(
+                "_score",
+                0,
             )
+        ),
+        reverse=True,
+    )
+
+    results = []
+
+    for item in ordenados[
+        :IMAGE_SEARCH_MAX_RESULTS
+    ]:
+        limpo = dict(
+            item
         )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "A resposta da busca de imagens "
-                "não pôde ser interpretada."
-            ),
-        ) from exc
+        limpo.pop(
+            "_score",
+            None,
+        )
+        results.append(
+            limpo
+        )
 
     return {
         "query": termo,
-        "provider": "Bing Imagens",
-        "results": parser.results[
-            :IMAGE_SEARCH_MAX_RESULTS
-        ],
+        "provider": (
+            "Bing Imagens "
+            "(resultados filtrados)"
+        ),
+        "results": results,
     }
 
 
