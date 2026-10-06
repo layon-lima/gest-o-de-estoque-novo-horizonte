@@ -11,7 +11,7 @@ import socket
 import time
 import unicodedata
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import parse_qs, quote_plus, urljoin, urlparse
 from urllib.request import (
     HTTPRedirectHandler,
     Request,
@@ -831,6 +831,171 @@ def _palavras_busca(
 
 
 
+class _GoogleWebSearchParser(
+    HTMLParser
+):
+    def __init__(self):
+        super().__init__(
+            convert_charrefs=True
+        )
+        self.results: list[
+            dict[str, str]
+        ] = []
+        self._seen: set[str] = set()
+        self._current_url: str | None = None
+        self._current_text: list[str] = []
+
+    def _external_url(
+        self,
+        href: str | None,
+    ) -> str:
+        value = str(
+            href or ""
+        ).strip()
+
+        if not value:
+            return ""
+
+        if value.startswith(
+            "/url?"
+        ):
+            try:
+                params = parse_qs(
+                    urlparse(
+                        value
+                    ).query
+                )
+                value = str(
+                    (
+                        params.get("q")
+                        or params.get("url")
+                        or [""]
+                    )[0]
+                ).strip()
+            except Exception:
+                return ""
+
+        elif value.startswith(
+            "https://www.google."
+        ) and "/url?" in value:
+            try:
+                params = parse_qs(
+                    urlparse(
+                        value
+                    ).query
+                )
+                value = str(
+                    (
+                        params.get("q")
+                        or params.get("url")
+                        or [""]
+                    )[0]
+                ).strip()
+            except Exception:
+                return ""
+
+        if not value.startswith(
+            ("http://", "https://")
+        ):
+            return ""
+
+        try:
+            host = str(
+                urlparse(
+                    value
+                ).hostname
+                or ""
+            ).lower()
+        except ValueError:
+            return ""
+
+        blocked_hosts = (
+            "google.",
+            "googleusercontent.",
+            "gstatic.",
+            "accounts.google.",
+            "support.google.",
+            "policies.google.",
+        )
+
+        if any(
+            blocked in host
+            for blocked in blocked_hosts
+        ):
+            return ""
+
+        return value
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs,
+    ):
+        if tag.lower() != "a":
+            return
+
+        values = dict(attrs)
+        url = self._external_url(
+            values.get("href")
+        )
+
+        if not url:
+            return
+
+        self._current_url = url
+        self._current_text = []
+
+    def handle_endtag(
+        self,
+        tag: str,
+    ):
+        if (
+            tag.lower() != "a"
+            or not self._current_url
+        ):
+            return
+
+        url = self._current_url
+        title = " ".join(
+            self._current_text
+        ).strip()
+
+        self._current_url = None
+        self._current_text = []
+
+        if (
+            not title
+            or url in self._seen
+        ):
+            return
+
+        self._seen.add(
+            url
+        )
+
+        self.results.append({
+            "url": url,
+            "title": title,
+            "snippet": "",
+        })
+
+    def handle_data(
+        self,
+        data: str,
+    ):
+        if not self._current_url:
+            return
+
+        texto = str(
+            data or ""
+        ).strip()
+
+        if texto:
+            self._current_text.append(
+                texto
+            )
+
+
 class _BingWebSearchParser(
     HTMLParser
 ):
@@ -1379,14 +1544,17 @@ def _abrir_html_publico(
     )
 
 
-def _buscar_bing_paginas(
+def _buscar_google_paginas(
     consulta: str,
 ) -> list[dict[str, str]]:
     search_url = (
-        "https://www.bing.com/search"
+        "https://www.google.com/search"
         f"?q={quote_plus(consulta)}"
-        "&count=20"
-        "&cc=br&setlang=pt-BR"
+        "&num=20"
+        "&hl=pt-BR"
+        "&gl=br"
+        "&filter=0"
+        "&gbv=1"
     )
 
     req = Request(
@@ -1397,6 +1565,7 @@ def _buscar_bing_paginas(
                 "text/html,application/xhtml+xml,"
                 "application/xml;q=0.9,*/*;q=0.8"
             ),
+            "Cache-Control": "no-cache",
         },
     )
 
@@ -1419,14 +1588,13 @@ def _buscar_bing_paginas(
             :IMAGE_SEARCH_MAX_HTML_BYTES
         ]
 
-    parser = _BingWebSearchParser()
+    parser = _GoogleWebSearchParser()
     parser.feed(
         raw.decode(
             "utf-8",
             errors="ignore",
         )
     )
-    parser.finish()
 
     return parser.results
 
@@ -1896,7 +2064,7 @@ def _buscar_imagens_paginas_produto(
         termo
     ):
         try:
-            resultados = _buscar_bing_paginas(
+            resultados = _buscar_google_paginas(
                 consulta
             )
         except (
@@ -2517,127 +2685,13 @@ def buscar_imagens_produto(
             ),
         )
 
-    # Motor principal:
-    # 1) procura páginas reais do produto;
-    # 2) valida código/nome;
-    # 3) extrai imagem principal/JSON-LD;
-    # 4) valida e cacheia a imagem antes de exibir.
+    # Google encontra as páginas relevantes do produto.
+    # Depois extraímos e validamos a imagem principal dessas páginas.
     encontrados = (
         _buscar_imagens_paginas_produto(
             termo
         )
     )
-
-    # Fallback: só entra quando o motor de páginas encontrou pouco.
-    # Aqui mantemos filtro estrito para evitar imagens sem relação.
-    if len(encontrados) < 6:
-        codigos = _codigos_busca(
-            termo
-        )
-        fallback: dict[
-            str,
-            dict[str, object],
-        ] = {}
-
-        for (
-            consulta,
-            bonus_origem,
-        ) in _consultas_bing(
-            termo
-        ):
-            try:
-                resultados = _buscar_bing_imagens(
-                    consulta
-                )
-            except (
-                HTTPError,
-                URLError,
-                TimeoutError,
-                OSError,
-                ValueError,
-            ):
-                continue
-
-            for item in resultados:
-                image_url = str(
-                    item.get("image_url")
-                    or ""
-                ).strip()
-
-                if not image_url:
-                    continue
-
-                if codigos:
-                    metadata = _compactar_texto_busca(
-                        " ".join(
-                            (
-                                str(
-                                    item.get("title")
-                                    or ""
-                                ),
-                                str(
-                                    item.get("source_url")
-                                    or ""
-                                ),
-                                image_url,
-                            )
-                        )
-                    )
-
-                    if not any(
-                        _compactar_texto_busca(
-                            codigo
-                        )
-                        in metadata
-                        for codigo in codigos
-                    ):
-                        continue
-
-                score = _pontuar_resultado_imagem(
-                    item,
-                    termo,
-                    bonus_origem=bonus_origem,
-                )
-
-                if score is None:
-                    continue
-
-                current = fallback.get(
-                    image_url
-                )
-
-                enriched = {
-                    **item,
-                    "_score": (
-                        int(score)
-                        - 30
-                    ),
-                }
-
-                if (
-                    current is None
-                    or int(
-                        enriched["_score"]
-                    )
-                    > int(
-                        current.get("_score")
-                        or 0
-                    )
-                ):
-                    fallback[
-                        image_url
-                    ] = enriched
-
-        encontrados.extend(
-            sorted(
-                fallback.values(),
-                key=lambda item: int(
-                    item.get("_score")
-                    or 0
-                ),
-                reverse=True,
-            )
-        )
 
     unique: dict[
         str,
@@ -2681,6 +2735,7 @@ def buscar_imagens_produto(
         reverse=True,
     )
 
+    # A prévia só entra se o backend conseguir baixar e validar a imagem.
     results = _preparar_previews_busca(
         ordered
     )
@@ -2688,7 +2743,7 @@ def buscar_imagens_produto(
     return {
         "query": termo,
         "provider": (
-            "Pesquisa de páginas de produto"
+            "Google + páginas de produto"
         ),
         "results": results[
             :IMAGE_SEARCH_MAX_RESULTS
