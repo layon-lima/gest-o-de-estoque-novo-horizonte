@@ -1019,6 +1019,31 @@ export const api = {
           file
         );
       },
+
+      async SearchProductImages({
+        query,
+      }) {
+        return request(
+          `/files/image-search?q=${encodeURIComponent(query || "")}`
+        );
+      },
+
+      async ImportImageFromUrl({
+        url,
+        source_url,
+      }) {
+        return request(
+          "/files/import-image",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              url,
+              source_url:
+                source_url || "",
+            }),
+          }
+        );
+      },
     },
   },
 
