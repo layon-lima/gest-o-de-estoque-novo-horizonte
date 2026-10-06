@@ -489,7 +489,7 @@ export default function Sidebar({
             >
               <span className="top-nav__brand-mark overflow-hidden p-0">
                 <img
-                  src="/logo-app.png"
+                  src="/logo-app.webp"
                   alt=""
                   className="h-full w-full bg-white object-contain"
                   aria-hidden="true"
@@ -627,7 +627,7 @@ export default function Sidebar({
         <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-3">
             <img
-              src="/logo-app.png"
+              src="/logo-app.webp"
               alt=""
               className="h-11 w-11 rounded-xl bg-white object-contain"
               aria-hidden="true"
