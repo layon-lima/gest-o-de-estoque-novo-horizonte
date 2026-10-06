@@ -1033,7 +1033,9 @@ def criar(
 
         dados_limpos[
             "custo_unitario"
-        ] = custo_novo
+        ] = float(
+            custo_novo
+        )
 
         custo_produto_alterado = (
             custo_atual
