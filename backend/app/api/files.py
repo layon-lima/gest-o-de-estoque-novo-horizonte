@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from hashlib import sha256
 from html.parser import HTMLParser
 import ipaddress
 import json
 from pathlib import Path
 import re
 import socket
+import time
 import unicodedata
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import parse_qs, quote_plus, urljoin, urlparse
 from urllib.request import (
     HTTPRedirectHandler,
     Request,
@@ -294,8 +297,23 @@ async def upload_file(
 
 IMAGE_SEARCH_MAX_RESULTS = 24
 IMAGE_SEARCH_MAX_HTML_BYTES = 3 * 1024 * 1024
+IMAGE_PAGE_MAX_HTML_BYTES = 2 * 1024 * 1024
+IMAGE_SEARCH_PAGE_LIMIT = 8
+IMAGE_SEARCH_PREVIEW_LIMIT = 16
+IMAGE_SEARCH_PREVIEW_BYTES = 6 * 1024 * 1024
+IMAGE_SEARCH_CACHE_SECONDS = 24 * 60 * 60
 IMAGE_IMPORT_MAX_BYTES = 12 * 1024 * 1024
 IMAGE_IMPORT_CHUNK_SIZE = 256 * 1024
+
+IMAGE_SEARCH_CACHE_DIR = (
+    UPLOAD_DIR
+    / "_image_search_cache"
+)
+
+IMAGE_SEARCH_CACHE_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
 
 _BROWSER_HEADERS = {
     "User-Agent": (
@@ -812,6 +830,1573 @@ def _palavras_busca(
     ]
 
 
+
+class _GoogleWebSearchParser(
+    HTMLParser
+):
+    def __init__(self):
+        super().__init__(
+            convert_charrefs=True
+        )
+        self.results: list[
+            dict[str, str]
+        ] = []
+        self._seen: set[str] = set()
+        self._current_url: str | None = None
+        self._current_text: list[str] = []
+
+    def _external_url(
+        self,
+        href: str | None,
+    ) -> str:
+        value = str(
+            href or ""
+        ).strip()
+
+        if not value:
+            return ""
+
+        if value.startswith(
+            "/url?"
+        ):
+            try:
+                params = parse_qs(
+                    urlparse(
+                        value
+                    ).query
+                )
+                value = str(
+                    (
+                        params.get("q")
+                        or params.get("url")
+                        or [""]
+                    )[0]
+                ).strip()
+            except Exception:
+                return ""
+
+        elif value.startswith(
+            "https://www.google."
+        ) and "/url?" in value:
+            try:
+                params = parse_qs(
+                    urlparse(
+                        value
+                    ).query
+                )
+                value = str(
+                    (
+                        params.get("q")
+                        or params.get("url")
+                        or [""]
+                    )[0]
+                ).strip()
+            except Exception:
+                return ""
+
+        if not value.startswith(
+            ("http://", "https://")
+        ):
+            return ""
+
+        try:
+            host = str(
+                urlparse(
+                    value
+                ).hostname
+                or ""
+            ).lower()
+        except ValueError:
+            return ""
+
+        blocked_hosts = (
+            "google.",
+            "googleusercontent.",
+            "gstatic.",
+            "accounts.google.",
+            "support.google.",
+            "policies.google.",
+        )
+
+        if any(
+            blocked in host
+            for blocked in blocked_hosts
+        ):
+            return ""
+
+        return value
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs,
+    ):
+        if tag.lower() != "a":
+            return
+
+        values = dict(attrs)
+        url = self._external_url(
+            values.get("href")
+        )
+
+        if not url:
+            return
+
+        self._current_url = url
+        self._current_text = []
+
+    def handle_endtag(
+        self,
+        tag: str,
+    ):
+        if (
+            tag.lower() != "a"
+            or not self._current_url
+        ):
+            return
+
+        url = self._current_url
+        title = " ".join(
+            self._current_text
+        ).strip()
+
+        self._current_url = None
+        self._current_text = []
+
+        if (
+            not title
+            or url in self._seen
+        ):
+            return
+
+        self._seen.add(
+            url
+        )
+
+        self.results.append({
+            "url": url,
+            "title": title,
+            "snippet": "",
+        })
+
+    def handle_data(
+        self,
+        data: str,
+    ):
+        if not self._current_url:
+            return
+
+        texto = str(
+            data or ""
+        ).strip()
+
+        if texto:
+            self._current_text.append(
+                texto
+            )
+
+
+class _BingWebSearchParser(
+    HTMLParser
+):
+    def __init__(self):
+        super().__init__(
+            convert_charrefs=True
+        )
+        self.results: list[
+            dict[str, str]
+        ] = []
+        self._current: dict[str, str] | None = None
+        self._in_h2 = False
+        self._in_link = False
+        self._in_snippet = False
+        self._title_parts: list[str] = []
+        self._snippet_parts: list[str] = []
+
+    def _finish_current(self):
+        if self._current is None:
+            return
+
+        url = str(
+            self._current.get("url")
+            or ""
+        ).strip()
+
+        if url.startswith(
+            ("http://", "https://")
+        ):
+            self.results.append({
+                "url": url,
+                "title": " ".join(
+                    self._title_parts
+                ).strip(),
+                "snippet": " ".join(
+                    self._snippet_parts
+                ).strip(),
+            })
+
+        self._current = None
+        self._title_parts = []
+        self._snippet_parts = []
+        self._in_h2 = False
+        self._in_link = False
+        self._in_snippet = False
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs,
+    ):
+        values = dict(attrs)
+        lower_tag = tag.lower()
+
+        if lower_tag == "li":
+            classes = set(
+                str(
+                    values.get("class")
+                    or ""
+                ).split()
+            )
+
+            if "b_algo" in classes:
+                self._finish_current()
+                self._current = {}
+                return
+
+        if self._current is None:
+            return
+
+        if lower_tag == "h2":
+            self._in_h2 = True
+            return
+
+        if (
+            lower_tag == "a"
+            and self._in_h2
+            and not self._current.get("url")
+        ):
+            href = str(
+                values.get("href")
+                or ""
+            ).strip()
+
+            if href.startswith(
+                ("http://", "https://")
+            ):
+                self._current["url"] = href
+                self._in_link = True
+
+            return
+
+        if lower_tag == "p":
+            self._in_snippet = True
+
+    def handle_endtag(
+        self,
+        tag: str,
+    ):
+        lower_tag = tag.lower()
+
+        if lower_tag == "a":
+            self._in_link = False
+        elif lower_tag == "h2":
+            self._in_h2 = False
+            self._in_link = False
+        elif lower_tag == "p":
+            self._in_snippet = False
+
+    def handle_data(
+        self,
+        data: str,
+    ):
+        texto = str(
+            data or ""
+        ).strip()
+
+        if not texto:
+            return
+
+        if self._in_link:
+            self._title_parts.append(
+                texto
+            )
+
+        if self._in_snippet:
+            self._snippet_parts.append(
+                texto
+            )
+
+    def finish(self):
+        self._finish_current()
+
+
+def _json_image_values(
+    value,
+) -> list[str]:
+    encontrados: list[str] = []
+
+    def walk(
+        current,
+        key: str = "",
+    ):
+        if isinstance(
+            current,
+            dict,
+        ):
+            for (
+                child_key,
+                child_value,
+            ) in current.items():
+                normalized = str(
+                    child_key
+                ).lower()
+
+                if normalized in {
+                    "image",
+                    "images",
+                    "contenturl",
+                    "thumbnailurl",
+                }:
+                    walk(
+                        child_value,
+                        normalized,
+                    )
+                elif isinstance(
+                    child_value,
+                    (dict, list),
+                ):
+                    walk(
+                        child_value,
+                        normalized,
+                    )
+
+            return
+
+        if isinstance(
+            current,
+            list,
+        ):
+            for item in current:
+                walk(
+                    item,
+                    key,
+                )
+            return
+
+        if isinstance(
+            current,
+            str,
+        ):
+            texto = current.strip()
+
+            if (
+                key in {
+                    "image",
+                    "images",
+                    "contenturl",
+                    "thumbnailurl",
+                }
+                and texto.startswith(
+                    (
+                        "http://",
+                        "https://",
+                        "//",
+                        "/",
+                    )
+                )
+            ):
+                encontrados.append(
+                    texto
+                )
+
+    walk(value)
+
+    return encontrados
+
+
+class _ProductPageParser(
+    HTMLParser
+):
+    def __init__(
+        self,
+        base_url: str,
+    ):
+        super().__init__(
+            convert_charrefs=True
+        )
+        self.base_url = base_url
+        self.page_title = ""
+        self._capture_title = False
+        self._title_parts: list[str] = []
+        self._json_script = False
+        self._json_parts: list[str] = []
+        self.candidates: list[
+            dict[str, object]
+        ] = []
+
+    def _add_candidate(
+        self,
+        raw_url: str | None,
+        *,
+        kind: str,
+        label: str = "",
+        width: int | None = None,
+        height: int | None = None,
+    ):
+        value = _normalizar_url_web(
+            raw_url
+        )
+
+        if not value:
+            return
+
+        resolved = urljoin(
+            self.base_url,
+            value,
+        )
+
+        if not resolved.startswith(
+            ("http://", "https://")
+        ):
+            return
+
+        self.candidates.append({
+            "image_url": resolved,
+            "kind": kind,
+            "label": str(
+                label or ""
+            ).strip(),
+            "width": width,
+            "height": height,
+        })
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs,
+    ):
+        lower_tag = tag.lower()
+        values = dict(attrs)
+
+        if lower_tag == "title":
+            self._capture_title = True
+            return
+
+        if lower_tag == "meta":
+            key = str(
+                values.get("property")
+                or values.get("name")
+                or values.get("itemprop")
+                or ""
+            ).strip().lower()
+
+            if key in {
+                "og:image",
+                "og:image:url",
+                "og:image:secure_url",
+                "twitter:image",
+                "twitter:image:src",
+                "image",
+            }:
+                self._add_candidate(
+                    values.get("content"),
+                    kind=(
+                        "og"
+                        if key.startswith("og:")
+                        else (
+                            "twitter"
+                            if key.startswith("twitter:")
+                            else "meta"
+                        )
+                    ),
+                )
+
+            return
+
+        if lower_tag == "link":
+            rel = str(
+                values.get("rel")
+                or ""
+            ).lower()
+
+            if "image_src" in rel:
+                self._add_candidate(
+                    values.get("href"),
+                    kind="link",
+                )
+
+            return
+
+        if lower_tag == "script":
+            script_type = str(
+                values.get("type")
+                or ""
+            ).lower()
+
+            if "ld+json" in script_type:
+                self._json_script = True
+                self._json_parts = []
+
+            return
+
+        if lower_tag != "img":
+            return
+
+        raw_src = (
+            values.get("data-original")
+            or values.get("data-lazy-src")
+            or values.get("data-src")
+            or values.get("src")
+        )
+
+        if not raw_src:
+            srcset = str(
+                values.get("data-srcset")
+                or values.get("srcset")
+                or ""
+            ).strip()
+
+            if srcset:
+                raw_src = (
+                    srcset.split(",")[0]
+                    .strip()
+                    .split(" ")[0]
+                )
+
+        label = " ".join(
+            part
+            for part in (
+                str(
+                    values.get("alt")
+                    or ""
+                ).strip(),
+                str(
+                    values.get("title")
+                    or ""
+                ).strip(),
+            )
+            if part
+        )
+
+        def int_attr(
+            name: str,
+        ) -> int | None:
+            raw = str(
+                values.get(name)
+                or ""
+            ).strip()
+
+            match = re.match(
+                r"(\d+)",
+                raw,
+            )
+
+            return (
+                int(match.group(1))
+                if match
+                else None
+            )
+
+        self._add_candidate(
+            raw_src,
+            kind="img",
+            label=label,
+            width=int_attr("width"),
+            height=int_attr("height"),
+        )
+
+    def handle_endtag(
+        self,
+        tag: str,
+    ):
+        lower_tag = tag.lower()
+
+        if lower_tag == "title":
+            self._capture_title = False
+            self.page_title = " ".join(
+                self._title_parts
+            ).strip()
+            return
+
+        if (
+            lower_tag == "script"
+            and self._json_script
+        ):
+            self._json_script = False
+            raw = "".join(
+                self._json_parts
+            ).strip()
+            self._json_parts = []
+
+            if not raw:
+                return
+
+            try:
+                data = json.loads(raw)
+            except (
+                TypeError,
+                ValueError,
+            ):
+                return
+
+            for image_value in (
+                _json_image_values(data)
+            ):
+                self._add_candidate(
+                    image_value,
+                    kind="jsonld",
+                )
+
+    def handle_data(
+        self,
+        data: str,
+    ):
+        if self._capture_title:
+            texto = str(
+                data or ""
+            ).strip()
+
+            if texto:
+                self._title_parts.append(
+                    texto
+                )
+
+        if self._json_script:
+            self._json_parts.append(
+                data
+            )
+
+
+def _abrir_html_publico(
+    url: str,
+    *,
+    timeout: int = 8,
+):
+    atual = _validar_url_publica(
+        url
+    )
+
+    opener = build_opener(
+        _SemRedirect
+    )
+
+    headers = {
+        **_BROWSER_HEADERS,
+        "Accept": (
+            "text/html,application/xhtml+xml,"
+            "application/xml;q=0.9,*/*;q=0.8"
+        ),
+    }
+
+    for _ in range(5):
+        req = Request(
+            atual,
+            headers=headers,
+        )
+
+        try:
+            response = opener.open(
+                req,
+                timeout=timeout,
+            )
+
+            final_url = str(
+                response.geturl()
+                or atual
+            )
+
+            _validar_url_publica(
+                final_url
+            )
+
+            return response
+
+        except HTTPError as exc:
+            if exc.code not in {
+                301,
+                302,
+                303,
+                307,
+                308,
+            }:
+                raise
+
+            location = exc.headers.get(
+                "Location"
+            )
+
+            if not location:
+                raise
+
+            atual = _validar_url_publica(
+                urljoin(
+                    atual,
+                    location,
+                )
+            )
+
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            "A página possui redirecionamentos "
+            "demais."
+        ),
+    )
+
+
+def _buscar_google_paginas(
+    consulta: str,
+) -> list[dict[str, str]]:
+    search_url = (
+        "https://www.google.com/search"
+        f"?q={quote_plus(consulta)}"
+        "&num=20"
+        "&hl=pt-BR"
+        "&gl=br"
+        "&filter=0"
+        "&gbv=1"
+    )
+
+    req = Request(
+        search_url,
+        headers={
+            **_BROWSER_HEADERS,
+            "Accept": (
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,*/*;q=0.8"
+            ),
+            "Cache-Control": "no-cache",
+        },
+    )
+
+    opener = build_opener()
+
+    with opener.open(
+        req,
+        timeout=10,
+    ) as response:
+        raw = response.read(
+            IMAGE_SEARCH_MAX_HTML_BYTES
+            + 1
+        )
+
+    if (
+        len(raw)
+        > IMAGE_SEARCH_MAX_HTML_BYTES
+    ):
+        raw = raw[
+            :IMAGE_SEARCH_MAX_HTML_BYTES
+        ]
+
+    parser = _GoogleWebSearchParser()
+    parser.feed(
+        raw.decode(
+            "utf-8",
+            errors="ignore",
+        )
+    )
+
+    return parser.results
+
+
+def _consultas_paginas(
+    termo: str,
+) -> list[str]:
+    codigos = _codigos_busca(
+        termo
+    )
+    palavras = _palavras_busca(
+        termo
+    )
+
+    consultas: list[str] = []
+
+    if codigos:
+        codigo = " ".join(
+            f'"{item}"'
+            for item in codigos
+        )
+        complemento = " ".join(
+            palavras[:5]
+        )
+
+        if complemento:
+            consultas.append(
+                f"{codigo} {complemento}"
+            )
+
+        consultas.append(
+            codigo
+        )
+    else:
+        consultas.append(
+            termo
+        )
+
+    return list(
+        dict.fromkeys(
+            item.strip()
+            for item in consultas
+            if item.strip()
+        )
+    )
+
+
+def _pontuar_pagina_produto(
+    item: dict[str, str],
+    termo: str,
+) -> int | None:
+    title = _normalizar_texto_busca(
+        item.get("title")
+    )
+    snippet = _normalizar_texto_busca(
+        item.get("snippet")
+    )
+    url_text = _normalizar_texto_busca(
+        item.get("url")
+    )
+
+    haystack = " ".join(
+        part
+        for part in (
+            title,
+            snippet,
+            url_text,
+        )
+        if part
+    )
+    compacto = _compactar_texto_busca(
+        haystack
+    )
+
+    codigos = _codigos_busca(
+        termo
+    )
+    palavras = _palavras_busca(
+        termo
+    )
+
+    score = 0
+
+    if codigos:
+        hits_codigo = sum(
+            1
+            for codigo in codigos
+            if (
+                _compactar_texto_busca(
+                    codigo
+                )
+                in compacto
+            )
+        )
+
+        if hits_codigo <= 0:
+            return None
+
+        score += (
+            180
+            * hits_codigo
+        )
+
+    hits_palavra = sum(
+        1
+        for palavra in palavras
+        if re.search(
+            rf"\b{re.escape(palavra)}\b",
+            haystack,
+        )
+    )
+
+    if (
+        not codigos
+        and palavras
+        and hits_palavra
+        < (
+            1
+            if len(palavras) <= 1
+            else 2
+        )
+    ):
+        return None
+
+    score += (
+        12
+        * hits_palavra
+    )
+
+    path = str(
+        urlparse(
+            item.get("url")
+            or ""
+        ).path
+        or ""
+    ).lower()
+
+    if any(
+        marker in path
+        for marker in (
+            "/product",
+            "/products",
+            "/produto",
+            "/produtos",
+            "/item",
+            "/parts",
+            "/part/",
+            "/p/",
+            "/peca",
+        )
+    ):
+        score += 25
+
+    host = str(
+        urlparse(
+            item.get("url")
+            or ""
+        ).hostname
+        or ""
+    ).lower()
+
+    if any(
+        blocked in host
+        for blocked in (
+            "facebook.",
+            "instagram.",
+            "pinterest.",
+            "youtube.",
+            "tiktok.",
+        )
+    ):
+        score -= 60
+
+    return score
+
+
+_IMAGE_BAD_WORDS = {
+    "avatar",
+    "badge",
+    "banner",
+    "favicon",
+    "flag",
+    "icon",
+    "logo",
+    "payment",
+    "placeholder",
+    "sprite",
+    "trust",
+}
+
+
+def _pontuar_imagem_pagina(
+    candidate: dict[str, object],
+    *,
+    termo: str,
+    page_score: int,
+    page_title: str,
+) -> int | None:
+    image_url = str(
+        candidate.get("image_url")
+        or ""
+    ).strip()
+
+    if (
+        not image_url
+        or image_url.lower().endswith(
+            ".svg"
+        )
+    ):
+        return None
+
+    label = _normalizar_texto_busca(
+        candidate.get("label")
+    )
+    image_text = _normalizar_texto_busca(
+        image_url
+    )
+    page_text = _normalizar_texto_busca(
+        page_title
+    )
+
+    candidate_text = " ".join(
+        (
+            label,
+            image_text,
+            page_text,
+        )
+    )
+    compact = _compactar_texto_busca(
+        candidate_text
+    )
+
+    lowered_url = image_url.lower()
+
+    if any(
+        word in lowered_url
+        for word in _IMAGE_BAD_WORDS
+    ):
+        return None
+
+    width = candidate.get("width")
+    height = candidate.get("height")
+
+    if (
+        isinstance(width, int)
+        and isinstance(height, int)
+        and (
+            width < 120
+            or height < 120
+        )
+    ):
+        return None
+
+    kind = str(
+        candidate.get("kind")
+        or ""
+    )
+
+    score = page_score + {
+        "jsonld": 60,
+        "og": 55,
+        "twitter": 45,
+        "meta": 35,
+        "link": 25,
+        "img": 10,
+    }.get(
+        kind,
+        0,
+    )
+
+    for codigo in _codigos_busca(
+        termo
+    ):
+        if (
+            _compactar_texto_busca(
+                codigo
+            )
+            in compact
+        ):
+            score += 100
+
+    for palavra in _palavras_busca(
+        termo
+    ):
+        if re.search(
+            rf"\b{re.escape(palavra)}\b",
+            candidate_text,
+        ):
+            score += 7
+
+    if (
+        isinstance(width, int)
+        and isinstance(height, int)
+        and width >= 300
+        and height >= 300
+    ):
+        score += 10
+
+    return score
+
+
+def _extrair_imagens_pagina(
+    page: dict[str, object],
+    termo: str,
+) -> list[dict[str, object]]:
+    url = str(
+        page.get("url")
+        or ""
+    ).strip()
+
+    page_score = int(
+        page.get("_score")
+        or 0
+    )
+
+    try:
+        response = _abrir_html_publico(
+            url
+        )
+
+        with response:
+            content_type = str(
+                response.headers.get(
+                    "Content-Type"
+                )
+                or ""
+            ).lower()
+
+            if (
+                content_type
+                and "html" not in content_type
+                and "xhtml" not in content_type
+            ):
+                return []
+
+            raw = response.read(
+                IMAGE_PAGE_MAX_HTML_BYTES
+                + 1
+            )
+
+            final_url = str(
+                response.geturl()
+                or url
+            )
+
+            charset = (
+                response.headers.get_content_charset()
+                or "utf-8"
+            )
+
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        HTTPException,
+        ValueError,
+    ):
+        return []
+
+    if (
+        len(raw)
+        > IMAGE_PAGE_MAX_HTML_BYTES
+    ):
+        raw = raw[
+            :IMAGE_PAGE_MAX_HTML_BYTES
+        ]
+
+    parser = _ProductPageParser(
+        final_url
+    )
+
+    try:
+        parser.feed(
+            raw.decode(
+                charset,
+                errors="ignore",
+            )
+        )
+    except Exception:
+        return []
+
+    page_title = (
+        parser.page_title
+        or str(
+            page.get("title")
+            or ""
+        )
+    )
+
+    melhores: dict[
+        str,
+        dict[str, object],
+    ] = {}
+
+    for candidate in (
+        parser.candidates
+    ):
+        score = _pontuar_imagem_pagina(
+            candidate,
+            termo=termo,
+            page_score=page_score,
+            page_title=page_title,
+        )
+
+        if score is None:
+            continue
+
+        image_url = str(
+            candidate.get("image_url")
+            or ""
+        ).strip()
+
+        existing = melhores.get(
+            image_url
+        )
+
+        item = {
+            "image_url": image_url,
+            "thumbnail_url": image_url,
+            "source_url": final_url,
+            "title": (
+                str(
+                    candidate.get("label")
+                    or ""
+                ).strip()
+                or page_title
+                or str(
+                    page.get("title")
+                    or ""
+                ).strip()
+            ),
+            "_score": score,
+        }
+
+        if (
+            existing is None
+            or score
+            > int(
+                existing.get("_score")
+                or 0
+            )
+        ):
+            melhores[
+                image_url
+            ] = item
+
+    return sorted(
+        melhores.values(),
+        key=lambda item: int(
+            item.get("_score")
+            or 0
+        ),
+        reverse=True,
+    )[:6]
+
+
+def _buscar_imagens_paginas_produto(
+    termo: str,
+) -> list[dict[str, object]]:
+    paginas: dict[
+        str,
+        dict[str, object],
+    ] = {}
+
+    for consulta in _consultas_paginas(
+        termo
+    ):
+        try:
+            resultados = _buscar_google_paginas(
+                consulta
+            )
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            OSError,
+            ValueError,
+        ):
+            continue
+
+        for item in resultados:
+            score = _pontuar_pagina_produto(
+                item,
+                termo,
+            )
+
+            if score is None:
+                continue
+
+            url = str(
+                item.get("url")
+                or ""
+            ).strip()
+
+            if not url:
+                continue
+
+            current = paginas.get(url)
+
+            enriched = {
+                **item,
+                "_score": score,
+            }
+
+            if (
+                current is None
+                or score
+                > int(
+                    current.get("_score")
+                    or 0
+                )
+            ):
+                paginas[
+                    url
+                ] = enriched
+
+        if len(
+            paginas
+        ) >= IMAGE_SEARCH_PAGE_LIMIT:
+            break
+
+    melhores_paginas = sorted(
+        paginas.values(),
+        key=lambda item: int(
+            item.get("_score")
+            or 0
+        ),
+        reverse=True,
+    )[:IMAGE_SEARCH_PAGE_LIMIT]
+
+    encontrados: list[
+        dict[str, object]
+    ] = []
+
+    with ThreadPoolExecutor(
+        max_workers=5
+    ) as executor:
+        futures = [
+            executor.submit(
+                _extrair_imagens_pagina,
+                page,
+                termo,
+            )
+            for page in melhores_paginas
+        ]
+
+        for future in as_completed(
+            futures
+        ):
+            try:
+                encontrados.extend(
+                    future.result()
+                )
+            except Exception:
+                continue
+
+    unique: dict[
+        str,
+        dict[str, object],
+    ] = {}
+
+    for item in encontrados:
+        url = str(
+            item.get("image_url")
+            or ""
+        ).strip()
+
+        if not url:
+            continue
+
+        current = unique.get(url)
+
+        if (
+            current is None
+            or int(
+                item.get("_score")
+                or 0
+            )
+            > int(
+                current.get("_score")
+                or 0
+            )
+        ):
+            unique[
+                url
+            ] = item
+
+    return sorted(
+        unique.values(),
+        key=lambda item: int(
+            item.get("_score")
+            or 0
+        ),
+        reverse=True,
+    )
+
+
+def _limpar_cache_busca_imagens():
+    limite = (
+        time.time()
+        - IMAGE_SEARCH_CACHE_SECONDS
+    )
+
+    try:
+        arquivos = list(
+            IMAGE_SEARCH_CACHE_DIR.iterdir()
+        )
+    except OSError:
+        return
+
+    for arquivo in arquivos:
+        try:
+            if (
+                arquivo.is_file()
+                and arquivo.stat().st_mtime
+                < limite
+            ):
+                arquivo.unlink(
+                    missing_ok=True
+                )
+        except OSError:
+            continue
+
+
+def _cachear_preview_resultado(
+    item: dict[str, object],
+) -> dict[str, object] | None:
+    image_url = str(
+        item.get("image_url")
+        or ""
+    ).strip()
+
+    if not image_url:
+        return None
+
+    digest = sha256(
+        image_url.encode(
+            "utf-8",
+            errors="ignore",
+        )
+    ).hexdigest()[:32]
+
+    try:
+        response = _abrir_url_publica(
+            image_url,
+            source_url=str(
+                item.get("source_url")
+                or ""
+            ),
+        )
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        HTTPException,
+        ValueError,
+    ):
+        return None
+
+    total = 0
+    inicio = b""
+    chunks: list[bytes] = []
+
+    try:
+        with response:
+            while True:
+                chunk = response.read(
+                    256 * 1024
+                )
+
+                if not chunk:
+                    break
+
+                if not inicio:
+                    inicio = chunk[:32]
+
+                total += len(chunk)
+
+                if (
+                    total
+                    > IMAGE_SEARCH_PREVIEW_BYTES
+                ):
+                    return None
+
+                chunks.append(chunk)
+
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+    ):
+        return None
+
+    detectada = _detectar_imagem(
+        inicio
+    )
+
+    if detectada is None:
+        return None
+
+    extensao, _mime = detectada
+
+    cache_path = (
+        IMAGE_SEARCH_CACHE_DIR
+        / f"{digest}{extensao}"
+    )
+
+    if not cache_path.exists():
+        temp_path = (
+            IMAGE_SEARCH_CACHE_DIR
+            / f".{digest}.tmp"
+        )
+
+        try:
+            with temp_path.open(
+                "wb"
+            ) as out:
+                for chunk in chunks:
+                    out.write(chunk)
+
+            temp_path.replace(
+                cache_path
+            )
+        except OSError:
+            temp_path.unlink(
+                missing_ok=True
+            )
+            return None
+
+    result = dict(item)
+    result["thumbnail_url"] = (
+        "/uploads/_image_search_cache/"
+        f"{cache_path.name}"
+    )
+    result.pop("_score", None)
+
+    return result
+
+
+def _preparar_previews_busca(
+    items: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    _limpar_cache_busca_imagens()
+
+    candidates = items[
+        :IMAGE_SEARCH_PREVIEW_LIMIT
+    ]
+
+    if not candidates:
+        return []
+
+    indexed_results: dict[
+        int,
+        dict[str, object],
+    ] = {}
+
+    with ThreadPoolExecutor(
+        max_workers=6
+    ) as executor:
+        futures = {
+            executor.submit(
+                _cachear_preview_resultado,
+                item,
+            ): index
+            for (
+                index,
+                item,
+            ) in enumerate(
+                candidates
+            )
+        }
+
+        for future in as_completed(
+            futures
+        ):
+            index = futures[
+                future
+            ]
+
+            try:
+                result = future.result()
+            except Exception:
+                result = None
+
+            if result is not None:
+                indexed_results[
+                    index
+                ] = result
+
+    return [
+        indexed_results[
+            index
+        ]
+        for index in sorted(
+            indexed_results
+        )
+    ]
+
+
 def _consultas_bing(
     termo: str,
 ) -> list[tuple[str, int]]:
@@ -1100,141 +2685,69 @@ def buscar_imagens_produto(
             ),
         )
 
-    encontrados: dict[
+    # Google encontra as páginas relevantes do produto.
+    # Depois extraímos e validamos a imagem principal dessas páginas.
+    encontrados = (
+        _buscar_imagens_paginas_produto(
+            termo
+        )
+    )
+
+    unique: dict[
         str,
-        dict[str, str],
+        dict[str, object],
     ] = {}
-    alguma_consulta_ok = False
-    ultimo_erro: Exception | None = None
 
-    for (
-        consulta,
-        bonus_origem,
-    ) in _consultas_bing(
-        termo
-    ):
-        try:
-            resultados = (
-                _buscar_bing_imagens(
-                    consulta
-                )
-            )
-            alguma_consulta_ok = True
+    for item in encontrados:
+        image_url = str(
+            item.get("image_url")
+            or ""
+        ).strip()
 
-        except (
-            HTTPError,
-            URLError,
-            TimeoutError,
-            OSError,
-            ValueError,
-        ) as exc:
-            ultimo_erro = exc
+        if not image_url:
             continue
 
-        except Exception as exc:
-            ultimo_erro = exc
-            continue
-
-        for item in resultados:
-            image_url = str(
-                item.get(
-                    "image_url"
-                )
-                or ""
-            ).strip()
-
-            if not image_url:
-                continue
-
-            score = (
-                _pontuar_resultado_imagem(
-                    item,
-                    termo,
-                    bonus_origem=bonus_origem,
-                )
-            )
-
-            if score is None:
-                continue
-
-            atual = encontrados.get(
-                image_url
-            )
-
-            if (
-                atual is None
-                or score
-                > int(
-                    atual.get(
-                        "_score",
-                        -1,
-                    )
-                )
-            ):
-                encontrados[
-                    image_url
-                ] = {
-                    **item,
-                    "_score":
-                        score,
-                }
+        current = unique.get(
+            image_url
+        )
 
         if (
-            len(encontrados)
-            >= IMAGE_SEARCH_MAX_RESULTS
-            or (
-                bonus_origem >= 90
-                and len(encontrados) >= 8
+            current is None
+            or int(
+                item.get("_score")
+                or 0
+            )
+            > int(
+                current.get("_score")
+                or 0
             )
         ):
-            break
+            unique[
+                image_url
+            ] = item
 
-    if (
-        not alguma_consulta_ok
-        and ultimo_erro is not None
-    ):
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Não foi possível pesquisar "
-                "imagens na internet agora."
-            ),
-        ) from ultimo_erro
-
-    ordenados = sorted(
-        encontrados.values(),
+    ordered = sorted(
+        unique.values(),
         key=lambda item: int(
-            item.get(
-                "_score",
-                0,
-            )
+            item.get("_score")
+            or 0
         ),
         reverse=True,
     )
 
-    results = []
-
-    for item in ordenados[
-        :IMAGE_SEARCH_MAX_RESULTS
-    ]:
-        limpo = dict(
-            item
-        )
-        limpo.pop(
-            "_score",
-            None,
-        )
-        results.append(
-            limpo
-        )
+    # A prévia só entra se o backend conseguir baixar e validar a imagem.
+    results = _preparar_previews_busca(
+        ordered
+    )
 
     return {
         "query": termo,
         "provider": (
-            "Bing Imagens "
-            "(resultados filtrados)"
+            "Google + páginas de produto"
         ),
-        "results": results,
+        "results": results[
+            :IMAGE_SEARCH_MAX_RESULTS
+        ],
     }
 
 
