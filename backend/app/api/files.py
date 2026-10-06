@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from hashlib import sha256
+from html import unescape
 from html.parser import HTMLParser
 import ipaddress
 import json
@@ -1599,6 +1600,422 @@ def _buscar_google_paginas(
     return parser.results
 
 
+
+def _google_image_queries(
+    termo: str,
+) -> list[str]:
+    codigos = _codigos_busca(
+        termo
+    )
+    palavras = _palavras_busca(
+        termo
+    )
+
+    queries: list[str] = []
+
+    if codigos:
+        codigo = " ".join(
+            f'"{item}"'
+            for item in codigos
+        )
+
+        complemento = " ".join(
+            palavras[:5]
+        )
+
+        if complemento:
+            queries.append(
+                f"{codigo} {complemento}"
+            )
+
+        queries.append(
+            codigo
+        )
+    else:
+        queries.append(
+            termo
+        )
+
+    return list(
+        dict.fromkeys(
+            item.strip()
+            for item in queries
+            if item.strip()
+        )
+    )
+
+
+def _decode_google_payload(
+    raw: bytes,
+) -> str:
+    text = raw.decode(
+        "utf-8",
+        errors="ignore",
+    )
+
+    text = unescape(
+        text
+    )
+
+    replacements = {
+        r"\/": "/",
+        r"\u003d": "=",
+        r"\u0026": "&",
+        r"\u003f": "?",
+        r"\u002f": "/",
+        r"\u003a": ":",
+        r"\x3d": "=",
+        r"\x26": "&",
+        r"\x3f": "?",
+        r"\x2f": "/",
+        r"\x3a": ":",
+    }
+
+    for old, new in (
+        replacements.items()
+    ):
+        text = text.replace(
+            old,
+            new,
+        )
+
+    return text
+
+
+def _is_candidate_image_url(
+    value: str,
+) -> bool:
+    try:
+        parsed = urlparse(
+            value
+        )
+    except ValueError:
+        return False
+
+    if parsed.scheme not in {
+        "http",
+        "https",
+    }:
+        return False
+
+    host = str(
+        parsed.hostname
+        or ""
+    ).lower()
+
+    if (
+        not host
+        or any(
+            blocked in host
+            for blocked in (
+                "google.",
+                "googleusercontent.",
+                "gstatic.",
+                "ggpht.",
+                "ytimg.",
+            )
+        )
+    ):
+        return False
+
+    lower = value.lower()
+
+    if any(
+        bad in lower
+        for bad in (
+            "favicon",
+            "sprite",
+            "logo",
+            "icon-",
+            "/icons/",
+            "avatar",
+            "placeholder",
+        )
+    ):
+        return False
+
+    return True
+
+
+def _extract_google_image_candidates(
+    payload: str,
+    *,
+    termo: str,
+) -> list[dict[str, object]]:
+    patterns = (
+        re.compile(
+            r'https?://[^"\'<>\\\s]+?'
+            r'\.(?:jpe?g|png|webp|gif)'
+            r'(?:\?[^"\'<>\\\s]*)?',
+            flags=re.IGNORECASE,
+        ),
+        re.compile(
+            r'"(?:ou|image|imageUrl|contentUrl)"\s*:\s*"'
+            r'(https?://[^"]+)"',
+            flags=re.IGNORECASE,
+        ),
+    )
+
+    codigos = _codigos_busca(
+        termo
+    )
+    palavras = _palavras_busca(
+        termo
+    )
+
+    found: dict[
+        str,
+        dict[str, object],
+    ] = {}
+
+    for pattern in patterns:
+        for match in pattern.finditer(
+            payload
+        ):
+            raw_url = (
+                match.group(1)
+                if match.lastindex
+                else match.group(0)
+            )
+
+            image_url = str(
+                raw_url
+                or ""
+            ).strip()
+
+            image_url = image_url.replace(
+                r"\/",
+                "/",
+            )
+
+            if not _is_candidate_image_url(
+                image_url
+            ):
+                continue
+
+            start = max(
+                0,
+                match.start() - 700,
+            )
+            end = min(
+                len(payload),
+                match.end() + 700,
+            )
+
+            context = (
+                _normalizar_texto_busca(
+                    payload[
+                        start:end
+                    ]
+                )
+            )
+            context_compact = (
+                _compactar_texto_busca(
+                    context
+                )
+            )
+
+            score = 40
+
+            if codigos:
+                code_hits = sum(
+                    1
+                    for codigo in codigos
+                    if (
+                        _compactar_texto_busca(
+                            codigo
+                        )
+                        in context_compact
+                    )
+                )
+
+                if code_hits:
+                    score += (
+                        180
+                        * code_hits
+                    )
+                else:
+                    # Busca por código sem código perto da imagem
+                    # é pouco confiável: deixa como último recurso.
+                    score -= 25
+
+            word_hits = sum(
+                1
+                for palavra in palavras
+                if re.search(
+                    rf"\b{re.escape(palavra)}\b",
+                    context,
+                )
+            )
+
+            score += (
+                12
+                * word_hits
+            )
+
+            current = found.get(
+                image_url
+            )
+
+            item = {
+                "image_url":
+                    image_url,
+                "thumbnail_url":
+                    image_url,
+                "source_url":
+                    "",
+                "title":
+                    termo,
+                "_score":
+                    score,
+            }
+
+            if (
+                current is None
+                or score
+                > int(
+                    current.get("_score")
+                    or 0
+                )
+            ):
+                found[
+                    image_url
+                ] = item
+
+    return sorted(
+        found.values(),
+        key=lambda item: int(
+            item.get("_score")
+            or 0
+        ),
+        reverse=True,
+    )
+
+
+def _buscar_google_imagens_direto(
+    termo: str,
+) -> list[dict[str, object]]:
+    found: dict[
+        str,
+        dict[str, object],
+    ] = {}
+
+    for query in _google_image_queries(
+        termo
+    ):
+        search_url = (
+            "https://www.google.com/search"
+            f"?q={quote_plus(query)}"
+            "&tbm=isch"
+            "&udm=2"
+            "&hl=pt-BR"
+            "&gl=br"
+            "&safe=active"
+        )
+
+        req = Request(
+            search_url,
+            headers={
+                **_BROWSER_HEADERS,
+                "Accept": (
+                    "text/html,application/xhtml+xml,"
+                    "application/xml;q=0.9,*/*;q=0.8"
+                ),
+                "Cache-Control":
+                    "no-cache",
+            },
+        )
+
+        try:
+            opener = build_opener()
+
+            with opener.open(
+                req,
+                timeout=10,
+            ) as response:
+                raw = response.read(
+                    IMAGE_SEARCH_MAX_HTML_BYTES
+                    + 1
+                )
+
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            OSError,
+        ):
+            continue
+
+        if (
+            len(raw)
+            > IMAGE_SEARCH_MAX_HTML_BYTES
+        ):
+            raw = raw[
+                :IMAGE_SEARCH_MAX_HTML_BYTES
+            ]
+
+        payload = (
+            _decode_google_payload(
+                raw
+            )
+        )
+
+        candidates = (
+            _extract_google_image_candidates(
+                payload,
+                termo=termo,
+            )
+        )
+
+        for item in candidates:
+            image_url = str(
+                item.get(
+                    "image_url"
+                )
+                or ""
+            ).strip()
+
+            if not image_url:
+                continue
+
+            current = found.get(
+                image_url
+            )
+
+            if (
+                current is None
+                or int(
+                    item.get(
+                        "_score"
+                    )
+                    or 0
+                )
+                > int(
+                    current.get(
+                        "_score"
+                    )
+                    or 0
+                )
+            ):
+                found[
+                    image_url
+                ] = item
+
+        if len(
+            found
+        ) >= IMAGE_SEARCH_PREVIEW_LIMIT:
+            break
+
+    return sorted(
+        found.values(),
+        key=lambda item: int(
+            item.get("_score")
+            or 0
+        ),
+        reverse=True,
+    )
+
+
 def _consultas_paginas(
     termo: str,
 ) -> list[str]:
@@ -2685,13 +3102,21 @@ def buscar_imagens_produto(
             ),
         )
 
-    # Google encontra as páginas relevantes do produto.
-    # Depois extraímos e validamos a imagem principal dessas páginas.
+    # 1) Google Imagens direto.
     encontrados = (
-        _buscar_imagens_paginas_produto(
+        _buscar_google_imagens_direto(
             termo
         )
     )
+
+    # 2) Se o Google Imagens não entregar o suficiente,
+    # procura páginas do produto e extrai og:image/JSON-LD.
+    if len(encontrados) < 8:
+        encontrados.extend(
+            _buscar_imagens_paginas_produto(
+                termo
+            )
+        )
 
     unique: dict[
         str,
@@ -2735,7 +3160,7 @@ def buscar_imagens_produto(
         reverse=True,
     )
 
-    # A prévia só entra se o backend conseguir baixar e validar a imagem.
+    # Só retorna imagem que realmente baixa e passa na validação de assinatura.
     results = _preparar_previews_busca(
         ordered
     )
@@ -2743,7 +3168,7 @@ def buscar_imagens_produto(
     return {
         "query": termo,
         "provider": (
-            "Google + páginas de produto"
+            "Google Imagens"
         ),
         "results": results[
             :IMAGE_SEARCH_MAX_RESULTS
