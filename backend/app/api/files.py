@@ -814,7 +814,7 @@ def _palavras_busca(
 
 def _consultas_bing(
     termo: str,
-) -> list[str]:
+) -> list[tuple[str, int]]:
     codigos = _codigos_busca(
         termo
     )
@@ -822,7 +822,9 @@ def _consultas_bing(
         termo
     )
 
-    consultas: list[str] = []
+    consultas: list[
+        tuple[str, int]
+    ] = []
 
     if codigos:
         codigo_exato = " ".join(
@@ -834,40 +836,59 @@ def _consultas_bing(
             palavras[:5]
         )
 
+        # Código exato primeiro: é a consulta mais confiável para peças.
         consultas.append(
-            " ".join(
-                part
-                for part in (
-                    codigo_exato,
-                    complemento,
-                )
-                if part
+            (
+                codigo_exato,
+                90,
             )
         )
 
+        if complemento:
+            consultas.append(
+                (
+                    f"{codigo_exato} {complemento}",
+                    70,
+                )
+            )
+
+        # Não usa a frase ampla quando há código:
+        # evita resultados genéricos e completamente fora do contexto.
+    else:
         consultas.append(
-            codigo_exato
+            (
+                termo,
+                0,
+            )
         )
 
-    consultas.append(
-        termo
-    )
+    resultado: list[
+        tuple[str, int]
+    ] = []
+    vistos: set[str] = set()
 
-    resultado: list[str] = []
-
-    for consulta in consultas:
+    for (
+        consulta,
+        bonus_origem,
+    ) in consultas:
         consulta = str(
             consulta or ""
         ).strip()
 
         if (
             not consulta
-            or consulta in resultado
+            or consulta in vistos
         ):
             continue
 
-        resultado.append(
+        vistos.add(
             consulta
+        )
+        resultado.append(
+            (
+                consulta,
+                bonus_origem,
+            )
         )
 
     return resultado
@@ -928,6 +949,8 @@ def _buscar_bing_imagens(
 def _pontuar_resultado_imagem(
     item: dict[str, str],
     termo: str,
+    *,
+    bonus_origem: int = 0,
 ) -> int | None:
     codigos = _codigos_busca(
         termo
@@ -960,7 +983,10 @@ def _pontuar_resultado_imagem(
         haystack
     )
 
-    score = 0
+    score = int(
+        bonus_origem
+        or 0
+    )
 
     if codigos:
         hits_codigo = sum(
@@ -974,15 +1000,17 @@ def _pontuar_resultado_imagem(
             )
         )
 
-        # Para peças com código, código exato é obrigatório.
-        # Isso evita resultados visualmente bonitos, mas de outro produto.
-        if hits_codigo <= 0:
-            return None
+        if hits_codigo > 0:
+            score += (
+                120
+                * hits_codigo
+            )
 
-        score += (
-            100
-            * hits_codigo
-        )
+        # Em consultas de código exato, o próprio mecanismo de busca
+        # é a principal evidência. Bing nem sempre repete o código
+        # no título/URL da imagem, então não descartamos só por isso.
+        elif bonus_origem <= 0:
+            return None
 
     hits_palavra = sum(
         1
@@ -1079,7 +1107,10 @@ def buscar_imagens_produto(
     alguma_consulta_ok = False
     ultimo_erro: Exception | None = None
 
-    for consulta in _consultas_bing(
+    for (
+        consulta,
+        bonus_origem,
+    ) in _consultas_bing(
         termo
     ):
         try:
@@ -1119,6 +1150,7 @@ def buscar_imagens_produto(
                 _pontuar_resultado_imagem(
                     item,
                     termo,
+                    bonus_origem=bonus_origem,
                 )
             )
 
@@ -1150,6 +1182,10 @@ def buscar_imagens_produto(
         if (
             len(encontrados)
             >= IMAGE_SEARCH_MAX_RESULTS
+            or (
+                bonus_origem >= 90
+                and len(encontrados) >= 8
+            )
         ):
             break
 

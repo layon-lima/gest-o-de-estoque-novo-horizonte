@@ -135,25 +135,34 @@ export default function ProdutoImagemWebSearch({
             </DialogDescription>
           </DialogHeader>
 
-          <form
-            className="flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              search();
-            }}
-          >
+          <div className="flex gap-2">
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    search();
+                  }
+                }}
                 className="pl-9"
                 placeholder="Ex.: Filtro Donaldson P550020"
               />
             </div>
 
-            <Button type="submit" disabled={searching || query.trim().length < 2}>
+            <Button
+              type="button"
+              disabled={searching || query.trim().length < 2}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                search();
+              }}
+            >
               {searching ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -161,7 +170,7 @@ export default function ProdutoImagemWebSearch({
               )}
               Buscar
             </Button>
-          </form>
+          </div>
 
           <div className="min-h-[280px]">
             {searching ? (
