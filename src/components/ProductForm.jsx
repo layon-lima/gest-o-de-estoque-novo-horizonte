@@ -461,7 +461,11 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
                       <p>Imagem opcional para facilitar a identificação do produto.</p>
                     </div>
                   </div>
-                  <ProdutoFotoUpload value={form.foto_url || ''} onChange={(url) => set('foto_url', url)} />
+                  <ProdutoFotoUpload
+                    value={form.foto_url || ''}
+                    onChange={(url) => set('foto_url', url)}
+                    searchText={[form.nome, form.codigo_referencia].filter(Boolean).join(' ')}
+                  />
                 </div>
               </div>
             </section>

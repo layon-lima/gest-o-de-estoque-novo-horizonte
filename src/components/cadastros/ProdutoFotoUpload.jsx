@@ -4,11 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Image } from '@/components/ui/image';
 import { api } from '@/api/apiClient';
 import { useToast } from '@/components/ui/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import ProdutoImagemWebSearch from '@/components/cadastros/ProdutoImagemWebSearch';
 
-export default function ProdutoFotoUpload({ value, onChange }) {
+export default function ProdutoFotoUpload({ value, onChange, searchText = '' }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -59,6 +62,13 @@ export default function ProdutoFotoUpload({ value, onChange }) {
           {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
           {value ? 'Trocar foto' : 'Adicionar foto'}
         </Button>
+        {!isMobile ? (
+          <ProdutoImagemWebSearch
+            defaultQuery={searchText}
+            onSelect={onChange}
+          />
+        ) : null}
+
         {value && (
           <Button type="button" variant="ghost" size="sm" className="gap-1.5 h-8 w-fit text-destructive hover:text-destructive" onClick={() => onChange('')}>
             <Trash2 className="w-3.5 h-3.5" /> Remover
