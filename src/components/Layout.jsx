@@ -220,7 +220,7 @@ export default function Layout() {
         </button>
 
         <img
-          src="/logo-app.png"
+          src="/logo-app.webp"
           alt=""
           className="h-8 w-8 rounded-lg bg-white object-contain"
           aria-hidden="true"
