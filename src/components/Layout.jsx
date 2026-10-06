@@ -222,7 +222,7 @@ export default function Layout() {
         <img
           src="/logo-app.png"
           alt=""
-          className="h-8 w-8 rounded-lg object-cover"
+          className="h-8 w-8 rounded-lg bg-white object-contain"
           aria-hidden="true"
         />
 
