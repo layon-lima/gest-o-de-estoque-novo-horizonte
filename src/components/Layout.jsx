@@ -220,9 +220,9 @@ export default function Layout() {
         </button>
 
         <img
-          src="/logo-app.png"
+          src="/logo-app.png?v=5"
           alt=""
-          className="h-8 w-8 rounded-lg bg-white object-contain"
+          className="h-8 w-8 rounded-lg bg-white object-contain p-1"
           aria-hidden="true"
         />
 
