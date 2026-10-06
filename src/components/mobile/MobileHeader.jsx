@@ -1,5 +1,4 @@
 import {
-  Leaf,
   LogOut,
   MoreHorizontal,
 } from 'lucide-react';
@@ -62,8 +61,13 @@ export default function MobileHeader() {
   return (
     <header className="mobile-app-header">
       <div className="mobile-app-header__brand">
-        <div className="mobile-app-header__mark">
-          <Leaf className="h-5 w-5" />
+        <div className="mobile-app-header__mark overflow-hidden p-0">
+          <img
+            src="/logo-app.png"
+            alt=""
+            className="h-full w-full object-cover"
+            aria-hidden="true"
+          />
         </div>
 
         <div className="min-w-0">

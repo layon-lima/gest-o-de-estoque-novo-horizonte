@@ -21,7 +21,6 @@ import {
   FileBarChart,
   Fuel,
   LayoutDashboard,
-  Leaf,
   LogOut,
   MapPinned,
   Package,
@@ -488,8 +487,13 @@ export default function Sidebar({
               to="/"
               className="top-nav__brand"
             >
-              <span className="top-nav__brand-mark">
-                <Leaf className="h-6 w-6" />
+              <span className="top-nav__brand-mark overflow-hidden p-0">
+                <img
+                  src="/logo-app.png"
+                  alt=""
+                  className="h-full w-full object-cover"
+                  aria-hidden="true"
+                />
               </span>
 
               <span className="top-nav__brand-copy">
@@ -622,9 +626,12 @@ export default function Sidebar({
       >
         <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary/15 p-2 text-primary">
-              <Leaf className="h-7 w-7" />
-            </div>
+            <img
+              src="/logo-app.png"
+              alt=""
+              className="h-11 w-11 rounded-xl object-cover"
+              aria-hidden="true"
+            />
 
             <div>
               <h1 className="text-base font-bold leading-tight">
