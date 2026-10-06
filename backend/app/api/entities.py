@@ -1011,37 +1011,6 @@ def criar(
         dados,
     )
 
-    custo_produto_alterado = False
-
-    if (
-        entidade == "Produto"
-        and "custo_unitario"
-        in dados_limpos
-    ):
-        custo_atual = _decimal_custo_produto(
-            getattr(
-                registro,
-                "custo_unitario",
-                0,
-            )
-        )
-        custo_novo = _decimal_custo_produto(
-            dados_limpos[
-                "custo_unitario"
-            ]
-        )
-
-        dados_limpos[
-            "custo_unitario"
-        ] = float(
-            custo_novo
-        )
-
-        custo_produto_alterado = (
-            custo_atual
-            != custo_novo
-        )
-
     if (
         entidade
         == "Abastecimento"
@@ -1165,6 +1134,37 @@ def atualizar(
         model,
         dados,
     )
+
+    custo_produto_alterado = False
+
+    if (
+        entidade == "Produto"
+        and "custo_unitario"
+        in dados_limpos
+    ):
+        custo_atual = _decimal_custo_produto(
+            getattr(
+                registro,
+                "custo_unitario",
+                0,
+            )
+        )
+        custo_novo = _decimal_custo_produto(
+            dados_limpos[
+                "custo_unitario"
+            ]
+        )
+
+        dados_limpos[
+            "custo_unitario"
+        ] = float(
+            custo_novo
+        )
+
+        custo_produto_alterado = (
+            custo_atual
+            != custo_novo
+        )
 
     if (
         entidade
