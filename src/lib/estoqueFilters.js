@@ -130,8 +130,10 @@ export function filterProdutos(produtos, filtros, saldos = []) {
                 ? Number(saldo.quantidade_disponivel) || 0
                 : (Number(saldo.quantidade) || 0) -
                   (Number(saldo.quantidade_reservada) || 0),
-            custo_medio: Number(saldo.custo_medio) || 0,
-            valor_total: Number(saldo.valor_total) || 0,
+            custo_medio: Number(produto.custo_unitario) || 0,
+            valor_total:
+              (Number(saldo.quantidade) || 0) *
+              (Number(produto.custo_unitario) || 0),
             tipo_estoque: saldo.tipo_estoque || 'livre',
             deposito_id: saldo.deposito_id || produto.deposito_id || '',
             gaveta_id: saldo.gaveta_id || '',
@@ -180,22 +182,18 @@ export function filterProdutos(produtos, filtros, saldos = []) {
           ),
         0
       );
-      const valorTotal = posicoes.reduce(
-        (sum, s) => sum + (Number(s.valor_total) || 0),
-        0
-      );
+      const custoAtual =
+        Number(produto.custo_unitario) || 0;
 
-      const custoMedio =
-        quantidade !== 0 && valorTotal !== 0
-          ? valorTotal / quantidade
-          : Number(produto.custo_unitario) || 0;
+      const valorTotal =
+        quantidade * custoAtual;
 
       rows.push({
         ...produto,
         quantidade,
         quantidade_reservada: reservada,
         quantidade_disponivel: disponivel,
-        custo_medio: custoMedio,
+        custo_medio: custoAtual,
         valor_total: valorTotal,
         _deposito_ids: unique(posicoes.map((s) => s.deposito_id)),
         _gaveta_ids: unique(posicoes.map((s) => s.gaveta_id)),
@@ -225,9 +223,7 @@ export function filterProdutos(produtos, filtros, saldos = []) {
   if (valorUnitMin !== null || valorUnitMax !== null) {
     rows = rows.filter((p) => {
       const value =
-        Number(p.custo_medio) ||
-        Number(p.custo_unitario) ||
-        0;
+        Number(p.custo_unitario) || 0;
 
       if (valorUnitMin !== null && value < valorUnitMin) return false;
       if (valorUnitMax !== null && value > valorUnitMax) return false;
@@ -238,12 +234,9 @@ export function filterProdutos(produtos, filtros, saldos = []) {
   if (valorTotalMin !== null || valorTotalMax !== null) {
     rows = rows.filter((p) => {
       const unit =
-        Number(p.custo_medio) ||
-        Number(p.custo_unitario) ||
-        0;
+        Number(p.custo_unitario) || 0;
 
       const value =
-        Number(p.valor_total) ||
         (Number(p.quantidade) || 0) * unit;
 
       if (valorTotalMin !== null && value < valorTotalMin) return false;

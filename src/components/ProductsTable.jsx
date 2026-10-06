@@ -52,12 +52,9 @@ export default function ProductsTable({
 
   const totalValor = produtos.reduce((sum, p) => {
     const unit =
-      Number(p.custo_medio) ||
-      Number(p.custo_unitario) ||
-      0;
+      Number(p.custo_unitario) || 0;
 
     const value =
-      Number(p.valor_total) ||
       (Number(p.quantidade) || 0) * unit;
 
     return sum + value;
@@ -130,13 +127,13 @@ export default function ProductsTable({
   }
 
   function unitCost(p) {
-    return Number(p.custo_medio) || Number(p.custo_unitario) || 0;
+    return Number(p.custo_unitario) || 0;
   }
 
   function rowValue(p) {
     return (
-      Number(p.valor_total) ||
-      (Number(p.quantidade) || 0) * unitCost(p)
+      (Number(p.quantidade) || 0) *
+      unitCost(p)
     );
   }
 
