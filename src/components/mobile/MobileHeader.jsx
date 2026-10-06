@@ -65,7 +65,7 @@ export default function MobileHeader() {
           <img
             src="/logo-app.png"
             alt=""
-            className="h-full w-full object-cover"
+            className="h-full w-full bg-white object-contain"
             aria-hidden="true"
           />
         </div>
