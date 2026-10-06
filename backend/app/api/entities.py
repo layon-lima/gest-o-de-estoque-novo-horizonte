@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
 from typing import Any
 
@@ -441,6 +442,88 @@ def _validar_duplicidade_lavoura(
                 f"com o nome '{nome}'."
             ),
         )
+
+
+def _decimal_custo_produto(
+    valor: Any,
+) -> Decimal:
+    try:
+        custo = Decimal(
+            str(
+                valor
+                if valor not in (
+                    None,
+                    "",
+                )
+                else 0
+            )
+        )
+    except (
+        InvalidOperation,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Custo unitário inválido.",
+        ) from exc
+
+    if custo < 0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Custo unitário não pode ser negativo."
+            ),
+        )
+
+    return custo.quantize(
+        Decimal("0.000001"),
+        rounding=ROUND_HALF_UP,
+    )
+
+
+def _sincronizar_custo_produto_saldos(
+    db: Session,
+    produto_id: str,
+    novo_custo: Any,
+) -> int:
+    custo = _decimal_custo_produto(
+        novo_custo
+    )
+
+    saldos = db.scalars(
+        select(
+            EstoqueSaldo
+        )
+        .where(
+            EstoqueSaldo.produto_id
+            == produto_id
+        )
+        .with_for_update()
+    ).all()
+
+    for saldo in saldos:
+        quantidade = Decimal(
+            str(
+                saldo.quantidade
+                or 0
+            )
+        )
+
+        if quantidade > 0:
+            saldo.custo_medio = custo
+            saldo.valor_total = (
+                quantidade
+                * custo
+            ).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+        else:
+            saldo.custo_medio = Decimal("0")
+            saldo.valor_total = Decimal("0")
+
+    return len(saldos)
 
 
 def _validar_maquina_sem_deposito(
@@ -928,6 +1011,37 @@ def criar(
         dados,
     )
 
+    custo_produto_alterado = False
+
+    if (
+        entidade == "Produto"
+        and "custo_unitario"
+        in dados_limpos
+    ):
+        custo_atual = _decimal_custo_produto(
+            getattr(
+                registro,
+                "custo_unitario",
+                0,
+            )
+        )
+        custo_novo = _decimal_custo_produto(
+            dados_limpos[
+                "custo_unitario"
+            ]
+        )
+
+        dados_limpos[
+            "custo_unitario"
+        ] = float(
+            custo_novo
+        )
+
+        custo_produto_alterado = (
+            custo_atual
+            != custo_novo
+        )
+
     if (
         entidade
         == "Abastecimento"
@@ -1099,6 +1213,15 @@ def atualizar(
             registro,
             campo,
             valor,
+        )
+
+    if custo_produto_alterado:
+        _sincronizar_custo_produto_saldos(
+            db,
+            registro.id,
+            dados_limpos[
+                "custo_unitario"
+            ],
         )
 
     db.flush()

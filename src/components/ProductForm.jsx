@@ -136,6 +136,9 @@ export default function ProductForm({ open, onOpenChange, produto, setores, depo
           quantidade: produto.quantidade,
         });
 
+        invalidateEntidade('Produto');
+        invalidateEntidade('SaldoEstoque');
+
         const custoAntigo = Number(produto.custo_unitario) || 0;
         const custoNovo = parseQtd(form.custo_unitario) || 0;
 
