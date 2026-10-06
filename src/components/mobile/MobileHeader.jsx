@@ -63,7 +63,7 @@ export default function MobileHeader() {
       <div className="mobile-app-header__brand">
         <div className="mobile-app-header__mark overflow-hidden p-0">
           <img
-            src="/logo-app.png"
+            src="/logo-app.webp"
             alt=""
             className="h-full w-full bg-white object-contain"
             aria-hidden="true"
