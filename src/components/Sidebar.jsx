@@ -491,7 +491,7 @@ export default function Sidebar({
                 <img
                   src="/logo-app.png"
                   alt=""
-                  className="h-full w-full object-cover"
+                  className="h-full w-full bg-white object-contain"
                   aria-hidden="true"
                 />
               </span>
@@ -629,7 +629,7 @@ export default function Sidebar({
             <img
               src="/logo-app.png"
               alt=""
-              className="h-11 w-11 rounded-xl object-cover"
+              className="h-11 w-11 rounded-xl bg-white object-contain"
               aria-hidden="true"
             />
 

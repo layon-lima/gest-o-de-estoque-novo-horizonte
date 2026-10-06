@@ -8,7 +8,7 @@ export default function AuthLayout({ title, subtitle, footer, children }) {
           <img
             src="/logo-app.png"
             alt="Fazenda Novo Horizonte"
-            className="mx-auto mb-4 h-20 w-20 rounded-2xl object-cover shadow-sm"
+            className="mx-auto mb-4 h-20 w-20 rounded-2xl bg-white object-contain p-0.5 shadow-sm"
           />
           <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
           {subtitle && <p className="text-muted-foreground mt-2">{subtitle}</p>}
