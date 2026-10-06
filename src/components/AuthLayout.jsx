@@ -6,7 +6,7 @@ export default function AuthLayout({ title, subtitle, footer, children }) {
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <img
-            src="/logo-app.png"
+            src="/logo-app.webp"
             alt="Fazenda Novo Horizonte"
             className="mx-auto mb-4 h-20 w-20 rounded-2xl bg-white object-contain p-0.5 shadow-sm"
           />
