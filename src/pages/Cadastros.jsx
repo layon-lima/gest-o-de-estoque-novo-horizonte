@@ -32,7 +32,7 @@ import EntradaSaldoMobilePendentes from '@/components/cadastros/EntradaSaldoMobi
 import Usuarios from '@/pages/Usuarios';
 
 import { useAuth } from '@/lib/AuthContext';
-import { canAccessUsuarios } from '@/lib/permissions';
+import { canAccessUsuarios, hasPermission } from '@/lib/permissions';
 import { cadastrosMobileApi } from '@/api/cadastrosMobileClient';
 import { entradaSaldoMobileApi } from '@/api/entradaSaldoMobileClient';
 
@@ -153,15 +153,28 @@ export default function Cadastros() {
   const [saldoMobilePendentes, setSaldoMobilePendentes] = useState(0);
 
   useEffect(() => {
-    if (!canAccessUsuarios(user)) {
+    const podeRevisarCadastros = hasPermission(
+      user,
+      'admin.cadastros_mobile.revisar'
+    );
+    const podeRevisarSaldo = hasPermission(
+      user,
+      'admin.entrada_saldo_mobile.revisar'
+    );
+
+    if (!podeRevisarCadastros && !podeRevisarSaldo) {
       setMobilePendentes(0);
       setSaldoMobilePendentes(0);
       return;
     }
 
     Promise.all([
-      cadastrosMobileApi.contador(),
-      entradaSaldoMobileApi.contador(),
+      podeRevisarCadastros
+        ? cadastrosMobileApi.contador()
+        : Promise.resolve({ pendentes: 0 }),
+      podeRevisarSaldo
+        ? entradaSaldoMobileApi.contador()
+        : Promise.resolve({ pendentes: 0 }),
     ])
       .then(([cadastros, saldos]) => {
         setMobilePendentes(cadastros.pendentes || 0);
@@ -189,7 +202,23 @@ export default function Cadastros() {
 
     if (canAccessUsuarios(user)) {
       lista.push('usuarios');
+    }
+
+    if (
+      hasPermission(
+        user,
+        'admin.cadastros_mobile.revisar'
+      )
+    ) {
       lista.push('mobile_pendentes');
+    }
+
+    if (
+      hasPermission(
+        user,
+        'admin.entrada_saldo_mobile.revisar'
+      )
+    ) {
       lista.push('saldo_mobile_pendentes');
     }
 
