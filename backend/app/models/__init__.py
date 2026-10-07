@@ -21,6 +21,7 @@ from app.models.entities import (
     Setor,
     TicketPesagem,
     User,
+    UserPermission,
     Veiculo,
 )
 
@@ -54,6 +55,7 @@ __all__ = [
     "Setor",
     "TicketPesagem",
     "User",
+    "UserPermission",
     "Veiculo",
     "EstoqueDocumento",
     "EstoqueDocumentoItem",
