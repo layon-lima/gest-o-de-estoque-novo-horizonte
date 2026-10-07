@@ -119,6 +119,7 @@ export default function UsuarioPermissoes() {
   const [acoesMobile, setAcoesMobile] = useState([]);
   const [podeDigitarPeso, setPodeDigitarPeso] = useState(false);
   const [podeConfirmarAbastecimento, setPodeConfirmarAbastecimento] = useState(false);
+  const [podeAbastecerSemFoto, setPodeAbastecerSemFoto] = useState(false);
   const [podeEntradaManualSaldoMobile, setPodeEntradaManualSaldoMobile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -175,6 +176,12 @@ export default function UsuarioPermissoes() {
         setSetoresSel(Array.isArray(usuario.setores_permitidos) ? usuario.setores_permitidos : []);
         setPodeDigitarPeso(usuario.pode_digitar_peso === true);
         setPodeConfirmarAbastecimento(usuario.pode_confirmar_abastecimento === true);
+        setPodeAbastecerSemFoto(
+          Array.isArray(usuario.permissoes)
+          && usuario.permissoes.includes(
+            'operacao.abastecimento.sem_foto'
+          )
+        );
         setPodeEntradaManualSaldoMobile(usuario.pode_entrada_manual_saldo_mobile === true);
         setAcoesMobile([
           usuario.pode_baixar_mobile ? 'baixar' : null,
@@ -224,6 +231,9 @@ export default function UsuarioPermissoes() {
               : null,
             podeConfirmarAbastecimento
               ? 'operacao.abastecimento.confirmar'
+              : null,
+            podeAbastecerSemFoto
+              ? 'operacao.abastecimento.sem_foto'
               : null,
             acoesMobile.includes('baixar')
               ? 'mobile.estoque.baixar'
@@ -419,9 +429,9 @@ export default function UsuarioPermissoes() {
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <PermissionSection
           icon={Monitor}
-          eyebrow="Somente computador"
-          title="Recursos da operação no PC"
-          description="Permissões específicas para rotinas administrativas executadas no computador."
+          eyebrow="Operação"
+          title="Permissões operacionais"
+          description="Permissões específicas para rotinas de abastecimento e pesagem."
         >
           <div className="grid gap-2.5">
             <PermissionItem
@@ -437,6 +447,13 @@ export default function UsuarioPermissoes() {
               icon={CheckCircle2}
               title="Confirmar abastecimentos"
               description="Permite conferir a foto e confirmar a baixa do abastecimento."
+            />
+            <PermissionItem
+              checked={podeAbastecerSemFoto}
+              onChange={setPodeAbastecerSemFoto}
+              icon={CheckCircle2}
+              title="Abastecimento sem foto obrigatória"
+              description="Permite registrar abastecimento sem tirar a foto do painel do abastecedor."
             />
           </div>
         </PermissionSection>
