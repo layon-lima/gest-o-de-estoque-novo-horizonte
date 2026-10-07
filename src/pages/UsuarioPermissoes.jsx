@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -18,10 +18,18 @@ import {
 } from 'lucide-react';
 
 import { api } from '@/api/apiClient';
+import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PAGES } from '@/lib/permissions';
 
 const MOBILE_ACTIONS = [
@@ -99,8 +107,12 @@ export default function UsuarioPermissoes() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
 
   const [user, setUser] = useState(null);
+  const [catalog, setCatalog] = useState(null);
+  const [role, setRole] = useState('user');
+  const [adminPermissoes, setAdminPermissoes] = useState([]);
   const [setores, setSetores] = useState([]);
   const [paginas, setPaginas] = useState([]);
   const [setoresSel, setSetoresSel] = useState([]);
