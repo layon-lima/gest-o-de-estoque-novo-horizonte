@@ -14,6 +14,7 @@ import { Image } from '@/components/ui/image';
 import MobileProductPhoto from '@/components/mobile/MobileProductPhoto';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/AuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { useEntidades } from '@/lib/useEntidades';
 import { UNIDADES } from '@/lib/units';
 
@@ -44,9 +45,13 @@ export default function MobileAdmin() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { data } = useEntidades({ Setor: {}, Deposito: {}, Gaveta: {}, Maquina: {} });
+  const podeUsarModoAdmin = hasPermission(
+    user,
+    'admin.cadastros_mobile.solicitar'
+  );
 
   useEffect(() => {
-    if (user?.role !== 'admin') return;
+    if (!podeUsarModoAdmin) return;
 
     cadastrosMobileApi
       .contador()
@@ -55,10 +60,10 @@ export default function MobileAdmin() {
 
     const ativo = localStorage.getItem(activeTypeKey(user));
     if (ativo && CONFIG[ativo]) setTipo(ativo);
-  }, [user]);
+  }, [podeUsarModoAdmin, user]);
 
   useEffect(() => {
-    if (!tipo || user?.role !== 'admin') return;
+    if (!tipo || !podeUsarModoAdmin) return;
 
     const salvo = localStorage.getItem(draftKey(user, tipo));
     try {
@@ -66,13 +71,13 @@ export default function MobileAdmin() {
     } catch {
       setForm({ ...EMPTY[tipo] });
     }
-  }, [tipo, user]);
+  }, [podeUsarModoAdmin, tipo, user]);
 
   useEffect(() => {
-    if (tipo && form && user?.role === 'admin') {
+    if (tipo && form && podeUsarModoAdmin) {
       localStorage.setItem(draftKey(user, tipo), JSON.stringify(form));
     }
-  }, [tipo, form, user]);
+  }, [form, podeUsarModoAdmin, tipo, user]);
 
   const set = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
   const setores = data.Setor || [];
@@ -82,7 +87,7 @@ export default function MobileAdmin() {
     [data.Gaveta, form?.deposito_id]
   );
 
-  if (user?.role !== 'admin') return <Navigate to="/" replace />;
+  if (!podeUsarModoAdmin) return <Navigate to="/" replace />;
 
   function abrirTipo(novoTipo) {
     localStorage.setItem(activeTypeKey(user), novoTipo);
@@ -181,7 +186,7 @@ export default function MobileAdmin() {
       <div className="mobile-page space-y-4 px-4 py-5">
         <header>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-            Exclusivo para administradores
+            Função administrativa
           </p>
           <h1 className="text-2xl font-bold">Modo Admin</h1>
           <p className="text-sm text-muted-foreground">
