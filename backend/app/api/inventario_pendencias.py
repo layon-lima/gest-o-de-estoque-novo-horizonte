@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
-from app.api.users import exigir_admin
-from app.core.access_control import exigir_pagina
+from app.api.users import dep_permissao
+from app.core.access_control import exigir_pagina, tem_permissao
 from app.db.database import get_db
 from app.models import Inventario, InventarioForaEstoque, Produto, Deposito, Gaveta, User
 from app.services.motor_estoque import movimentar_estoque, EstoqueErro
@@ -42,7 +42,7 @@ def publico(item):
 def listar(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     exigir_pagina(user, 'inventario')
     query = select(InventarioForaEstoque)
-    if user.role != 'admin':
+    if not tem_permissao(user, 'admin.inventario.revisar'):
         query = query.where(InventarioForaEstoque.created_by_id == user.id)
     return [publico(item) for item in db.scalars(query.order_by(InventarioForaEstoque.data_registro.desc())).all()]
 
@@ -63,7 +63,7 @@ def registrar(dados: Registro, user: User = Depends(get_current_user), db: Sessi
 
 
 @router.post('/{item_id}/revisar')
-def revisar(item_id: str, dados: Revisao, user: User = Depends(exigir_admin), db: Session = Depends(get_db)):
+def revisar(item_id: str, dados: Revisao, user: User = Depends(dep_permissao('admin.inventario.revisar')), db: Session = Depends(get_db)):
     item = db.scalar(select(InventarioForaEstoque).where(InventarioForaEstoque.id == item_id).with_for_update())
     if item is None:
         raise HTTPException(404, 'Registro não encontrado.')
