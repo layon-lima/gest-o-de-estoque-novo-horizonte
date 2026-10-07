@@ -152,6 +152,22 @@ Ao mudar o custo atual:
 - Estorno deve passar pelo motor e restaurar o que a regra oficial determinar.
 - Exclusão de entidade vinculada a saldo oficial deve ser bloqueada quando aplicável.
 
+## 3.7 Permissões e Sub Administradores
+
+Regra permanente:
+
+- `admin` = **Administrador Total**, com acesso irrestrito;
+- `subadmin` = **Sub Administrador**, com somente as funções administrativas que o Administrador Total liberar;
+- `user` = usuário padrão;
+- a fonte oficial das permissões é a tabela `user_permissions`;
+- campos antigos de permissão em `users` existem apenas como projeção de compatibilidade;
+- somente o Administrador Total pode conceder/revogar permissões, promover para Sub Administrador ou Administrador Total;
+- Sub Administrador nunca pode aumentar as próprias permissões nem promover outro usuário;
+- backend deve validar a permissão real; esconder botão no frontend não é segurança suficiente;
+- todas as permissões de um usuário devem ser configuradas no **painel único de Permissões** em Cadastros > Usuários;
+- novas funções administrativas devem entrar no catálogo central de permissões, nunca em um novo `role == "admin"` isolado;
+- permissões existentes devem ser migradas/preservadas ao evoluir o modelo.
+
 ---
 
 # 4. ONLINE / OFFLINE
