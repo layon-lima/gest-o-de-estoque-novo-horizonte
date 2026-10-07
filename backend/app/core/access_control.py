@@ -58,6 +58,7 @@ PERMISSION_CATALOG = (
     {"key": "admin.usuarios.editar", "group": "administracao", "label": "Editar usuários", "description": "Editar nome, senha e status de usuários padrão."},
     {"key": "admin.usuarios.excluir", "group": "administracao", "label": "Excluir usuários", "description": "Excluir usuários padrão."},
     {"key": "admin.balanca.acessar", "group": "administracao", "label": "Acessar Balança", "description": "Abrir a área administrativa da balança."},
+    {"key": "admin.cadastros_mobile.solicitar", "group": "administracao", "label": "Modo Admin no celular", "description": "Criar solicitações de cadastros pelo modo administrativo mobile."},
     {"key": "admin.cadastros_mobile.revisar", "group": "administracao", "label": "Revisar cadastros mobile", "description": "Aprovar ou rejeitar cadastros enviados pelo celular."},
     {"key": "admin.entrada_saldo_mobile.revisar", "group": "administracao", "label": "Revisar entradas de saldo mobile", "description": "Aprovar ou rejeitar solicitações de entrada de saldo."},
     {"key": "admin.inventario.revisar", "group": "administracao", "label": "Revisar itens encontrados", "description": "Aprovar ou rejeitar itens encontrados no inventário."},
