@@ -267,10 +267,6 @@ export default function Usuarios() {
                 <TableBody>
                   {filtered.map((u) => {
                     const isSelf = u.id === currentUser?.id;
-                    const qtdSetores = Array.isArray(u.setores_permitidos)
-                      ? u.setores_permitidos.length
-                      : 0;
-
                     return (
                       <TableRow key={u.id}>
                         <TableCell>
