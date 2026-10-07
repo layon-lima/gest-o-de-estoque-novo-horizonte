@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -18,10 +18,18 @@ import {
 } from 'lucide-react';
 
 import { api } from '@/api/apiClient';
+import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PAGES } from '@/lib/permissions';
 
 const MOBILE_ACTIONS = [
@@ -99,8 +107,12 @@ export default function UsuarioPermissoes() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
 
   const [user, setUser] = useState(null);
+  const [catalog, setCatalog] = useState(null);
+  const [role, setRole] = useState('user');
+  const [adminPermissoes, setAdminPermissoes] = useState([]);
   const [setores, setSetores] = useState([]);
   const [paginas, setPaginas] = useState([]);
   const [setoresSel, setSetoresSel] = useState([]);
@@ -139,8 +151,9 @@ export default function UsuarioPermissoes() {
     Promise.all([
       carregarUsuario(),
       api.entities.Setor.list(),
+      api.entities.User.permissionsCatalog(),
     ])
-      .then(([usuario, listaSetores]) => {
+      .then(([usuario, listaSetores, permissionCatalog]) => {
         if (!active) return;
 
         const ordenados = [...(listaSetores || [])].sort((a, b) =>
@@ -150,6 +163,13 @@ export default function UsuarioPermissoes() {
         );
 
         setUser(usuario);
+        setCatalog(permissionCatalog);
+        setRole(usuario.role || 'user');
+        setAdminPermissoes(
+          Array.isArray(usuario.permissoes)
+            ? usuario.permissoes.filter((key) => key.startsWith('admin.'))
+            : []
+        );
         setSetores(ordenados);
         setPaginas(Array.isArray(usuario.paginas_permitidas) ? usuario.paginas_permitidas : []);
         setSetoresSel(Array.isArray(usuario.setores_permitidos) ? usuario.setores_permitidos : []);
@@ -195,16 +215,42 @@ export default function UsuarioPermissoes() {
     setSaving(true);
 
     try {
-      await api.entities.User.update(user.id, {
-        paginas_permitidas: paginas,
-        setores_permitidos: setoresValidos,
-        pode_digitar_peso: podeDigitarPeso,
-        pode_confirmar_abastecimento: podeConfirmarAbastecimento,
-        pode_baixar_mobile: acoesMobile.includes('baixar'),
-        pode_mudar_gaveta_mobile: acoesMobile.includes('mudar_gaveta'),
-        pode_mudar_deposito_mobile: acoesMobile.includes('mudar_deposito'),
-        pode_entrada_manual_saldo_mobile: podeEntradaManualSaldoMobile,
-      });
+      const permissoes = role === 'admin'
+        ? []
+        : [
+            ...paginas.map((pagina) => `page.${pagina}`),
+            podeDigitarPeso
+              ? 'operacao.pesagem.digitar_peso'
+              : null,
+            podeConfirmarAbastecimento
+              ? 'operacao.abastecimento.confirmar'
+              : null,
+            acoesMobile.includes('baixar')
+              ? 'mobile.estoque.baixar'
+              : null,
+            acoesMobile.includes('mudar_gaveta')
+              ? 'mobile.estoque.mudar_gaveta'
+              : null,
+            acoesMobile.includes('mudar_deposito')
+              ? 'mobile.estoque.mudar_deposito'
+              : null,
+            podeEntradaManualSaldoMobile
+              ? 'mobile.estoque.entrada_manual_saldo'
+              : null,
+            ...(role === 'subadmin' ? adminPermissoes : []),
+          ].filter(Boolean);
+
+      await api.entities.User.updatePermissions(
+        user.id,
+        {
+          role,
+          permissoes,
+          setores_permitidos:
+            role === 'admin'
+              ? []
+              : setoresValidos,
+        }
+      );
 
       toast({
         title: 'Permissões atualizadas',
@@ -230,6 +276,15 @@ export default function UsuarioPermissoes() {
     );
   }
 
+  if (currentUser?.role !== 'admin') {
+    return (
+      <Navigate
+        to="/cadastros?tab=usuarios"
+        replace
+      />
+    );
+  }
+
   if (!user) {
     return (
       <div className="mx-auto max-w-xl py-20 text-center">
@@ -240,6 +295,9 @@ export default function UsuarioPermissoes() {
   }
 
   const nome = user.display_name || user.username || 'Usuário';
+  const adminItems = (catalog?.permissions || []).filter(
+    (item) => item.group === 'administracao'
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5 lg:px-6">
@@ -268,6 +326,76 @@ export default function UsuarioPermissoes() {
         </div>
       </div>
 
+      <PermissionSection
+        icon={LockKeyhole}
+        eyebrow="Perfil e administração"
+        title="Perfil do usuário"
+        description="Administrador Total possui acesso irrestrito. Sub Administrador recebe somente as funções administrativas marcadas abaixo."
+        badge={
+          role === 'admin'
+            ? 'Acesso total'
+            : role === 'subadmin'
+              ? 'Sub Administrador'
+              : 'Usuário'
+        }
+      >
+        <div className="mb-4 max-w-sm">
+          <label className="mb-1.5 block text-xs font-medium">
+            Perfil
+          </label>
+          <Select
+            value={role}
+            onValueChange={(novoRole) => {
+              setRole(novoRole);
+              if (novoRole !== 'subadmin') {
+                setAdminPermissoes([]);
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="user">
+                Usuário
+              </SelectItem>
+              <SelectItem value="subadmin">
+                Sub Administrador
+              </SelectItem>
+              <SelectItem value="admin">
+                Administrador Total
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {role === 'admin' ? (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            Este perfil ignora a matriz granular e possui acesso total ao sistema.
+          </div>
+        ) : role === 'subadmin' ? (
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {adminItems.map((item) => (
+              <PermissionItem
+                key={item.key}
+                checked={adminPermissoes.includes(item.key)}
+                onChange={() =>
+                  toggleList(setAdminPermissoes, item.key)
+                }
+                title={item.label}
+                description={item.description}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+            Usuários padrão não recebem funções administrativas.
+          </div>
+        )}
+      </PermissionSection>
+
+      {role !== 'admin' ? (
+        <>
       <PermissionSection
         icon={MonitorSmartphone}
         eyebrow="Computador e celular"
@@ -383,8 +511,11 @@ export default function UsuarioPermissoes() {
         )}
       </PermissionSection>
 
+        </>
+      ) : null}
+
       <div className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> Administradores continuam com acesso total aos setores.</span>
+        <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> A matriz inteira é salva em um único banco de permissões.</span>
         <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Salvar

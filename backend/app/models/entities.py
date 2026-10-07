@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Date, DateTime, Float, JSON, String, Text
-from sqlalchemy.orm import mapped_column
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, JSON, String, Text, UniqueConstraint
+from sqlalchemy.orm import mapped_column, relationship
 
 from app.db.database import Base
 from app.models.base import EntityBaseMixin
@@ -323,17 +323,48 @@ class User(EntityBaseMixin, Base):
     display_name = mapped_column(String(255), nullable=True)
     role = mapped_column(String(30), nullable=False, default="user", index=True)
 
+    # Campos legados mantidos apenas como projeção de compatibilidade.
+    # A fonte oficial de permissões é user_permissions.
     pode_confirmar_abastecimento = mapped_column(Boolean, nullable=False, default=False)
     pode_digitar_peso = mapped_column(Boolean, nullable=False, default=False)
     pode_baixar_mobile = mapped_column(Boolean, nullable=False, default=False)
     pode_mudar_gaveta_mobile = mapped_column(Boolean, nullable=False, default=False)
     pode_mudar_deposito_mobile = mapped_column(Boolean, nullable=False, default=False)
     pode_entrada_manual_saldo_mobile = mapped_column(Boolean, nullable=False, default=False)
-
     paginas_permitidas = mapped_column(Text, nullable=True)
     setores_permitidos = mapped_column(Text, nullable=True)
 
     ativo = mapped_column(Boolean, nullable=False, default=True)
+
+    permission_records = relationship(
+        "UserPermission",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class UserPermission(EntityBaseMixin, Base):
+    __tablename__ = "user_permissions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "permission_key",
+            "scope_value",
+            name="uq_user_permission_scope",
+        ),
+    )
+
+    user_id = mapped_column(
+        String(100),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    permission_key = mapped_column(String(150), nullable=False, index=True)
+    scope_value = mapped_column(String(150), nullable=False, default="", index=True)
+
+    user = relationship("User", back_populates="permission_records")
 
 
 class Veiculo(EntityBaseMixin, Base):

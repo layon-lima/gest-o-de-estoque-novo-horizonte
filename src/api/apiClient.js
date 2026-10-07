@@ -892,6 +892,24 @@ const userEntityClient = {
     );
   },
 
+  async updatePermissions(id, data) {
+    return request(
+      `/users/${encodeURIComponent(id)}/permissions`,
+      {
+        method: "PUT",
+        body: JSON.stringify(
+          data
+        ),
+      }
+    );
+  },
+
+  async permissionsCatalog() {
+    return request(
+      "/users/permissions/catalog"
+    );
+  },
+
   async delete(id) {
     return request(
       `/users/${encodeURIComponent(id)}`,

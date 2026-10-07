@@ -49,7 +49,9 @@ import {
 
 import {
   allowedPagesForUser,
+  canAccessBalanca,
   canAccessUsuarios,
+  hasAnyPermission,
 } from '@/lib/permissions';
 
 import {
@@ -415,6 +417,19 @@ export default function Sidebar({
     );
 
 
+  const canSeeAdminIntegrity =
+    hasAnyPermission(
+      user,
+      [
+        'admin.integridade.visualizar',
+        'admin.integridade.verificar',
+        'admin.auditoria.visualizar',
+        'admin.backups.visualizar',
+        'admin.backups.criar',
+        'admin.backups.verificar',
+      ]
+    );
+
   const isCadastros =
     location.pathname === '/cadastros';
 
@@ -572,7 +587,7 @@ export default function Sidebar({
                       onModeChange={setMode}
                     />
 
-                    {user?.role === 'admin' && (
+                    {canSeeAdminIntegrity && (
                       <AdminIntegrityStatus />
                     )}
 
@@ -657,7 +672,7 @@ export default function Sidebar({
           ))}
 
 
-          {user?.role === 'admin' && (
+          {canAccessBalanca(user) && (
             <div className="mt-2 border-t pt-2">
               <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Administração

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/AuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { useEntidades, invalidateEstoque } from '@/lib/useEntidades';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { useBackHandler } from '@/hooks/useBackHandler';
@@ -140,7 +141,10 @@ export default function Abastecimento() {
     };
   }, [isMobile, user?.id, load]);
 
-  const podeConfirmar = user?.role === 'admin' || user?.pode_confirmar_abastecimento === true;
+  const podeConfirmar = hasPermission(
+    user,
+    'operacao.abastecimento.confirmar'
+  );
 
   const setorCombustivel = useMemo(() => findSetorCombustivel(setores), [setores]);
   const combustiveis = useMemo(

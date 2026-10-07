@@ -20,6 +20,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { UserPlus, Loader2, User, Lock } from 'lucide-react';
 import { api } from '@/api/apiClient';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function InviteUserDialog({
   open,
@@ -33,6 +34,8 @@ export default function InviteUserDialog({
   const [loading, setLoading] = useState(false);
 
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+  const isAdminTotal = currentUser?.role === 'admin';
 
   const limpar = () => {
     setDisplayName('');
@@ -59,7 +62,7 @@ export default function InviteUserDialog({
         display_name: displayName.trim(),
         username: username.trim(),
         password,
-        role,
+        role: isAdminTotal ? role : 'user',
       });
 
       toast({
@@ -180,27 +183,35 @@ export default function InviteUserDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Cargo</Label>
+            <Label>Perfil</Label>
 
-            <Select
-              value={role}
-              onValueChange={setRole}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            {isAdminTotal ? (
+              <Select
+                value={role}
+                onValueChange={setRole}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
 
-              <SelectContent>
-                <SelectItem value="user">
-                  Usuário
-                </SelectItem>
-
-                <SelectItem value="admin">
-                  Administrador
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                <SelectContent>
+                  <SelectItem value="user">
+                    Usuário
+                  </SelectItem>
+                  <SelectItem value="subadmin">
+                    Sub Administrador
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    Administrador Total
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                Usuário
+              </div>
+            )}
           </div>
 
           <DialogFooter>

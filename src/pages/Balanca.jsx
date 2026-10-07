@@ -1,21 +1,22 @@
 import { Scale, ShieldX } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import { canAccessBalanca } from '@/lib/permissions';
 import BalancaStatusGrid from '@/components/balanca/BalancaStatusGrid';
 import BalancaControles from '@/components/balanca/BalancaControles';
 import BalancaConfig from '@/components/balanca/BalancaConfig';
 
 export default function Balanca() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const podeAcessar = canAccessBalanca(user);
 
-  if (!isAdmin) {
+  if (!podeAcessar) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-20 text-center">
         <div className="p-4 rounded-2xl bg-destructive/10 text-destructive mb-4">
           <ShieldX className="w-10 h-10" />
         </div>
         <h1 className="text-xl font-bold">Acesso restrito</h1>
-        <p className="text-sm text-muted-foreground mt-1">Apenas administradores podem acessar esta página.</p>
+        <p className="text-sm text-muted-foreground mt-1">Você não possui permissão para acessar esta página.</p>
       </div>
     );
   }

@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dialog';
 
 import { adminApi } from '@/api/adminClient';
+import { useAuth } from '@/lib/AuthContext';
+import { hasPermission } from '@/lib/permissions';
 
 
 function formatarData(valor) {
@@ -41,6 +43,29 @@ function formatarData(valor) {
 
 
 export default function AdminIntegrityStatus() {
+  const { user } = useAuth();
+
+  const podeVerIntegridade = hasPermission(
+    user,
+    'admin.integridade.visualizar'
+  );
+  const podeVerificarIntegridade = hasPermission(
+    user,
+    'admin.integridade.verificar'
+  );
+  const podeVerAuditoria = hasPermission(
+    user,
+    'admin.auditoria.visualizar'
+  );
+  const podeVerBackups = hasPermission(
+    user,
+    'admin.backups.visualizar'
+  );
+  const podeCriarBackup = hasPermission(
+    user,
+    'admin.backups.criar'
+  );
+
   const [
     integridade,
     setIntegridade,
@@ -73,6 +98,11 @@ export default function AdminIntegrityStatus() {
 
 
   const carregar = async () => {
+    if (!podeVerIntegridade) {
+      setIntegridade(null);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -97,12 +127,16 @@ export default function AdminIntegrityStatus() {
   useEffect(() => {
     carregar();
 
-    adminApi.backups()
-      .then(setBackupInfo)
-      .catch(() => {
-        setBackupInfo(null);
-      });
-  }, []);
+    if (podeVerBackups) {
+      adminApi.backups()
+        .then(setBackupInfo)
+        .catch(() => {
+          setBackupInfo(null);
+        });
+    } else {
+      setBackupInfo(null);
+    }
+  }, [podeVerBackups, podeVerIntegridade]);
 
 
   const criarBackup = async () => {
@@ -111,10 +145,12 @@ export default function AdminIntegrityStatus() {
     try {
       await adminApi.criarBackup();
 
-      const info =
-        await adminApi.backups();
+      if (podeVerBackups) {
+        const info =
+          await adminApi.backups();
 
-      setBackupInfo(info);
+        setBackupInfo(info);
+      }
 
     } finally {
       setBackupLoading(false);
@@ -146,12 +182,16 @@ export default function AdminIntegrityStatus() {
       setLoading(true);
 
       try {
-        await (
+        const resultado = await (
           adminApi
           .verificarIntegridade()
         );
 
-        await carregar();
+        if (podeVerIntegridade) {
+          await carregar();
+        } else {
+          setIntegridade(resultado);
+        }
 
       } finally {
         setLoading(false);
@@ -193,6 +233,7 @@ export default function AdminIntegrityStatus() {
           </div>
         </div>
 
+        {(podeVerBackups || podeCriarBackup) && (
         <div className="mt-2 rounded-md border bg-background/60 p-2">
           <div className="flex items-center gap-2">
             <DatabaseBackup className="h-3.5 w-3.5 text-primary" />
@@ -212,57 +253,65 @@ export default function AdminIntegrityStatus() {
               </div>
             </div>
 
+            {podeCriarBackup && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-[10px]"
+                disabled={backupLoading}
+                onClick={criarBackup}
+              >
+                {backupLoading
+                  ? 'Criando...'
+                  : 'Criar'
+                }
+              </Button>
+            )}
+          </div>
+        </div>
+        )}
+
+        <div className="mt-2 flex gap-1.5">
+          {podeVerificarIntegridade && (
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-6 px-2 text-[10px]"
-              disabled={backupLoading}
-              onClick={criarBackup}
-            >
-              {backupLoading
-                ? 'Criando...'
-                : 'Criar'
+              className="h-7 flex-1 px-2 text-[11px]"
+              onClick={
+                executarVerificacao
               }
+              disabled={loading}
+            >
+              <RefreshCw className={`mr-1.5 h-3 w-3 ${
+                loading
+                  ? 'animate-spin'
+                  : ''
+              }`} />
+              Verificar
             </Button>
-          </div>
-        </div>
+          )}
 
-        <div className="mt-2 flex gap-1.5">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 flex-1 px-2 text-[11px]"
-            onClick={
-              executarVerificacao
-            }
-            disabled={loading}
-          >
-            <RefreshCw className={`mr-1.5 h-3 w-3 ${
-              loading
-                ? 'animate-spin'
-                : ''
-            }`} />
-            Verificar
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 flex-1 px-2 text-[11px]"
-            onClick={
-              abrirAuditoria
-            }
-          >
-            <ClipboardList className="mr-1.5 h-3 w-3" />
-            Auditoria
-          </Button>
+          {podeVerAuditoria && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 flex-1 px-2 text-[11px]"
+              onClick={
+                abrirAuditoria
+              }
+            >
+              <ClipboardList className="mr-1.5 h-3 w-3" />
+              Auditoria
+            </Button>
+          )}
         </div>
       </div>
 
 
+      {podeVerAuditoria && (
       <Dialog
         open={dialogOpen}
         onOpenChange={
@@ -342,6 +391,7 @@ export default function AdminIntegrityStatus() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </>
   );
 }

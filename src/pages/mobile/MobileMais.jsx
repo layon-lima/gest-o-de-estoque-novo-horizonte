@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { canAccessBalanca } from '@/lib/permissions';
+import { canAccessBalanca, hasPermission } from '@/lib/permissions';
 import { mobilePageAllowed } from '@/lib/mobileAccess';
 import { getDisplayInitial, getDisplayName } from '@/lib/userName';
 
@@ -51,7 +51,7 @@ export default function MobileMais() {
         </div>
 
         <div className="mobile-more-list">
-          {user?.role === 'admin' && (
+          {hasPermission(user, 'admin.cadastros_mobile.solicitar') && (
             <Link to="/admin-mobile" className="mobile-more-row">
               <span className="mobile-more-row__icon"><ShieldCheck className="h-5 w-5" /></span>
               <strong>Modo Admin</strong>

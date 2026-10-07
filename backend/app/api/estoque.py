@@ -18,6 +18,7 @@ from app.core.access_control import (
     produtos_em_setores_mobile,
     setores_mobile_ids,
     tem_pagina,
+    tem_permissao,
 )
 from app.db.database import get_db
 from app.models import (
@@ -174,10 +175,13 @@ def _exigir_movimentacao_permitida(
     tipo = str(dados.tipo_movimento or "").strip().upper()
 
     if tipo == "ENTRADA_SALDO_ADMIN":
-        if current_user.role != "admin":
+        if not tem_permissao(
+            current_user,
+            "admin.estoque.entrada_manual",
+        ):
             raise HTTPException(
                 status_code=403,
-                detail="A entrada manual de saldo é permitida somente para administradores.",
+                detail="Usuário sem permissão para registrar entrada manual de saldo.",
             )
 
         if origem != "movimentacoes":
