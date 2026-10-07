@@ -1,4 +1,5 @@
-// Definição das páginas do app e helpers de controle de acesso por usuário.
+// Fonte de leitura de permissões no frontend.
+// O backend e a tabela user_permissions são a autoridade real.
 export const PAGES = [
   { key: 'dashboard', label: 'Pesquisa', path: '/' },
   { key: 'movimentacoes', label: 'Movimentos', path: '/movimentacoes' },
@@ -19,34 +20,76 @@ export const pageKeyForPath = (pathname) => {
   return found ? found.key : null;
 };
 
-export const userCanAccess = (user, pageKey) => {
+export const hasPermission = (user, permissionKey) => {
   if (!user) return false;
   if (user.role === 'admin') return true;
-  if (!pageKey) return true; // páginas não mapeadas são tratadas em outro lugar
-  const allowed = user.paginas_permitidas;
-  if (!Array.isArray(allowed)) return true; // não configurado = acesso total (compatibilidade)
-  return allowed.includes(pageKey);
+
+  const permissions = user.permissoes;
+  if (Array.isArray(permissions)) {
+    return permissions.includes('*') || permissions.includes(permissionKey);
+  }
+
+  // Compatibilidade temporária com sessões antigas durante a atualização.
+  if (permissionKey.startsWith('page.')) {
+    const pageKey = permissionKey.slice(5);
+    const allowed = user.paginas_permitidas;
+    return !Array.isArray(allowed) || allowed.includes(pageKey);
+  }
+
+  const legacy = {
+    'operacao.abastecimento.confirmar': 'pode_confirmar_abastecimento',
+    'operacao.pesagem.digitar_peso': 'pode_digitar_peso',
+    'mobile.estoque.baixar': 'pode_baixar_mobile',
+    'mobile.estoque.mudar_gaveta': 'pode_mudar_gaveta_mobile',
+    'mobile.estoque.mudar_deposito': 'pode_mudar_deposito_mobile',
+    'mobile.estoque.entrada_manual_saldo': 'pode_entrada_manual_saldo_mobile',
+  };
+
+  const field = legacy[permissionKey];
+  return field ? user?.[field] === true : false;
+};
+
+export const hasAnyPermission = (user, permissionKeys = []) =>
+  permissionKeys.some((key) => hasPermission(user, key));
+
+export const userCanAccess = (user, pageKey) => {
+  if (!user) return false;
+  if (!pageKey) return true;
+  return hasPermission(user, `page.${pageKey}`);
 };
 
 export const allowedPagesForUser = (user) => {
   if (!user) return [];
-  if (user.role === 'admin') return PAGES;
-  const allowed = user.paginas_permitidas;
-  if (!Array.isArray(allowed)) return PAGES; // não configurado = tudo
-  return PAGES.filter((p) => allowed.includes(p.key));
+  return PAGES.filter((page) =>
+    hasPermission(user, `page.${page.key}`)
+  );
 };
 
-export const canAccessUsuarios = (user) => user?.role === 'admin';
-export const canAccessBalanca = (user) => user?.role === 'admin';
-export const canAccessAplicacao = (user) => {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  const allowed = user.paginas_permitidas;
-  if (!Array.isArray(allowed)) return true;
-  return allowed.includes('aplicacao');
-};
-export const podeDigitarPeso = (user) => {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  return user.pode_digitar_peso === true;
+export const canAccessUsuarios = (user) =>
+  hasAnyPermission(user, [
+    'admin.usuarios.visualizar',
+    'admin.usuarios.criar',
+    'admin.usuarios.editar',
+    'admin.usuarios.excluir',
+  ]);
+
+export const canAccessBalanca = (user) =>
+  hasPermission(user, 'admin.balanca.acessar');
+
+export const canAccessAplicacao = (user) =>
+  userCanAccess(user, 'aplicacao');
+
+export const podeDigitarPeso = (user) =>
+  hasPermission(user, 'operacao.pesagem.digitar_peso');
+
+export const isAdminTotal = (user) =>
+  user?.role === 'admin';
+
+export const isSubAdmin = (user) =>
+  user?.role === 'subadmin';
+
+export const roleLabel = (role) => {
+  if (role === 'admin') return 'Administrador Total';
+  if (role === 'subadmin') return 'Sub Administrador';
+  return 'Usuário';
 };
