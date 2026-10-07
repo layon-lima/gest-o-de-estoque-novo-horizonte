@@ -50,6 +50,7 @@ import {
 } from '@/lib/saldos';
 import { useNfeImport } from '@/hooks/useNfeImport';
 import { useAuth } from '@/lib/AuthContext';
+import { hasPermission } from '@/lib/permissions';
 
 
 const emptyForm = {
@@ -229,7 +230,10 @@ export default function Movimentacoes() {
 
   const { toast } = useToast();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const podeEntradaManualSaldo = hasPermission(
+    user,
+    'admin.estoque.entrada_manual'
+  );
 
   const {
     data,
@@ -802,13 +806,13 @@ export default function Movimentacoes() {
 
     if (
       form.subtipo === 'ENTRADA_SALDO_ADMIN'
-      && !isAdmin
+      && !podeEntradaManualSaldo
     ) {
       toast({
         variant: 'destructive',
         title: 'Acesso restrito',
         description:
-          'A entrada manual de saldo é exclusiva para administradores.',
+          'Você não possui permissão para realizar entrada manual de saldo.',
       });
       return;
     }
@@ -981,7 +985,7 @@ export default function Movimentacoes() {
   ).filter(
     (item) =>
       !item.adminOnly
-      || isAdmin
+      || podeEntradaManualSaldo
   );
 
 
