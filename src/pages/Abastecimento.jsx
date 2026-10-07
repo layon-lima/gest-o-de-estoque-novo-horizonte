@@ -146,6 +146,11 @@ export default function Abastecimento() {
     'operacao.abastecimento.confirmar'
   );
 
+  const podeAbastecerSemFoto = hasPermission(
+    user,
+    'operacao.abastecimento.sem_foto'
+  );
+
   const setorCombustivel = useMemo(() => findSetorCombustivel(setores), [setores]);
   const combustiveis = useMemo(
     () => produtosCombustivel(produtos, setorCombustivel?.id),
@@ -420,7 +425,7 @@ export default function Abastecimento() {
             combustiveis={combustiveis}
             produtoPredefinido={produtoPredefinido}
             saving={saving}
-            fotoOpcional={user?.role === 'admin'}
+            fotoOpcional={podeAbastecerSemFoto}
             userId={user?.id}
             onSubmit={handleSubmit}
             onBack={() => { setMaquinaSelecionada(null); setMaquinaId(null); }}
