@@ -215,16 +215,42 @@ export default function UsuarioPermissoes() {
     setSaving(true);
 
     try {
-      await api.entities.User.update(user.id, {
-        paginas_permitidas: paginas,
-        setores_permitidos: setoresValidos,
-        pode_digitar_peso: podeDigitarPeso,
-        pode_confirmar_abastecimento: podeConfirmarAbastecimento,
-        pode_baixar_mobile: acoesMobile.includes('baixar'),
-        pode_mudar_gaveta_mobile: acoesMobile.includes('mudar_gaveta'),
-        pode_mudar_deposito_mobile: acoesMobile.includes('mudar_deposito'),
-        pode_entrada_manual_saldo_mobile: podeEntradaManualSaldoMobile,
-      });
+      const permissoes = role === 'admin'
+        ? []
+        : [
+            ...paginas.map((pagina) => `page.${pagina}`),
+            podeDigitarPeso
+              ? 'operacao.pesagem.digitar_peso'
+              : null,
+            podeConfirmarAbastecimento
+              ? 'operacao.abastecimento.confirmar'
+              : null,
+            acoesMobile.includes('baixar')
+              ? 'mobile.estoque.baixar'
+              : null,
+            acoesMobile.includes('mudar_gaveta')
+              ? 'mobile.estoque.mudar_gaveta'
+              : null,
+            acoesMobile.includes('mudar_deposito')
+              ? 'mobile.estoque.mudar_deposito'
+              : null,
+            podeEntradaManualSaldoMobile
+              ? 'mobile.estoque.entrada_manual_saldo'
+              : null,
+            ...(role === 'subadmin' ? adminPermissoes : []),
+          ].filter(Boolean);
+
+      await api.entities.User.updatePermissions(
+        user.id,
+        {
+          role,
+          permissoes,
+          setores_permitidos:
+            role === 'admin'
+              ? []
+              : setoresValidos,
+        }
+      );
 
       toast({
         title: 'Permissões atualizadas',
@@ -247,6 +273,15 @@ export default function UsuarioPermissoes() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <Navigate
+        to="/cadastros?tab=usuarios"
+        replace
+      />
     );
   }
 
