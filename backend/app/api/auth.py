@@ -11,7 +11,12 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.access_control import paginas_publicas
+from app.core.access_control import (
+    paginas_usuario,
+    permissoes_publicas,
+    setores_mobile_ids,
+    tem_permissao,
+)
 from app.core.security import (
     create_access_token,
     decode_access_token,
@@ -162,39 +167,51 @@ def _limpar_falhas_login(
 
 
 def user_publico(user: User) -> dict:
+    paginas = paginas_usuario(user)
+    setores = (
+        None
+        if user.role == "admin"
+        else sorted(setores_mobile_ids(user))
+    )
+
     return {
         "id": user.id,
         "username": user.username,
         "display_name": user.display_name,
         "role": user.role,
-        "pode_confirmar_abastecimento": (
-            user.pode_confirmar_abastecimento
+        "permissoes": permissoes_publicas(user),
+
+        # Projeções de compatibilidade para o frontend existente.
+        "pode_confirmar_abastecimento": tem_permissao(
+            user,
+            "operacao.abastecimento.confirmar",
         ),
-        "pode_digitar_peso": (
-            user.pode_digitar_peso
+        "pode_digitar_peso": tem_permissao(
+            user,
+            "operacao.pesagem.digitar_peso",
         ),
-        "pode_baixar_mobile": (
-            user.pode_baixar_mobile
+        "pode_baixar_mobile": tem_permissao(
+            user,
+            "mobile.estoque.baixar",
         ),
-        "pode_mudar_gaveta_mobile": (
-            user.pode_mudar_gaveta_mobile
+        "pode_mudar_gaveta_mobile": tem_permissao(
+            user,
+            "mobile.estoque.mudar_gaveta",
         ),
-        "pode_mudar_deposito_mobile": (
-            user.pode_mudar_deposito_mobile
+        "pode_mudar_deposito_mobile": tem_permissao(
+            user,
+            "mobile.estoque.mudar_deposito",
         ),
-        "pode_entrada_manual_saldo_mobile": (
-            user.pode_entrada_manual_saldo_mobile
+        "pode_entrada_manual_saldo_mobile": tem_permissao(
+            user,
+            "mobile.estoque.entrada_manual_saldo",
         ),
         "paginas_permitidas": (
-            paginas_publicas(
-                user.paginas_permitidas
-            )
+            None
+            if paginas is None
+            else sorted(paginas)
         ),
-        "setores_permitidos": (
-            _lista_json(
-                user.setores_permitidos
-            )
-        ),
+        "setores_permitidos": setores,
         "ativo": user.ativo,
         "created_date": user.created_date,
         "updated_date": user.updated_date,
