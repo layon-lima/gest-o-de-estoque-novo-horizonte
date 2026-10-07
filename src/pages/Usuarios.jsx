@@ -86,6 +86,10 @@ export default function Usuarios() {
     currentUser,
     'admin.usuarios.criar'
   );
+  const canEditUser = hasPermission(
+    currentUser,
+    'admin.usuarios.editar'
+  );
   const canDeleteUser = hasPermission(
     currentUser,
     'admin.usuarios.excluir'
@@ -279,10 +283,20 @@ export default function Usuarios() {
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <UsuarioNomeEditor
-                                  user={u}
-                                  onSaved={loadUsuarios}
-                                />
+                                {canEditUser &&
+                                (
+                                  isAdminTotal ||
+                                  u.role === 'user'
+                                ) ? (
+                                  <UsuarioNomeEditor
+                                    user={u}
+                                    onSaved={loadUsuarios}
+                                  />
+                                ) : (
+                                  <span className="font-medium">
+                                    {u.display_name || u.username || '—'}
+                                  </span>
+                                )}
 
                                 {isSelf ? (
                                   <Badge
