@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.entities import preparar_dados, serializar
-from app.api.users import exigir_admin
+from app.api.users import dep_permissao
 from app.db.database import get_db
 from app.models import (
     CadastroMobilePendente,
@@ -291,7 +291,7 @@ def _excluir_imagem_se_orfa(
 @router.get("")
 def listar(
     status: Literal["PENDENTE", "APROVADO", "REJEITADO"] | None = Query(None),
-    _: User = Depends(exigir_admin),
+    _: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     stmt = select(CadastroMobilePendente)
@@ -305,7 +305,7 @@ def listar(
 
 
 @router.get("/contador")
-def contador(_: User = Depends(exigir_admin), db: Session = Depends(get_db)):
+def contador(_: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")), db: Session = Depends(get_db)):
     total = db.scalar(
         select(func.count()).select_from(CadastroMobilePendente).where(
             CadastroMobilePendente.status == "PENDENTE"
@@ -317,7 +317,7 @@ def contador(_: User = Depends(exigir_admin), db: Session = Depends(get_db)):
 @router.delete("/imagem-temporaria")
 def remover_imagem_temporaria(
     url: str = Query(..., min_length=1),
-    _: User = Depends(exigir_admin),
+    _: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     if _caminho_imagem_temporaria(url) is None:
@@ -333,7 +333,7 @@ def remover_imagem_temporaria(
 @router.post("")
 def criar(
     requisicao: CriarSolicitacao,
-    current_user: User = Depends(exigir_admin),
+    current_user: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     dados = _limpar_dados(requisicao.tipo, requisicao.dados, requisicao.imagem_url)
@@ -369,7 +369,7 @@ def criar(
 def aprovar(
     item_id: str,
     requisicao: AprovarSolicitacao,
-    current_user: User = Depends(exigir_admin),
+    current_user: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
@@ -438,7 +438,7 @@ def aprovar(
 def rejeitar(
     item_id: str,
     requisicao: RejeitarSolicitacao,
-    current_user: User = Depends(exigir_admin),
+    current_user: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
