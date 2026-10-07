@@ -317,7 +317,7 @@ def contador(_: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
 @router.delete("/imagem-temporaria")
 def remover_imagem_temporaria(
     url: str = Query(..., min_length=1),
-    _: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
+    _: User = Depends(dep_permissao("admin.cadastros_mobile.solicitar")),
     db: Session = Depends(get_db),
 ):
     if _caminho_imagem_temporaria(url) is None:
@@ -333,7 +333,7 @@ def remover_imagem_temporaria(
 @router.post("")
 def criar(
     requisicao: CriarSolicitacao,
-    current_user: User = Depends(dep_permissao("admin.cadastros_mobile.revisar")),
+    current_user: User = Depends(dep_permissao("admin.cadastros_mobile.solicitar")),
     db: Session = Depends(get_db),
 ):
     dados = _limpar_dados(requisicao.tipo, requisicao.dados, requisicao.imagem_url)
