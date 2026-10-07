@@ -151,8 +151,9 @@ export default function UsuarioPermissoes() {
     Promise.all([
       carregarUsuario(),
       api.entities.Setor.list(),
+      api.entities.User.permissionsCatalog(),
     ])
-      .then(([usuario, listaSetores]) => {
+      .then(([usuario, listaSetores, permissionCatalog]) => {
         if (!active) return;
 
         const ordenados = [...(listaSetores || [])].sort((a, b) =>
@@ -162,6 +163,13 @@ export default function UsuarioPermissoes() {
         );
 
         setUser(usuario);
+        setCatalog(permissionCatalog);
+        setRole(usuario.role || 'user');
+        setAdminPermissoes(
+          Array.isArray(usuario.permissoes)
+            ? usuario.permissoes.filter((key) => key.startsWith('admin.'))
+            : []
+        );
         setSetores(ordenados);
         setPaginas(Array.isArray(usuario.paginas_permitidas) ? usuario.paginas_permitidas : []);
         setSetoresSel(Array.isArray(usuario.setores_permitidos) ? usuario.setores_permitidos : []);
