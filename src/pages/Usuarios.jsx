@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Fuel,
   Loader2,
   Search,
   Settings,
@@ -16,7 +15,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import SearchSelect from '@/components/SearchSelect';
 import {
   Table,
@@ -29,6 +27,10 @@ import {
 import { api } from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  hasPermission,
+  roleLabel,
+} from '@/lib/permissions';
 import InviteUserDialog from '@/components/usuarios/InviteUserDialog';
 import UsuarioNomeEditor from '@/components/usuarios/UsuarioNomeEditor';
 import {
@@ -78,9 +80,16 @@ export default function Usuarios() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [togglingId, setTogglingId] = useState(null);
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdminTotal = currentUser?.role === 'admin';
+  const canCreateUser = hasPermission(
+    currentUser,
+    'admin.usuarios.criar'
+  );
+  const canDeleteUser = hasPermission(
+    currentUser,
+    'admin.usuarios.excluir'
+  );
 
   const loadUsuarios = useCallback(async () => {
     setLoading(true);
@@ -121,10 +130,8 @@ export default function Usuarios() {
     () => ({
       total: usuarios.length,
       admins: usuarios.filter((u) => u.role === 'admin').length,
+      subadmins: usuarios.filter((u) => u.role === 'subadmin').length,
       users: usuarios.filter((u) => u.role === 'user').length,
-      confirma: usuarios.filter(
-        (u) => u.role === 'admin' || u.pode_confirmar_abastecimento === true
-      ).length,
     }),
     [usuarios]
   );
@@ -158,41 +165,6 @@ export default function Usuarios() {
     }
   };
 
-  const handleToggleConfirmar = async (u, value) => {
-    setTogglingId(u.id);
-
-    try {
-      await api.entities.User.update(u.id, {
-        pode_confirmar_abastecimento: value,
-      });
-
-      setUsuarios((prev) =>
-        prev.map((item) =>
-          item.id === u.id
-            ? { ...item, pode_confirmar_abastecimento: value }
-            : item
-        )
-      );
-
-      toast({
-        title: value ? 'Permissão concedida' : 'Permissão removida',
-        description: `${u.display_name || u.username} ${
-          value
-            ? 'pode confirmar abastecimentos'
-            : 'não confirma mais abastecimentos'
-        }.`,
-      });
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao atualizar',
-        description: err?.message,
-      });
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -213,16 +185,16 @@ export default function Usuarios() {
             tone="blue"
           />
           <MiniStat
+            icon={ShieldCheck}
+            label="Sub Administradores"
+            value={stats.subadmins}
+            tone="amber"
+          />
+          <MiniStat
             icon={UserCircle}
             label="Usuários padrão"
             value={stats.users}
             tone="green"
-          />
-          <MiniStat
-            icon={Fuel}
-            label="Confirmam abastecimento"
-            value={stats.confirma}
-            tone="amber"
           />
         </div>
 
@@ -249,14 +221,15 @@ export default function Usuarios() {
                   allLabel="Todos os perfis"
                   placeholder="Filtrar perfil"
                   options={[
-                    { value: 'admin', label: 'Administradores' },
+                    { value: 'admin', label: 'Administradores Totais' },
+                    { value: 'subadmin', label: 'Sub Administradores' },
                     { value: 'user', label: 'Usuários' },
                   ]}
                 />
               </div>
             </div>
 
-            {isAdmin ? (
+            {canCreateUser ? (
               <Button
                 onClick={() => setInviteOpen(true)}
                 className="gap-2"
@@ -281,15 +254,9 @@ export default function Usuarios() {
                     <TableHead>Usuário</TableHead>
                     <TableHead>Perfil</TableHead>
 
-                    {isAdmin ? (
-                      <TableHead>Confirma abastecimento</TableHead>
-                    ) : null}
+                    <TableHead>Permissões</TableHead>
 
-                    {isAdmin ? (
-                      <TableHead>Acessos e setores</TableHead>
-                    ) : null}
-
-                    {isAdmin ? (
+                    {canDeleteUser ? (
                       <TableHead className="w-[90px] text-right">
                         Ações
                       </TableHead>
@@ -341,77 +308,50 @@ export default function Usuarios() {
                         <TableCell>
                           {u.role === 'admin' ? (
                             <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">
-                              Administrador
+                              Administrador Total
+                            </Badge>
+                          ) : u.role === 'subadmin' ? (
+                            <Badge className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
+                              Sub Administrador
                             </Badge>
                           ) : (
                             <Badge variant="secondary">Usuário</Badge>
                           )}
                         </TableCell>
 
-                        {isAdmin ? (
-                          <TableCell>
-                            {u.role === 'admin' ? (
-                              <span className="text-xs text-muted-foreground">
-                                Sempre habilitado
-                              </span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  checked={
-                                    u.pode_confirmar_abastecimento === true
-                                  }
-                                  disabled={togglingId === u.id}
-                                  onCheckedChange={(value) =>
-                                    handleToggleConfirmar(u, value)
-                                  }
-                                />
+                        <TableCell>
+                          {u.role === 'admin' ? (
+                            <Badge variant="outline">
+                              Acesso total
+                            </Badge>
+                          ) : isAdminTotal ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                              onClick={() =>
+                                navigate(`/usuarios/${u.id}/permissoes`)
+                              }
+                            >
+                              <Settings className="h-3.5 w-3.5" />
+                              Configurar permissões
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              {roleLabel(u.role)}
+                            </span>
+                          )}
+                        </TableCell>
 
-                                <span className="text-xs text-muted-foreground">
-                                  {u.pode_confirmar_abastecimento === true
-                                    ? 'Permitido'
-                                    : 'Bloqueado'}
-                                </span>
-                              </div>
-                            )}
-                          </TableCell>
-                        ) : null}
 
-                        {isAdmin ? (
-                          <TableCell>
-                            {u.role === 'admin' ? (
-                              <Badge variant="outline">
-                                Acesso total
-                              </Badge>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-1.5"
-                                  onClick={() => navigate(`/usuarios/${u.id}/permissoes`)}
-                                >
-                                  <Settings className="h-3.5 w-3.5" />
-                                  Configurar
-                                </Button>
-
-                                <span className="whitespace-nowrap text-xs text-muted-foreground">
-                                  {qtdSetores === 0
-                                    ? '0 setores mobile'
-                                    : `${qtdSetores} ${
-                                        qtdSetores === 1
-                                          ? 'setor mobile'
-                                          : 'setores mobile'
-                                      }`}
-                                </span>
-                              </div>
-                            )}
-                          </TableCell>
-                        ) : null}
-
-                        {isAdmin ? (
+                        {canDeleteUser ? (
                           <TableCell>
                             <div className="flex justify-end">
-                              {!isSelf ? (
+                              {!isSelf &&
+                              (
+                                isAdminTotal ||
+                                u.role === 'user'
+                              ) ? (
                                 <Button
                                   variant="ghost"
                                   size="icon"
