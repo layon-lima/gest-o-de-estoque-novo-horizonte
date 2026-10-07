@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.api.entities import serializar
-from app.api.users import exigir_admin
-from app.core.access_control import setores_mobile_ids
+from app.api.users import dep_permissao
+from app.core.access_control import setores_mobile_ids, tem_permissao
 from app.db.database import get_db
 from app.models import (
     Deposito,
@@ -67,7 +67,7 @@ def _nome_usuario(user: User) -> str:
 
 
 def _exigir_permissao_mobile(user: User) -> None:
-    if user.role == "admin" or user.pode_entrada_manual_saldo_mobile is True:
+    if tem_permissao(user, "mobile.estoque.entrada_manual_saldo"):
         return
 
     raise HTTPException(
@@ -271,7 +271,7 @@ def minhas(
 @router.get("")
 def listar_admin(
     status: Literal["PENDENTE", "APROVADO", "REJEITADO"] | None = Query(None),
-    _: User = Depends(exigir_admin),
+    _: User = Depends(dep_permissao("admin.entrada_saldo_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     stmt = select(EntradaSaldoMobilePendente)
@@ -288,7 +288,7 @@ def listar_admin(
 
 @router.get("/contador")
 def contador(
-    _: User = Depends(exigir_admin),
+    _: User = Depends(dep_permissao("admin.entrada_saldo_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     total = db.scalar(
@@ -304,7 +304,7 @@ def contador(
 def aprovar(
     item_id: str,
     dados: AprovarEntradaSaldoMobile,
-    current_user: User = Depends(exigir_admin),
+    current_user: User = Depends(dep_permissao("admin.entrada_saldo_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
@@ -533,7 +533,7 @@ def aprovar(
 def rejeitar(
     item_id: str,
     dados: RejeitarEntradaSaldoMobile,
-    current_user: User = Depends(exigir_admin),
+    current_user: User = Depends(dep_permissao("admin.entrada_saldo_mobile.revisar")),
     db: Session = Depends(get_db),
 ):
     item = db.scalar(
