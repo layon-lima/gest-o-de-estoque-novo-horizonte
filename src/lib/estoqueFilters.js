@@ -27,6 +27,55 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+export function getCustoAtualProduto(
+  produto,
+  saldos = []
+) {
+  const posicoes = (saldos || []).filter(
+    (saldo) =>
+      saldo.produto_id === produto?.id
+  );
+
+  const quantidade = posicoes.reduce(
+    (total, saldo) =>
+      total +
+      (Number(saldo.quantidade) || 0),
+    0
+  );
+
+  if (quantidade > 0) {
+    const valor = posicoes.reduce(
+      (total, saldo) => {
+        const qtd =
+          Number(saldo.quantidade) || 0;
+
+        const valorSaldo =
+          Number(saldo.valor_total);
+
+        if (
+          Number.isFinite(valorSaldo)
+          && valorSaldo !== 0
+        ) {
+          return total + valorSaldo;
+        }
+
+        return (
+          total +
+          qtd *
+            (Number(saldo.custo_medio) || 0)
+        );
+      },
+      0
+    );
+
+    return valor / quantidade;
+  }
+
+  return Number(
+    produto?.custo_unitario
+  ) || 0;
+}
+
 export function getQtdNoDeposito(
   produtoId,
   depositoId,
@@ -106,6 +155,12 @@ export function filterProdutos(produtos, filtros, saldos = []) {
       ? (saldos || []).filter((s) => s.produto_id === produto.id)
       : [];
 
+    const custoAtual =
+      getCustoAtualProduto(
+        produto,
+        saldos
+      );
+
     if (filtraPosicao) {
       const filtradas = posicoes.filter((s) => {
         if (depFilter.length && !depFilter.includes(s.deposito_id)) {
@@ -130,10 +185,11 @@ export function filterProdutos(produtos, filtros, saldos = []) {
                 ? Number(saldo.quantidade_disponivel) || 0
                 : (Number(saldo.quantidade) || 0) -
                   (Number(saldo.quantidade_reservada) || 0),
-            custo_medio: Number(produto.custo_unitario) || 0,
+            custo_unitario: custoAtual,
+            custo_medio: custoAtual,
             valor_total:
               (Number(saldo.quantidade) || 0) *
-              (Number(produto.custo_unitario) || 0),
+              custoAtual,
             tipo_estoque: saldo.tipo_estoque || 'livre',
             deposito_id: saldo.deposito_id || produto.deposito_id || '',
             gaveta_id: saldo.gaveta_id || '',
@@ -155,7 +211,8 @@ export function filterProdutos(produtos, filtros, saldos = []) {
           _deposito_ids: unique([produto.deposito_id]),
           _gaveta_ids: unique([produto.gaveta_id]),
           _lote_ids: [],
-          _rowKey: `${produto.id}:LEGACY`,
+          custo_unitario: custoAtual,
+        _rowKey: `${produto.id}:LEGACY`,
         });
       }
 
@@ -182,14 +239,12 @@ export function filterProdutos(produtos, filtros, saldos = []) {
           ),
         0
       );
-      const custoAtual =
-        Number(produto.custo_unitario) || 0;
-
       const valorTotal =
         quantidade * custoAtual;
 
       rows.push({
         ...produto,
+        custo_unitario: custoAtual,
         quantidade,
         quantidade_reservada: reservada,
         quantidade_disponivel: disponivel,

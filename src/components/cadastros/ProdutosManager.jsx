@@ -19,7 +19,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import ProductForm from '@/components/ProductForm';
 import SearchSelect from '@/components/SearchSelect';
-import { matchTerm } from '@/lib/estoqueFilters';
+import {
+  getCustoAtualProduto,
+  matchTerm,
+} from '@/lib/estoqueFilters';
 import { useEntidades } from '@/lib/useEntidades';
 import {
   Table,
@@ -228,7 +231,11 @@ export default function ProdutosManager() {
       const quantidadeSaldo = saldoPorProduto.has(produto.id)
         ? saldoPorProduto.get(produto.id)
         : Number(produto.quantidade) || 0;
-      const custoUnitario = Number(produto.custo_unitario) || 0;
+      const custoUnitario =
+        getCustoAtualProduto(
+          produto,
+          saldos
+        );
       const estoqueMinimo = Number(produto.estoque_minimo) || 0;
       const valorTotal = quantidadeSaldo * custoUnitario;
 
@@ -241,13 +248,14 @@ export default function ProdutosManager() {
 
       return {
         ...produto,
+        custo_unitario: custoUnitario,
         quantidade_exibicao: quantidadeSaldo,
         custo_exibicao: custoUnitario,
         valor_total_exibicao: valorTotal,
         status_estoque: status,
       };
     });
-  }, [produtos, saldoPorProduto]);
+  }, [produtos, saldoPorProduto, saldos]);
 
   const filtered = useMemo(() => {
     let result = [...dataset];
