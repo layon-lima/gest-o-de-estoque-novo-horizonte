@@ -849,6 +849,94 @@ def _registrar_item(
     return item
 
 
+def reavaliar_custo_produto(
+    db: Session,
+    *,
+    produto_id: str,
+    novo_custo: Any,
+) -> tuple[Produto, int]:
+    """
+    Reavalia o estoque atual de um produto usando um novo custo unitário.
+
+    Esta é a operação oficial do motor para mudança manual de custo.
+    Produto.custo_unitario passa a ser apenas a projeção/resumo do mesmo
+    valor mantido nos saldos atuais.
+    """
+    custo = _custo(
+        novo_custo
+    )
+
+    if custo < 0:
+        raise EstoqueErro(
+            "Custo unitário não pode ser negativo."
+        )
+
+    produto = db.scalar(
+        select(
+            Produto
+        )
+        .where(
+            Produto.id
+            == produto_id
+        )
+        .with_for_update()
+    )
+
+    if produto is None:
+        raise EstoqueErro(
+            "Produto não encontrado."
+        )
+
+    saldos = db.scalars(
+        select(
+            EstoqueSaldo
+        )
+        .where(
+            EstoqueSaldo.produto_id
+            == produto_id
+        )
+        .with_for_update()
+    ).all()
+
+    quantidade_total = Decimal("0")
+    valor_total = Decimal("0")
+
+    for saldo in saldos:
+        quantidade = _qtd(
+            saldo.quantidade
+        )
+
+        quantidade_total += quantidade
+
+        if quantidade > 0:
+            saldo.custo_medio = custo
+            saldo.valor_total = _dinheiro(
+                quantidade
+                * custo
+            )
+            valor_total += _dinheiro(
+                saldo.valor_total
+            )
+        else:
+            saldo.custo_medio = Decimal("0")
+            saldo.valor_total = Decimal("0")
+
+    produto.quantidade = float(
+        _qtd(
+            quantidade_total
+        )
+    )
+    produto.custo_unitario = float(
+        custo
+    )
+
+    db.flush()
+
+    return produto, len(
+        saldos
+    )
+
+
 def _recalcular_produto(
     db: Session,
     produto_id: str,
