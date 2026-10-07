@@ -46,6 +46,7 @@ PERMISSION_CATALOG = (
     {"key": "page.inventario", "group": "areas", "label": "Inventário", "description": "Acessar inventários."},
 
     {"key": "operacao.abastecimento.confirmar", "group": "operacao", "label": "Confirmar abastecimentos", "description": "Conferir e confirmar a baixa de abastecimentos."},
+    {"key": "operacao.abastecimento.sem_foto", "group": "operacao", "label": "Abastecimento sem foto obrigatória", "description": "Permite registrar abastecimento sem tirar a foto do painel do abastecedor."},
     {"key": "operacao.pesagem.digitar_peso", "group": "operacao", "label": "Digitar peso manualmente", "description": "Informar peso manual nos tickets de pesagem."},
 
     {"key": "mobile.estoque.baixar", "group": "mobile", "label": "Dar baixa pelo celular", "description": "Realizar saída real do saldo pelo mobile."},
