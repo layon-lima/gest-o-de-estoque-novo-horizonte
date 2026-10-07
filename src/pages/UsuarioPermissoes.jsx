@@ -295,6 +295,9 @@ export default function UsuarioPermissoes() {
   }
 
   const nome = user.display_name || user.username || 'Usuário';
+  const adminItems = (catalog?.permissions || []).filter(
+    (item) => item.group === 'administracao'
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5 lg:px-6">
@@ -323,6 +326,76 @@ export default function UsuarioPermissoes() {
         </div>
       </div>
 
+      <PermissionSection
+        icon={LockKeyhole}
+        eyebrow="Perfil e administração"
+        title="Perfil do usuário"
+        description="Administrador Total possui acesso irrestrito. Sub Administrador recebe somente as funções administrativas marcadas abaixo."
+        badge={
+          role === 'admin'
+            ? 'Acesso total'
+            : role === 'subadmin'
+              ? 'Sub Administrador'
+              : 'Usuário'
+        }
+      >
+        <div className="mb-4 max-w-sm">
+          <label className="mb-1.5 block text-xs font-medium">
+            Perfil
+          </label>
+          <Select
+            value={role}
+            onValueChange={(novoRole) => {
+              setRole(novoRole);
+              if (novoRole !== 'subadmin') {
+                setAdminPermissoes([]);
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="user">
+                Usuário
+              </SelectItem>
+              <SelectItem value="subadmin">
+                Sub Administrador
+              </SelectItem>
+              <SelectItem value="admin">
+                Administrador Total
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {role === 'admin' ? (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            Este perfil ignora a matriz granular e possui acesso total ao sistema.
+          </div>
+        ) : role === 'subadmin' ? (
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {adminItems.map((item) => (
+              <PermissionItem
+                key={item.key}
+                checked={adminPermissoes.includes(item.key)}
+                onChange={() =>
+                  toggleList(setAdminPermissoes, item.key)
+                }
+                title={item.label}
+                description={item.description}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+            Usuários padrão não recebem funções administrativas.
+          </div>
+        )}
+      </PermissionSection>
+
+      {role !== 'admin' ? (
+        <>
       <PermissionSection
         icon={MonitorSmartphone}
         eyebrow="Computador e celular"
@@ -438,8 +511,11 @@ export default function UsuarioPermissoes() {
         )}
       </PermissionSection>
 
+        </>
+      ) : null}
+
       <div className="flex items-center justify-between rounded-xl border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> Administradores continuam com acesso total aos setores.</span>
+        <span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> A matriz inteira é salva em um único banco de permissões.</span>
         <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Salvar
