@@ -11,6 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
+from app.core.access_control import (
+    exigir_pagina,
+    setores_mobile_ids,
+    tem_permissao,
+)
 from app.db.database import get_db
 from app.models import (
     Abastecimento,
@@ -86,14 +91,7 @@ def _lista_json(valor: Any) -> list[str] | None:
 
 
 def _ensure_reports_access(user: User) -> None:
-    if user.role == "admin":
-        return
-    paginas = _lista_json(user.paginas_permitidas)
-    if paginas is not None and "relatorios" not in paginas:
-        raise HTTPException(
-            status_code=403,
-            detail="Usuário sem permissão para acessar Relatórios.",
-        )
+    exigir_pagina(user, "relatorios")
 
 def _texto_local(nome: str | None, fallback: str = "—") -> str:
     texto = str(nome or "").strip()
@@ -1777,8 +1775,8 @@ def _build_rows(codigo: str, db: Session, current_user: User) -> list[dict[str, 
         ]
 
     if codigo == "usuarios":
-        if current_user.role != "admin":
-            raise HTTPException(status_code=403, detail="Relatório disponível somente para administradores.")
+        if not tem_permissao(current_user, "admin.relatorios.usuarios"):
+            raise HTTPException(status_code=403, detail="Usuário sem permissão para este relatório administrativo.")
         rows = []
         for u in db.scalars(select(User).order_by(User.created_date.desc())).all():
             paginas = _lista_json(u.paginas_permitidas)
@@ -1841,10 +1839,10 @@ def _filtrar_rows(
     req: ExecutarRelatorioRequest,
     current_user: User,
 ) -> list[dict[str, Any]]:
-    permitidos = _lista_json(current_user.setores_permitidos)
+    permitidos = setores_mobile_ids(current_user)
     sector_key = meta.get("sector_key")
 
-    if current_user.role != "admin" and sector_key and permitidos is not None:
+    if current_user.role != "admin" and sector_key:
         permitidos_set = {str(x) for x in permitidos}
         rows = [
             row for row in rows
@@ -1917,8 +1915,8 @@ def _catalog_options(db: Session, current_user: User) -> dict[str, list[dict[str
     documentos = db.scalars(select(EstoqueDocumento)).all()
 
     setor_map = {s.id: s.nome for s in setores}
-    permitidos = _lista_json(current_user.setores_permitidos)
-    if current_user.role != "admin" and permitidos is not None:
+    permitidos = setores_mobile_ids(current_user)
+    if current_user.role != "admin":
         allowed = {str(x) for x in permitidos}
         setores = [x for x in setores if x.id in allowed]
         depositos = [x for x in depositos if x.setor_id in allowed]
@@ -1969,7 +1967,11 @@ def _catalog_options(db: Session, current_user: User) -> dict[str, list[dict[str
         "tipos_ticket": [_option("venda", "Venda"), _option("avulsa", "Avulsa")],
         "status_ticket": [_option("aberto", "Aberto"), _option("fechado", "Fechado"), _option("cancelado", "Cancelado")],
         "formas_pagamento": [_option("pix", "PIX"), _option("dinheiro", "Dinheiro"), _option("transferencia", "Transferência"), _option("outro", "Outro")],
-        "roles_usuario": [_option("admin", "Administrador"), _option("user", "Usuário")],
+        "roles_usuario": [
+            _option("admin", "Administrador Total"),
+            _option("subadmin", "Sub Administrador"),
+            _option("user", "Usuário"),
+        ],
         "status_usuario": [_option("true", "Ativo"), _option("false", "Inativo")],
         "setor_labels": [_option(k, v) for k, v in sorted(setor_map.items(), key=lambda x: x[1])],
     }
@@ -1983,7 +1985,10 @@ def catalogo_relatorios(
     _ensure_reports_access(current_user)
     reports = []
     for codigo, meta in REPORTS.items():
-        if meta.get("admin_only") and current_user.role != "admin":
+        if meta.get("admin_only") and not tem_permissao(
+            current_user,
+            "admin.relatorios.usuarios",
+        ):
             continue
         reports.append(_public_meta(codigo, meta))
 
@@ -2010,8 +2015,11 @@ def executar_relatorio(
     meta = REPORTS.get(codigo)
     if meta is None:
         raise HTTPException(status_code=404, detail="Relatório não encontrado.")
-    if meta.get("admin_only") and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Relatório disponível somente para administradores.")
+    if meta.get("admin_only") and not tem_permissao(
+        current_user,
+        "admin.relatorios.usuarios",
+    ):
+        raise HTTPException(status_code=403, detail="Usuário sem permissão para este relatório administrativo.")
 
     if codigo == "pagamentos" and dados.mobile_view:
         rows = _pagamentos_resumo_mobile_rows(
