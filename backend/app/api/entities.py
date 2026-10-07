@@ -24,6 +24,7 @@ from app.core.access_control import (
     exigir_leitura_entidade,
     exigir_mutacao_entidade,
     setores_mobile_ids,
+    tem_permissao,
 )
 from app.db.database import get_db
 from app.services.auditoria_erp import registrar_auditoria
@@ -583,6 +584,7 @@ def _abastecimento_mesmo_conteudo(
 
 def _validar_criacao_abastecimento(
     dados_limpos: dict[str, Any],
+    current_user: User,
 ):
     status_novo = str(
         dados_limpos.get(
@@ -601,6 +603,26 @@ def _validar_criacao_abastecimento(
             detail=(
                 "Abastecimentos novos devem "
                 "iniciar como pendentes."
+            ),
+        )
+
+    foto_url = str(
+        dados_limpos.get("foto_url")
+        or ""
+    ).strip()
+
+    if (
+        not foto_url
+        and not tem_permissao(
+            current_user,
+            "operacao.abastecimento.sem_foto",
+        )
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Este usuário precisa informar a foto "
+                "do painel do abastecedor."
             ),
         )
 
@@ -937,7 +959,8 @@ def criar(
         == "Abastecimento"
     ):
         _validar_criacao_abastecimento(
-            dados_limpos
+            dados_limpos,
+            current_user,
         )
 
         abastecimento_id = str(
