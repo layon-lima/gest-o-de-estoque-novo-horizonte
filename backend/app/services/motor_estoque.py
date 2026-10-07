@@ -984,8 +984,8 @@ def _recalcular_produto(
                 / quantidade_total
             )
         )
-    else:
-        produto.custo_unitario = 0
+    # Sem saldo físico, preserva o último custo conhecido.
+    # O custo só muda por nova entrada ou reavaliação explícita.
 
 
 def _recalcular_lote(
