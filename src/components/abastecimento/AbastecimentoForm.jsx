@@ -366,7 +366,7 @@ export default function AbastecimentoForm({
           />
           <p className="text-xs text-muted-foreground">
             {fotoOpcional
-              ? 'Foto opcional para administradores.'
+              ? 'Foto opcional para este usuário.'
               : 'A foto será enviada junto com o abastecimento e ficará disponível para conferência.'}
           </p>
         </div>
