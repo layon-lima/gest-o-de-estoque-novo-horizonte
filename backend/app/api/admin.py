@@ -8,7 +8,7 @@ from fastapi import (
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.users import exigir_admin
+from app.api.users import dep_permissao
 from app.db.database import get_db
 from app.models import (
     AuditoriaERP,
@@ -65,7 +65,7 @@ def _audit_publico(
 )
 def verificar_consistencia(
     current_user: User = Depends(
-        exigir_admin
+        dep_permissao("admin.integridade.verificar")
     ),
     db: Session = Depends(get_db),
 ):
@@ -108,7 +108,7 @@ def verificar_consistencia(
 @router.get("/integridade")
 def integridade(
     _: User = Depends(
-        exigir_admin
+        dep_permissao("admin.integridade.visualizar")
     ),
     db: Session = Depends(get_db),
 ):
@@ -203,7 +203,7 @@ def auditoria(
         le=500,
     ),
     _: User = Depends(
-        exigir_admin
+        dep_permissao("admin.auditoria.visualizar")
     ),
     db: Session = Depends(get_db),
 ):
@@ -240,7 +240,7 @@ def auditoria(
 @router.get("/backups")
 def backups(
     _: User = Depends(
-        exigir_admin
+        dep_permissao("admin.backups.visualizar")
     ),
 ):
     return {
@@ -256,7 +256,7 @@ def backups(
 @router.post("/backup")
 def backup_manual(
     current_user: User = Depends(
-        exigir_admin
+        dep_permissao("admin.backups.criar")
     ),
     db: Session = Depends(get_db),
 ):
@@ -295,7 +295,7 @@ def backup_manual(
 def validar_backup(
     nome: str,
     current_user: User = Depends(
-        exigir_admin
+        dep_permissao("admin.backups.verificar")
     ),
     db: Session = Depends(get_db),
 ):
