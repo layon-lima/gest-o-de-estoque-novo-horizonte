@@ -545,7 +545,7 @@ export default function ProdutosManager() {
               <TableHeader>
                 <TableRow>
                   {mostrarImagens && visibleCols.imagem ? <TableHead className="w-[68px]">Imagem</TableHead> : null}
-                  <TableHead className="min-w-[250px]">Produto</TableHead>
+                  <TableHead className="min-w-[170px]">Produto</TableHead>
                   {visibleCols.quantidade ? <TableHead>Quantidade</TableHead> : null}
                   {visibleCols.valorUnit ? <TableHead>Valor unit.</TableHead> : null}
                   {visibleCols.valorTotal ? <TableHead>Valor total</TableHead> : null}
@@ -569,7 +569,7 @@ export default function ProdutosManager() {
                     ) : null}
 
                     <TableCell className="py-2.5">
-                      <div className="min-w-[220px]">
+                      <div className="min-w-[155px]">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold leading-5 text-foreground">{smartLabel(produto.nome)}</p>
                           {produto.venda ? (
