@@ -853,7 +853,7 @@ export default function PessoasManager() {
                   <Table>
                     <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
                       <TableRow>
-                        <TableHead className="min-w-[230px]">
+                        <TableHead className="min-w-[175px]">
                           Pessoa
                         </TableHead>
 
@@ -865,7 +865,7 @@ export default function PessoasManager() {
                           Cidade / UF
                         </TableHead>
 
-                        <TableHead className="min-w-[220px]">
+                        <TableHead className="min-w-[160px]">
                           Perfis
                         </TableHead>
 
