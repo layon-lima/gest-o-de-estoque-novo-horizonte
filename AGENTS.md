@@ -152,6 +152,20 @@ Ao mudar o custo atual:
 - Estorno deve passar pelo motor e restaurar o que a regra oficial determinar.
 - Exclusão de entidade vinculada a saldo oficial deve ser bloqueada quando aplicável.
 
+## 3.7 Entrada Manual de Saldo
+
+Regra permanente:
+
+- no PC, **Entrada Manual de Saldo é um módulo próprio no topo de Movimentos**;
+- não deve voltar a aparecer como opção dentro do dropdown de finalidade da Entrada;
+- a experiência do PC deve preservar a facilidade do fluxo mobile: setor, produto, quantidade, depósito/gaveta, validade quando aplicável e foto opcional;
+- o PC pode contabilizar diretamente somente para usuário com `admin.estoque.entrada_manual`;
+- o mobile continua usando solicitação + revisão;
+- PC e mobile devem compartilhar a mesma rotina de contabilização aprovada;
+- a contabilização final de ambos passa obrigatoriamente pelo motor oficial com `ENTRADA_SALDO_ADMIN`;
+- não criar saldo, quantidade ou produto com uma lógica paralela fora desse fluxo;
+- produto inexistente pode ser criado pela rotina oficial antes da contabilização, seguindo as mesmas regras do fluxo mobile.
+
 ## 3.7 Permissões e Sub Administradores
 
 Regra permanente:

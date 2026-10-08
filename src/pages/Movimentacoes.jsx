@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FileText,
   Package,
+  PackagePlus,
   Plus,
   RotateCcw,
   Trash2,
@@ -24,6 +25,7 @@ import FornecedorCombobox from '@/components/FornecedorCombobox';
 import NfeImportButton from '@/components/NfeImportButton';
 import NfeDropZone from '@/components/NfeDropZone';
 import NfePreviewDialog from '@/components/NfePreviewDialog';
+import EntradaManualSaldoDesktop from '@/components/movimentacoes/EntradaManualSaldoDesktop';
 
 import {
   invalidateEstoque,
@@ -114,12 +116,6 @@ const MOVIMENTO_SUBTIPOS = {
       value: 'AJUSTE_POSITIVO',
       label: 'Ajuste Positivo',
       description: 'Correção controlada que aumenta o saldo.',
-    },
-    {
-      value: 'ENTRADA_SALDO_ADMIN',
-      label: 'Entrada Manual de Saldo',
-      description: 'Lançamento administrativo de saldo sem nota fiscal ou documento de origem.',
-      adminOnly: true,
     },
   ],
 
@@ -227,6 +223,7 @@ function InfoCell({
 export default function Movimentacoes() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [modoEntradaManual, setModoEntradaManual] = useState(false);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -638,6 +635,8 @@ export default function Movimentacoes() {
 
 
   function trocarTipo(tipo) {
+    setModoEntradaManual(false);
+
     setForm((atual) => ({
       ...atual,
       tipo,
@@ -803,33 +802,6 @@ export default function Movimentacoes() {
       });
       return;
     }
-
-    if (
-      form.subtipo === 'ENTRADA_SALDO_ADMIN'
-      && !podeEntradaManualSaldo
-    ) {
-      toast({
-        variant: 'destructive',
-        title: 'Acesso restrito',
-        description:
-          'Você não possui permissão para realizar entrada manual de saldo.',
-      });
-      return;
-    }
-
-    if (
-      form.subtipo === 'ENTRADA_SALDO_ADMIN'
-      && String(form.observacao || '').trim().length < 3
-    ) {
-      toast({
-        variant: 'destructive',
-        title: 'Justificativa obrigatória',
-        description:
-          'Informe o motivo da entrada manual de saldo.',
-      });
-      return;
-    }
-
 
     setSaving(true);
 
@@ -1064,22 +1036,13 @@ export default function Movimentacoes() {
       );
     }
 
-    if (
-      form.tipo === 'entrada'
-      && form.subtipo === 'ENTRADA_SALDO_ADMIN'
-      && String(form.observacao || '').trim().length < 3
-    ) {
-      camposPendentes.push(
-        'Informe a justificativa da entrada de saldo'
-      );
-    }
   }
 
 
   return (
     <NfeDropZone
       onDropFile={nfe.processFile}
-      disabled={nfe.importing}
+      disabled={nfe.importing || modoEntradaManual}
     >
       <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:p-6">
         <Card className="border-border/70 p-3 shadow-sm sm:p-4">
@@ -1109,7 +1072,8 @@ export default function Movimentacoes() {
                   config.Icon;
 
                 const ativo =
-                  form.tipo === value;
+                  !modoEntradaManual
+                  && form.tipo === value;
 
                 return (
                   <button
@@ -1133,10 +1097,38 @@ export default function Movimentacoes() {
                 );
               }
             )}
+
+            {podeEntradaManualSaldo ? (
+              <button
+                type="button"
+                onClick={() => setModoEntradaManual(true)}
+                className={[
+                  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:px-4',
+                  modoEntradaManual
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'bg-background text-foreground hover:border-primary/30 hover:bg-primary/[0.04]',
+                ].join(' ')}
+              >
+                <PackagePlus className="h-4 w-4" />
+                <span>Entrada Manual</span>
+              </button>
+            ) : null}
           </div>
         </Card>
 
 
+        {modoEntradaManual ? (
+          <EntradaManualSaldoDesktop
+            produtos={produtos}
+            setores={setores}
+            depositos={depositos}
+            gavetas={gavetas}
+            onSuccess={() => {
+              load();
+              invalidateEstoque();
+            }}
+          />
+        ) : (
         <Card className="overflow-hidden border-border/70">
           <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="border-b p-4 sm:p-5 lg:border-b-0 lg:border-r">
@@ -1787,14 +1779,10 @@ export default function Movimentacoes() {
 
                   <div className="space-y-1.5">
                     <Label htmlFor="mv-obs">
-                      {form.subtipo === 'ENTRADA_SALDO_ADMIN'
-                        ? 'Justificativa *'
-                        : 'Observação'}
-                      {form.subtipo !== 'ENTRADA_SALDO_ADMIN' && (
-                        <span className="ml-1 text-xs font-normal text-muted-foreground">
-                          (opcional)
-                        </span>
-                      )}
+                      Observação
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        (opcional)
+                      </span>
                     </Label>
 
                     <Textarea
@@ -1808,11 +1796,7 @@ export default function Movimentacoes() {
                             e.target.value,
                         })
                       }
-                      placeholder={
-                        form.subtipo === 'ENTRADA_SALDO_ADMIN'
-                          ? 'Informe o motivo deste lançamento de saldo...'
-                          : 'Adicione uma observação sobre esta movimentação...'
-                      }
+                      placeholder="Adicione uma observação sobre esta movimentação..."
                     />
                   </div>
                 </section>
@@ -1866,9 +1850,7 @@ export default function Movimentacoes() {
                           ? 'Estornar movimento'
                           : form.tipo === 'transferencia'
                             ? 'Registrar transferência'
-                            : form.subtipo === 'ENTRADA_SALDO_ADMIN'
-                              ? 'Adicionar saldo'
-                              : 'Registrar movimentação'
+                            : 'Registrar movimentação'
                       }
                     </Button>
                   </div>
@@ -2170,6 +2152,7 @@ export default function Movimentacoes() {
             </aside>
           </div>
         </Card>
+        )}
 
 
         <Card className="overflow-hidden border-border/70">
