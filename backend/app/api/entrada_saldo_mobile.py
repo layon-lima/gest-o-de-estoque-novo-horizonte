@@ -300,6 +300,158 @@ def contador(
     return {"pendentes": total}
 
 
+def processar_entrada_manual_saldo(
+    db: Session,
+    *,
+    current_user: User,
+    nome_produto: str,
+    quantidade: float,
+    setor_id: str,
+    deposito_id: str,
+    gaveta_id: str | None,
+    unidade: str = "un",
+    data_validade: date | None = None,
+    foto_url: str | None = None,
+    origem_modulo: str,
+    documento_origem_id: str | None = None,
+    observacao: str | None = None,
+    detalhe_criacao: str | None = None,
+) -> dict:
+    nome = str(nome_produto or "").strip()
+    unidade_normalizada = str(unidade or "un").strip().lower() or "un"
+    foto = str(foto_url or "").strip() or None
+
+    if not nome:
+        raise HTTPException(400, "Informe o nome do produto.")
+
+    setor, _, _, _ = _validar_local(
+        db,
+        setor_id=setor_id,
+        deposito_id=deposito_id,
+        gaveta_id=gaveta_id,
+    )
+
+    if setor.controla_validade and not data_validade:
+        raise HTTPException(
+            400,
+            "Este setor controla validade. Informe a data de validade.",
+        )
+
+    produto = _produto_por_nome(db, nome)
+
+    if produto is not None and produto.setor_id != setor_id:
+        raise HTTPException(
+            409,
+            (
+                f"O produto '{nome}' já existe em outro setor. "
+                "Revise o cadastro antes de continuar."
+            ),
+        )
+
+    usuario_id = str(current_user.id)
+
+    if produto is None:
+        codigo = _proximo_codigo_produto(db)
+
+        produto = Produto(
+            codigo=codigo,
+            nome=nome,
+            setor_id=setor_id,
+            deposito_id=deposito_id,
+            gaveta_id=str(gaveta_id or "").strip() or None,
+            unidade=unidade_normalizada,
+            quantidade=0,
+            estoque_minimo=0,
+            custo_unitario=0,
+            venda=False,
+            foto_url=foto,
+            created_by_id=usuario_id,
+        )
+
+        db.add(produto)
+        db.flush()
+
+        registrar_auditoria(
+            db,
+            usuario=current_user,
+            acao="criar",
+            entidade="Produto",
+            registro_id=produto.id,
+            depois=serializar(produto),
+            detalhe=(
+                detalhe_criacao
+                or "Criado pela Entrada Manual de Saldo."
+            ),
+        )
+
+        db.commit()
+        db.refresh(produto)
+
+    produto_id = str(produto.id)
+    produto_unidade = str(produto.unidade or unidade_normalizada)
+    produto_custo = float(produto.custo_unitario or 0)
+
+    # O motor abre e controla a própria transação.
+    db.rollback()
+
+    movimento_item = {
+        "produto_id": produto_id,
+        "quantidade": float(quantidade),
+        "unidade": produto_unidade,
+        "deposito_destino_id": deposito_id,
+        "gaveta_destino_id": str(gaveta_id or "").strip(),
+        "custo_unitario": produto_custo,
+    }
+
+    if data_validade:
+        movimento_item["data_validade"] = data_validade.isoformat()
+
+    documento = movimentar_estoque(
+        db,
+        tipo_movimento="ENTRADA_SALDO_ADMIN",
+        usuario_id=usuario_id,
+        itens=[movimento_item],
+        origem_modulo=origem_modulo,
+        documento_origem_id=documento_origem_id,
+        observacao=(
+            str(observacao or "").strip()
+            or "Entrada Manual de Saldo."
+        ),
+    )
+
+    documento_id = str(documento.id)
+    documento_numero = str(documento.numero)
+    db.rollback()
+
+    produto = db.get(Produto, produto_id)
+
+    if produto is None:
+        raise HTTPException(
+            404,
+            "Produto não encontrado após a contabilização.",
+        )
+
+    if foto:
+        produto.foto_url = foto
+
+    if not produto.deposito_id:
+        produto.deposito_id = deposito_id
+
+    if not produto.gaveta_id and gaveta_id:
+        produto.gaveta_id = gaveta_id
+
+    db.commit()
+    db.refresh(produto)
+
+    return {
+        "produto": produto,
+        "produto_id": produto_id,
+        "produto_unidade": produto_unidade,
+        "documento_id": documento_id,
+        "documento_numero": documento_numero,
+    }
+
+
 @router.post("/{item_id}/aprovar")
 def aprovar(
     item_id: str,
@@ -322,135 +474,63 @@ def aprovar(
     nome = dados.nome_produto.strip()
     unidade = dados.unidade.strip().lower() or "un"
 
-    # Captura tudo que precisamos antes dos commits/rollbacks.
-    # Isso evita que o SQLAlchemy faça um SELECT implícito depois
-    # de um rollback e abra uma nova transação antes do motor de estoque.
     admin_id = str(current_user.id)
     admin_nome = _nome_usuario(current_user)
     foto_url = item.foto_url
 
-    setor, _, _, _ = _validar_local(
+    _validar_local(
         db,
         setor_id=dados.setor_id,
         deposito_id=dados.deposito_id,
         gaveta_id=dados.gaveta_id,
     )
 
-    if setor.controla_validade and not dados.data_validade:
-        raise HTTPException(
-            400,
-            "Este setor controla validade. Informe a data de validade antes de aprovar.",
-        )
-
     item.status = "PROCESSANDO"
     db.commit()
 
     try:
-        produto = _produto_por_nome(db, nome)
-
-        if produto is not None and produto.setor_id != dados.setor_id:
-            raise HTTPException(
-                409,
-                (
-                    f"O produto '{nome}' já existe em outro setor. "
-                    "Revise o cadastro antes de aprovar."
-                ),
-            )
-
-        if produto is None:
-            codigo = _proximo_codigo_produto(db)
-
-            produto = Produto(
-                codigo=codigo,
-                nome=nome,
-                setor_id=dados.setor_id,
-                deposito_id=dados.deposito_id,
-                gaveta_id=str(dados.gaveta_id or "").strip() or None,
-                unidade=unidade,
-                quantidade=0,
-                estoque_minimo=0,
-                custo_unitario=0,
-                venda=False,
-                foto_url=foto_url,
-                created_by_id=admin_id,
-            )
-
-            db.add(produto)
-            db.flush()
-
-            registrar_auditoria(
-                db,
-                usuario=current_user,
-                acao="criar",
-                entidade="Produto",
-                registro_id=produto.id,
-                depois=serializar(produto),
-                detalhe=f"Criado pela Entrada Manual de Saldo mobile {item_id}.",
-            )
-
-            db.commit()
-            db.refresh(produto)
-
-        # IMPORTANTE:
-        # antes de liberar a sessão para o motor oficial, guardamos os
-        # valores escalares do produto. Após rollback, não acessamos mais
-        # atributos ORM até o motor terminar.
-        produto_id = str(produto.id)
-        produto_unidade = str(produto.unidade or unidade)
-        produto_custo = float(produto.custo_unitario or 0)
-
-        # Encerra qualquer transação de leitura aberta por consultas/refresh.
-        # movimentar_estoque() abre e controla a própria transação.
-        db.rollback()
-
-        movimento_item = {
-            "produto_id": produto_id,
-            "quantidade": float(dados.quantidade),
-            "unidade": produto_unidade,
-            "deposito_destino_id": dados.deposito_id,
-            "gaveta_destino_id": str(dados.gaveta_id or "").strip(),
-            "custo_unitario": produto_custo,
-        }
-
-        if dados.data_validade:
-            movimento_item["data_validade"] = dados.data_validade.isoformat()
-
-        documento = movimentar_estoque(
+        resultado = processar_entrada_manual_saldo(
             db,
-            tipo_movimento="ENTRADA_SALDO_ADMIN",
-            usuario_id=admin_id,
-            itens=[movimento_item],
+            current_user=current_user,
+            nome_produto=nome,
+            quantidade=float(dados.quantidade),
+            setor_id=dados.setor_id,
+            deposito_id=dados.deposito_id,
+            gaveta_id=dados.gaveta_id,
+            unidade=unidade,
+            data_validade=dados.data_validade,
+            foto_url=foto_url,
             origem_modulo="entrada_saldo_mobile",
             documento_origem_id=item_id,
             observacao=(
                 "Entrada Manual de Saldo enviada pelo mobile, "
                 f"revisada e aprovada por {admin_nome}."
             ),
+            detalhe_criacao=(
+                f"Criado pela Entrada Manual de Saldo mobile {item_id}."
+            ),
         )
 
-        # O motor retorna o documento já contabilizado. Guardamos os
-        # escalares antes de limpar a transação aberta pelo refresh interno.
-        documento_id = str(documento.id)
-        documento_numero = str(documento.numero)
-        db.rollback()
+        documento_id = resultado["documento_id"]
+        documento_numero = resultado["documento_numero"]
+        produto_id = resultado["produto_id"]
+        produto_unidade = resultado["produto_unidade"]
 
+        db.rollback()
         item = db.get(EntradaSaldoMobilePendente, item_id)
         produto = db.get(Produto, produto_id)
 
         if item is None:
-            raise HTTPException(404, "Solicitação não encontrada após a contabilização.")
+            raise HTTPException(
+                404,
+                "Solicitação não encontrada após a contabilização.",
+            )
 
         if produto is None:
-            raise HTTPException(404, "Produto não encontrado após a contabilização.")
-
-        if item.foto_url:
-            produto.foto_url = item.foto_url
-
-        if not produto.deposito_id:
-            produto.deposito_id = dados.deposito_id
-
-        if not produto.gaveta_id and dados.gaveta_id:
-            produto.gaveta_id = dados.gaveta_id
+            raise HTTPException(
+                404,
+                "Produto não encontrado após a contabilização.",
+            )
 
         item.status = "APROVADO"
         item.nome_produto = nome
