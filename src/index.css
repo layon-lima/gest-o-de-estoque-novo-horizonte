@@ -4203,3 +4203,49 @@ html .bg-\[\#12362f\] {
     grid-template-columns: minmax(0, 1fr) 480px !important;
   }
 }
+
+/* ============================================================
+   DESKTOP FULL-WIDTH — usar a área útil da janela
+   Não alcança o shell mobile/PWA. Largura de tabelas continua
+   dependente do conteúdo real, sem cortes ou colunas ocultas.
+   ============================================================ */
+@media (min-width: 1024px) {
+  .erp-compact-workspace {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .erp-compact-workspace > :not([hidden]) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .erp-compact-workspace .cadastros-shell {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .erp-compact-workspace .cadastros-main,
+  .erp-compact-workspace .cadastros-content {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .erp-compact-workspace .cadastros-page {
+    width: 100%;
+    max-width: none;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .erp-compact-workspace .cadastro-table-card,
+  .erp-compact-workspace .cadastros-content-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .erp-compact-workspace table {
+    max-width: none;
+  }
+}
