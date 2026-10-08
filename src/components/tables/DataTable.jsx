@@ -52,7 +52,7 @@ export default function DataTable({
   const hasFooter = columns.some((c) => c.footer);
 
   return (
-    <div className="rounded-lg border overflow-hidden">
+    <div className="w-full min-w-0 rounded-lg border overflow-hidden">
       {showToolbar && (
         <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/40">
           <span className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -87,8 +87,8 @@ export default function DataTable({
         </div>
       )}
 
-      <div className={`block overflow-auto scrollbar-thin ${containerClassName}`}>
-        <table className="w-full caption-bottom text-sm">
+      <div className={`block w-full min-w-0 overflow-auto scrollbar-thin ${containerClassName}`}>
+        <table className="w-full min-w-full table-auto caption-bottom text-sm">
           <TableHeader className="sticky top-0 bg-muted z-10">
             <DragDropContext onDragStart={() => setDragging(true)} onDragEnd={onDragEnd}>
               <Droppable droppableId="dt-header" direction="horizontal" type="column">
@@ -102,7 +102,7 @@ export default function DataTable({
                             {...p.draggableProps}
                             {...p.dragHandleProps}
                             style={p.draggableProps.style}
-                            className={`whitespace-nowrap select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${col.align === 'right' ? 'text-right' : ''} ${col.headerClassName || ''}`}
+                            className={`whitespace-nowrap select-none px-2 ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${col.align === 'right' ? 'text-right' : ''} ${col.headerClassName || ''}`}
                           >
                             <span className="inline-flex items-center gap-1">
                               <GripVertical className="w-3 h-3 text-muted-foreground/60" />
@@ -128,7 +128,7 @@ export default function DataTable({
                 {visibleColumns.map((col) => (
                   <TableCell
                     key={col.key}
-                    className={`whitespace-nowrap ${col.align === 'right' ? 'text-right' : ''} ${col.cellClassName || ''}`}
+                    className={`${['nome', 'produto', 'deposito', 'setor', 'maquina', 'observacao', 'descricao'].includes(col.key) ? 'whitespace-normal break-words' : 'whitespace-nowrap'} px-2 ${col.align === 'right' ? 'text-right' : ''} ${col.cellClassName || ''}`}
                   >
                     {col.render ? col.render(row, ctx) : null}
                   </TableCell>
