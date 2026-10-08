@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -9,6 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
+from app.api.entrada_saldo_mobile import (
+    _caminho_imagem_temporaria,
+    processar_entrada_manual_saldo,
+)
 from app.core.access_control import (
     acesso_estoque_apenas_mobile,
     exigir_acao_estoque_mobile,
@@ -72,6 +77,18 @@ class MovimentoRequest(BaseModel):
     referencia_externa: str | None = None
     observacao: str | None = None
     itens: list[MovimentoItemRequest]
+
+
+class EntradaManualSaldoRequest(BaseModel):
+    nome_produto: str = Field(min_length=1, max_length=255)
+    quantidade: Decimal = Field(gt=0)
+    setor_id: str = Field(min_length=1, max_length=100)
+    deposito_id: str = Field(min_length=1, max_length=100)
+    gaveta_id: str | None = None
+    unidade: str = Field(default="un", min_length=1, max_length=30)
+    data_validade: date | None = None
+    foto_url: str | None = None
+    observacao: str | None = Field(default=None, max_length=2000)
 
 
 class EstornoRequest(BaseModel):
@@ -492,6 +509,78 @@ def tipos_movimento(
     return sorted(
         MOVIMENTOS_VALIDOS
     )
+
+
+@router.post("/entrada-manual")
+def registrar_entrada_manual_pc(
+    dados: EntradaManualSaldoRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not tem_permissao(
+        current_user,
+        "admin.estoque.entrada_manual",
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Usuário sem permissão para registrar entrada manual de saldo.",
+        )
+
+    if (
+        dados.foto_url
+        and _caminho_imagem_temporaria(
+            dados.foto_url
+        ) is None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "A foto do produto deve ser uma imagem "
+                "enviada pelo próprio sistema."
+            ),
+        )
+
+    try:
+        resultado = processar_entrada_manual_saldo(
+            db,
+            current_user=current_user,
+            nome_produto=dados.nome_produto,
+            quantidade=float(dados.quantidade),
+            setor_id=dados.setor_id,
+            deposito_id=dados.deposito_id,
+            gaveta_id=dados.gaveta_id,
+            unidade=dados.unidade,
+            data_validade=dados.data_validade,
+            foto_url=dados.foto_url,
+            origem_modulo="movimentacoes",
+            observacao=(
+                str(dados.observacao or "").strip()
+                or (
+                    "Entrada Manual de Saldo registrada "
+                    "diretamente pelo módulo do PC."
+                )
+            ),
+            detalhe_criacao=(
+                "Produto criado pela Entrada Manual de Saldo "
+                "do módulo Movimentos no PC."
+            ),
+        )
+
+        return {
+            "produto_id": resultado["produto_id"],
+            "produto_criado": resultado["produto_criado"],
+            "documento": {
+                "id": resultado["documento_id"],
+                "numero": resultado["documento_numero"],
+            },
+        }
+
+    except EstoqueErro as erro:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=str(erro),
+        ) from erro
 
 
 @router.post("/movimentar")
