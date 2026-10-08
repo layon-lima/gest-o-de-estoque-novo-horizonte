@@ -71,6 +71,16 @@ function query(filtros = {}) {
 
 
 export const estoqueApi = {
+  entradaManual(dados) {
+    return request(
+      '/estoque/entrada-manual',
+      {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      }
+    );
+  },
+
   movimentar(dados) {
     return request(
       '/estoque/movimentar',
