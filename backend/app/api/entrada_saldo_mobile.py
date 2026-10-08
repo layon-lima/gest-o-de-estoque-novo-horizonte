@@ -338,6 +338,7 @@ def processar_entrada_manual_saldo(
         )
 
     produto = _produto_por_nome(db, nome)
+    produto_criado = produto is None
 
     if produto is not None and produto.setor_id != setor_id:
         raise HTTPException(
@@ -449,6 +450,7 @@ def processar_entrada_manual_saldo(
         "produto_unidade": produto_unidade,
         "documento_id": documento_id,
         "documento_numero": documento_numero,
+        "produto_criado": produto_criado,
     }
 
 
