@@ -310,7 +310,7 @@ export default function UsuarioPermissoes() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-5 lg:px-6">
+    <div className="w-full min-w-0 space-y-3 px-3 py-3 lg:px-4 xl:px-5">
       <div className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           <Button variant="outline" size="icon" onClick={voltar} title="Voltar aos usuários">
