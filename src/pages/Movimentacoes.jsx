@@ -1044,7 +1044,7 @@ export default function Movimentacoes() {
       onDropFile={nfe.processFile}
       disabled={nfe.importing || modoEntradaManual}
     >
-      <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:p-6">
+      <div className="w-full min-w-0 space-y-3 p-3 lg:px-4 xl:px-5">
         <Card className="border-border/70 p-3 shadow-sm sm:p-4">
           <header className="mb-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -2174,7 +2174,7 @@ export default function Movimentacoes() {
 
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[780px] text-sm">
               <thead className="bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2.5 font-semibold">
