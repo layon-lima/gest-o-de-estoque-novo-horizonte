@@ -306,7 +306,7 @@ export default function Abastecimento() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-3xl mx-auto">
+    <div className="w-full min-w-0 space-y-4 p-3 lg:px-4 xl:px-5">
       <header>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold flex items-center gap-2">

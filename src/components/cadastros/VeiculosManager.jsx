@@ -834,7 +834,7 @@ export default function VeiculosManager() {
                           Placa
                         </TableHead>
 
-                        <TableHead className="min-w-[190px]">
+                        <TableHead className="min-w-[155px]">
                           Veículo
                         </TableHead>
 
@@ -842,11 +842,11 @@ export default function VeiculosManager() {
                           Peso / Capacidade
                         </TableHead>
 
-                        <TableHead className="min-w-[190px]">
+                        <TableHead className="min-w-[155px]">
                           Transportadora
                         </TableHead>
 
-                        <TableHead className="min-w-[180px]">
+                        <TableHead className="min-w-[145px]">
                           Motorista
                         </TableHead>
 

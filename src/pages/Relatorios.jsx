@@ -357,7 +357,7 @@ function ResultTable({ report, result }) {
       </div>
 
       <div className="max-h-[620px] overflow-auto scrollbar-thin">
-        <table className="min-w-full w-max text-sm">
+        <table className="w-full min-w-max text-sm">
           <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
             <tr>
               {columns.map((col) => (
@@ -537,7 +537,7 @@ function ReportRunner({ report, options, onBack }) {
   };
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-5 p-4 sm:p-6">
+    <div className="w-full min-w-0 space-y-4 p-3 lg:px-4 xl:px-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <Button
@@ -869,7 +869,7 @@ export default function Relatorios() {
   }
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-6 p-4 sm:p-6">
+    <div className="w-full min-w-0 space-y-4 p-3 lg:px-4 xl:px-5">
       <section className="overflow-hidden rounded-2xl border bg-card">
         <div className="relative bg-gradient-to-r from-[#12362f] via-[#0f4438] to-[#0b5a46] px-5 py-1.5 text-white sm:px-6">
           <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10">

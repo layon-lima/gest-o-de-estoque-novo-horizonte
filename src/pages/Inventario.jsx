@@ -163,7 +163,7 @@ export default function Inventario() {
   }
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4 p-4 sm:p-6">
+    <div className="w-full min-w-0 space-y-3 p-3 lg:px-4 xl:px-5">
       <Card className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="flex flex-col gap-3 border-b bg-muted/20 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">

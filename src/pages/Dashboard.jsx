@@ -95,7 +95,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4 p-4 sm:p-5">
+    <div className="w-full min-w-0 space-y-3 px-3 py-3 lg:px-4 xl:px-5">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-primary">

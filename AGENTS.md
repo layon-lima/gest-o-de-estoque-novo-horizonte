@@ -249,6 +249,15 @@ Nas páginas do app:
 
 Não alterar a linguagem visual inteira sem pedido do usuário.
 
+### Layout desktop — largura útil
+
+- Nas páginas principais de PC, usar praticamente toda a largura disponível da janela, com margens laterais pequenas e consistentes.
+- Não impor limites fixos de `max-width` a páginas operacionais completas (Pesquisa, Movimentos, Pesagem, Cadastros, Aplicação, Relatórios e Inventário).
+- Tabelas e listas devem distribuir colunas conforme a largura realmente disponível, sem scroll horizontal desnecessário.
+- Não ocultar colunas, dados, filtros ou ações só para reduzir a largura; scroll interno somente quando os dados realmente excederem o espaço.
+- Não afetar o shell mobile/PWA, formulários modais ou telas que justificadamente exijam leitura estreita.
+- Corrigir preferencialmente o contêiner compartilhado e as tabelas, evitando remendos isolados por tela.
+
 Não remover funcionalidades existentes só para “simplificar” UI.
 
 ---
