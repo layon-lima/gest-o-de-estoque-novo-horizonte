@@ -184,7 +184,7 @@ export default function Aplicacao() {
   }
 
   return (
-    <div className="p-4 sm:p-5 space-y-4 max-w-[1600px] mx-auto">
+    <div className="w-full min-w-0 space-y-3 p-3 lg:px-4 xl:px-5">
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-lg font-semibold">Aplicações</h1>
@@ -292,7 +292,7 @@ export default function Aplicacao() {
       ) : (
         <Card className="p-0 overflow-hidden rounded-2xl border shadow-none">
           <div className="max-h-[55vh] overflow-auto scrollbar-thin">
-            <table className="min-w-full w-auto text-sm">
+            <table className="w-full min-w-[820px] table-auto text-sm">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   <th className="p-2 w-10">
