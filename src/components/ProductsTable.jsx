@@ -201,7 +201,7 @@ export default function ProductsTable({
       key: 'nome',
       label: 'Produto',
       render: (p) => (
-        <div className="min-w-[220px]">
+        <div className="min-w-[145px] max-w-[420px] break-words">
           <p className="font-medium leading-tight">{p.nome}</p>
           {p.codigo_referencia && (
             <p className="mt-0.5 text-xs text-muted-foreground">
