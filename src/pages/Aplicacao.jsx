@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Plus, FileText, Search, Sprout, DollarSign, AlertCircle, AlertTriangle, ClipboardList, CheckCircle2, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -12,26 +12,15 @@ import { formatQtd } from '@/lib/format';
 import { executarOS, parseItens, diasEmAberto, normalizarStatusAplicacao } from '@/lib/osAplicacao';
 import OsAplicacaoForm from '@/components/aplicacao/OsAplicacaoForm';
 import OsAplicacaoDetalhe from '@/components/aplicacao/OsAplicacaoDetalhe';
+import AutobaixaDialog from '@/components/aplicacao/AutobaixaDialog';
+import EdicaoMassaDialog from '@/components/aplicacao/EdicaoMassaDialog';
 import CustoLavouraDialog from '@/components/aplicacao/CustoLavouraDialog';
-import DataTable from '@/components/tables/DataTable';
-import { useColumnConfig } from '@/hooks/useColumnConfig';
+import { gerarPDFResumoOS } from '@/lib/resumoOsPdf';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-
-const APLICACAO_COLUMN_ORDER = [
-  'numero',
-  'lavoura',
-  'cultura',
-  'safra',
-  'hectares',
-  'produtos',
-  'custo',
-  'status',
-  'dias',
-  'data',
-];
 
 export default function Aplicacao() {
   const { user } = useAuth();
@@ -44,6 +33,11 @@ export default function Aplicacao() {
   const [tab, setTab] = useState('pendente');
   const [novoConfirm, setNovoConfirm] = useState(false);
   const [anoSafraFiltro, setAnoSafraFiltro] = useState('all');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [autobaixaOpen, setAutobaixaOpen] = useState(false);
+  const [autobaixaSaving, setAutobaixaSaving] = useState(false);
+  const [edicaoMassaOpen, setEdicaoMassaOpen] = useState(false);
+  const [edicaoMassaSaving, setEdicaoMassaSaving] = useState(false);
 
   const { data, loading, reload } = useEntidades({
     Cultura: {},
@@ -75,6 +69,7 @@ export default function Aplicacao() {
     });
   }, [ordens, tab, busca, anoSafraFiltro]);
 
+  const abertasFiltered = tab === 'pendente' ? filtered : [];
 
   // Lavouras com aplicações baixadas para o relatório de custo.
   const lavourasComCusto = useMemo(() => {
@@ -115,128 +110,70 @@ export default function Aplicacao() {
     toast({ title: 'Consumo lançado', description: `${os.numero} executada. Estoque baixado.` });
   }
 
-  const aplicacaoColumns = [
-    {
-      key: 'numero',
-      label: 'Nº',
-      minWidth: 80,
-      render: (o) => (
-        <span className="font-mono text-xs font-medium">{o.numero}</span>
-      ),
-    },
-    {
-      key: 'lavoura',
-      label: 'Lavoura',
-      minWidth: 120,
-      render: (o) => (
-        <span className="font-medium">{o.lavoura_nome || '—'}</span>
-      ),
-    },
-    {
-      key: 'cultura',
-      label: 'Cultura',
-      minWidth: 100,
-      render: (o) => o.cultura_nome || '—',
-    },
-    {
-      key: 'safra',
-      label: 'Safra',
-      minWidth: 82,
-      render: (o) => o.ano_safra || '—',
-    },
-    {
-      key: 'hectares',
-      label: 'Hectares',
-      minWidth: 92,
-      render: (o) => (
-        <span className="tabular-nums">{formatQtd(o.hectares || 0)} ha</span>
-      ),
-    },
-    {
-      key: 'produtos',
-      label: 'Produtos',
-      minWidth: 86,
-      render: (o) => (
-        <span className="tabular-nums">{parseItens(o.itens).length}</span>
-      ),
-    },
-    {
-      key: 'custo',
-      label: 'Custo',
-      minWidth: 100,
-      render: (o) => (
-        <span className="tabular-nums">
-          {o.custo_total
-            ? `R$ ${Number(o.custo_total).toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`
-            : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      minWidth: 96,
-      render: (o) => {
-        const status = normalizarStatusAplicacao(o.status);
-        const className =
-          status === 'pendente'
-            ? 'bg-blue-500 text-white border-transparent'
-            : status === 'baixada'
-              ? 'bg-emerald-600 text-white border-transparent'
-              : 'bg-muted text-muted-foreground border-transparent';
-        const label =
-          status === 'pendente'
-            ? 'Pendente'
-            : status === 'baixada'
-              ? 'Baixada'
-              : 'Cancelada';
+  async function handleAutobaixa(distribuicao) {
+    setAutobaixaSaving(true);
+    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente');
+    let ok = 0;
+    let firstErr = null;
+    for (const os of selecionadas) {
+      const itens = distribuicao[os.id];
+      if (!itens) continue;
+      try {
+        const osAtualizada = { ...os, itens: JSON.stringify(itens) };
+        await api.entities.OrdemServicoAplicacao.update(os.id, { itens: osAtualizada.itens });
+        await executarOS({
+          os: osAtualizada,
+          produtos,
+          lotes,
+          saldos,
+          movimentacoes,
+          responsavel: user?.full_name || user?.email || '',
+        });
+        ok++;
+      } catch (e) {
+        firstErr = firstErr || { os, err: e };
+        break;
+      }
+    }
+    invalidateEntidade('OrdemServicoAplicacao');
+    invalidateEntidade('SaldoEstoque');
+    invalidateEntidade('Produto');
+    invalidateEntidade('Movimentacao');
+    invalidateEntidade('Lote');
+    setAutobaixaSaving(false);
+    setAutobaixaOpen(false);
+    setSelectedIds([]);
+    if (firstErr) {
+      const msg = String(firstErr.err?.message || firstErr.err);
+      let desc = msg;
+      if (msg.startsWith('SALDO_INSUFICIENTE')) {
+        const [, disp, nome] = msg.split(':');
+        desc = `Saldo insuficiente de ${nome || 'produto'} (disponível ${formatQtd(Number(disp) || 0)}) ao executar ${firstErr.os.numero}. ${ok} aplicações já baixadas.`;
+      } else if (msg.startsWith('DEPOSITO_OBRIGATORIO')) {
+        desc = `Depósito obrigatório para ${msg.split(':')[1] || 'produto'} em ${firstErr.os.numero}. ${ok} aplicações já baixadas.`;
+      }
+      toast({ variant: 'destructive', title: 'Erro na baixa em lote', description: desc });
+    } else {
+      toast({ title: 'Baixa em lote concluída', description: `${ok} aplicações baixadas e estoque baixado.` });
+    }
+  }
 
-        return <Badge className={className}>{label}</Badge>;
-      },
-    },
-    {
-      key: 'dias',
-      label: 'Dias',
-      minWidth: 76,
-      render: (o) => {
-        if (normalizarStatusAplicacao(o.status) !== 'pendente') {
-          return <span className="text-muted-foreground">—</span>;
-        }
-
-        const dias = diasEmAberto(o);
-        const alerta = dias > 7;
-
-        return (
-          <span
-            className={`inline-flex items-center gap-1 text-xs font-medium ${
-              alerta ? 'text-red-600' : 'text-muted-foreground'
-            }`}
-          >
-            {alerta && <AlertTriangle className="h-3.5 w-3.5" />}
-            {dias}d
-          </span>
-        );
-      },
-    },
-    {
-      key: 'data',
-      label: 'Data',
-      minWidth: 96,
-      render: (o) => (
-        <span className="text-xs text-muted-foreground">
-          {o.data ? new Date(o.data).toLocaleDateString('pt-BR') : '—'}
-        </span>
-      ),
-    },
-  ];
-
-  const aplicacaoConfig = useColumnConfig(
-    'aplicacaoTableColsV1',
-    APLICACAO_COLUMN_ORDER
-  );
+  async function handleEdicaoMassa(distribuicao) {
+    setEdicaoMassaSaving(true);
+    const selecionadas = (ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente');
+    let ok = 0;
+    for (const os of selecionadas) {
+      const itens = distribuicao[os.id];
+      if (!itens) continue;
+      await api.entities.OrdemServicoAplicacao.update(os.id, { itens: JSON.stringify(itens) });
+      ok++;
+    }
+    invalidateEntidade('OrdemServicoAplicacao');
+    setEdicaoMassaSaving(false);
+    setEdicaoMassaOpen(false);
+    setSelectedIds([]);
+    toast({ title: 'Edição em massa concluída', description: `${ok} aplicações atualizadas.` });
+  }
 
   if (loading) {
     return (
@@ -254,6 +191,24 @@ export default function Aplicacao() {
           <p className="text-sm text-muted-foreground mt-1">Planejamento, baixa de insumos e rastreabilidade por lavoura</p>
         </div>
         <div className="flex items-center gap-2">
+          {selectedIds.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => gerarPDFResumoOS((ordens || []).filter((o) => selectedIds.includes(o.id)))}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" /> Gerar Resumo PDF ({selectedIds.length})
+            </Button>
+          )}
+          {selectedIds.length >= 2 && (
+            <Button onClick={() => setAutobaixaOpen(true)}>
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Baixa em lote ({selectedIds.length})
+            </Button>
+          )}
+          {selectedIds.length >= 2 && (
+            <Button variant="outline" onClick={() => setEdicaoMassaOpen(true)}>
+              <Edit3 className="w-4 h-4 mr-2" /> Editar em massa ({selectedIds.length})
+            </Button>
+          )}
           <Button onClick={() => setNovoConfirm(true)}>
             <Plus className="w-4 h-4 mr-2" /> Nova aplicação
           </Button>
@@ -336,16 +291,78 @@ export default function Aplicacao() {
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden rounded-2xl border shadow-none">
-          <DataTable
-            config={aplicacaoConfig}
-            columns={aplicacaoColumns}
-            data={filtered}
-            getRowId={(o) => o.id}
-            onRowClick={(o) => setDetalheOs(o)}
-            rowClassName="cursor-pointer"
-            containerClassName="max-h-[55vh]"
-            showToolbar={false}
-          />
+          <div className="max-h-[55vh] overflow-auto scrollbar-thin">
+            <table className="w-full min-w-[820px] table-auto text-sm">
+              <thead className="bg-muted/50 sticky top-0">
+                <tr>
+                  <th className="p-2 w-10">
+                    <Checkbox
+                      checked={abertasFiltered.length > 0 && abertasFiltered.every((o) => selectedIds.includes(o.id))}
+                      onCheckedChange={(checked) => {
+                        const ids = abertasFiltered.map((o) => o.id);
+                        setSelectedIds((prev) => checked ? [...new Set([...prev, ...ids])] : prev.filter((id) => !ids.includes(id)));
+                      }}
+                    />
+                  </th>
+                  <th className="p-2 text-left whitespace-nowrap">Nº</th>
+                  <th className="p-2 text-left whitespace-nowrap">Lavoura</th>
+                  <th className="p-2 text-left whitespace-nowrap">Cultura</th>
+                  <th className="p-2 text-center whitespace-nowrap">Safra</th>
+                  <th className="p-2 text-right whitespace-nowrap">Hectares</th>
+                  <th className="p-2 text-center whitespace-nowrap">Produtos</th>
+                  <th className="p-2 text-right whitespace-nowrap">Custo</th>
+                  <th className="p-2 text-center whitespace-nowrap">Status</th>
+                  <th className="p-2 text-center whitespace-nowrap">Dias</th>
+                  <th className="p-2 text-left whitespace-nowrap">Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((o) => {
+                  const qtdItens = parseItens(o.itens).length;
+                  const statusBadge = normalizarStatusAplicacao(o.status) === 'pendente'
+                    ? 'bg-blue-500 text-white border-transparent'
+                    : normalizarStatusAplicacao(o.status) === 'baixada'
+                      ? 'bg-emerald-600 text-white border-transparent'
+                      : 'bg-muted text-muted-foreground border-transparent';
+                  const statusLabel = normalizarStatusAplicacao(o.status) === 'pendente' ? 'Pendente' : normalizarStatusAplicacao(o.status) === 'baixada' ? 'Baixada' : 'Cancelada';
+                  return (
+                    <tr key={o.id} className="border-t hover:bg-accent/30 cursor-pointer" onClick={() => setDetalheOs(o)}>
+                      <td className="p-2 w-10" onClick={(e) => e.stopPropagation()}>
+                        {normalizarStatusAplicacao(o.status) === 'pendente' && (
+                          <Checkbox
+                            checked={selectedIds.includes(o.id)}
+                            onCheckedChange={(checked) => setSelectedIds((prev) => checked ? [...prev, o.id] : prev.filter((id) => id !== o.id))}
+                          />
+                        )}
+                      </td>
+                      <td className="p-2 whitespace-nowrap font-mono text-xs font-medium">{o.numero}</td>
+                      <td className="p-2 whitespace-nowrap font-medium">{o.lavoura_nome || '—'}</td>
+                      <td className="p-2 whitespace-nowrap">{o.cultura_nome || '—'}</td>
+                      <td className="p-2 text-center whitespace-nowrap">{o.ano_safra || '—'}</td>
+                      <td className="p-2 text-right whitespace-nowrap tabular-nums">{formatQtd(o.hectares || 0)} ha</td>
+                      <td className="p-2 text-center whitespace-nowrap tabular-nums">{qtdItens}</td>
+                      <td className="p-2 text-right whitespace-nowrap tabular-nums">
+                        {o.custo_total ? `R$ ${Number(o.custo_total).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </td>
+                      <td className="p-2 text-center whitespace-nowrap"><Badge className={statusBadge}>{statusLabel}</Badge></td>
+                      <td className="p-2 text-center whitespace-nowrap">
+                        {normalizarStatusAplicacao(o.status) === 'pendente' ? (() => {
+                          const d = diasEmAberto(o);
+                          const alerta = d > 7;
+                          return (
+                            <span className={`inline-flex items-center gap-1 text-xs font-medium ${alerta ? 'text-red-600' : 'text-muted-foreground'}`}>
+                              {alerta && <AlertTriangle className="w-3.5 h-3.5" />}{d}d
+                            </span>
+                          );
+                        })() : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="p-2 whitespace-nowrap text-xs text-muted-foreground">{o.data ? new Date(o.data).toLocaleDateString('pt-BR') : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       ))}
 
@@ -408,6 +425,27 @@ export default function Aplicacao() {
         movimentacoes={movimentacoes}
         onConsumo={handleConsumo}
         onEdit={handleEditOs}
+      />
+
+      <AutobaixaDialog
+        open={autobaixaOpen}
+        onOpenChange={setAutobaixaOpen}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente')}
+        produtos={produtos}
+        saldos={saldos}
+        lotes={lotes}
+        movimentacoes={movimentacoes}
+        onConfirm={handleAutobaixa}
+        saving={autobaixaSaving}
+      />
+
+      <EdicaoMassaDialog
+        open={edicaoMassaOpen}
+        onOpenChange={setEdicaoMassaOpen}
+        ordens={(ordens || []).filter((o) => selectedIds.includes(o.id) && normalizarStatusAplicacao(o.status) === 'pendente')}
+        produtos={produtos}
+        onConfirm={handleEdicaoMassa}
+        saving={edicaoMassaSaving}
       />
 
       <CustoLavouraDialog

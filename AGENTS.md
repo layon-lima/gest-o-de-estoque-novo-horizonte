@@ -258,15 +258,6 @@ Não alterar a linguagem visual inteira sem pedido do usuário.
 - Não afetar o shell mobile/PWA, formulários modais ou telas que justificadamente exijam leitura estreita.
 - Corrigir preferencialmente o contêiner compartilhado e as tabelas, evitando remendos isolados por tela.
 
-### Listas e tabelas desktop — redimensionamento manual
-
-- Colunas das listas/tabelas operacionais do PC devem permitir ajuste manual de largura para aumentar ou diminuir a coluna.
-- Toda coluna redimensionável deve respeitar uma largura mínima segura, para nunca desaparecer.
-- O conteúdo permanece ancorado à esquerda e não deve esticar nem acompanhar o crescimento da coluna; aumentar a largura serve apenas para revelar conteúdo antes cortado.
-- A largura escolhida pelo usuário deve ser preservada no navegador por tabela sempre que possível.
-- Na lista de Aplicações, não usar mais a coluna de checkboxes nem seleção em massa por quadradinhos.
-- Controles de visibilidade de colunas não devem usar checkbox quadrado; preservar a função com controle visual simples.
-
 Não remover funcionalidades existentes só para “simplificar” UI.
 
 ---
