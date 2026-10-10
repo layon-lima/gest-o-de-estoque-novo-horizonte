@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { GripVertical, Settings2 } from 'lucide-react';
+import { Eye, EyeOff, GripVertical, Settings2 } from 'lucide-react';
 import {
   TableHeader,
   TableBody,
@@ -10,16 +10,27 @@ import {
   TableFooter,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
+const DEFAULT_MIN_COLUMN_WIDTH = 72;
+
+function getMinWidth(col) {
+  const value = Number(col?.minWidth);
+  return Number.isFinite(value) && value > 0
+    ? Math.max(DEFAULT_MIN_COLUMN_WIDTH, value)
+    : DEFAULT_MIN_COLUMN_WIDTH;
+}
+
 // Tabela genérica com:
-//  - colunas arrastáveis (reordenação persistida via `config`)
-//  - sem quebra de texto (whitespace-nowrap em todas as células + scroll horizontal)
-//  - toggle de visibilidade de colunas
+//  - colunas arrastáveis para reordenação;
+//  - largura manual redimensionável nos dois sentidos, com mínimo seguro;
+//  - largura escolhida persistida no navegador;
+//  - conteúdo ancorado à esquerda, sem esticar/mover junto com a coluna;
+//  - toggle de visibilidade sem checkbox.
 //
 // `config` vem de useColumnConfig(storageKey, defaultOrder).
-// `columns`: [{ key, label, align?, render:(row,ctx)=>node, footer?:(ctx)=>node, headerClassName?, cellClassName? }]
+// `columns`: [{ key, label, render:(row,ctx)=>node, footer?:(ctx)=>node,
+//                minWidth?, headerClassName?, cellClassName? }]
 export default function DataTable({
   config,
   columns,
@@ -35,18 +46,100 @@ export default function DataTable({
   showToolbar = true,
 }) {
   const defaultOrder = columns.map((c) => c.key);
-  const { order, toggle, reorder } = config;
+  const { order, toggle, reorder, widths = {}, setWidth } = config;
 
   const visibleColumns = order
     .map((key) => columns.find((c) => c.key === key))
     .filter(Boolean);
 
   const [dragging, setDragging] = useState(false);
+  const [liveWidths, setLiveWidths] = useState(widths);
+  const resizeCleanupRef = useRef(null);
+
+  useEffect(() => {
+    setLiveWidths(widths || {});
+  }, [widths]);
+
+  useEffect(() => {
+    return () => resizeCleanupRef.current?.();
+  }, []);
 
   function onDragEnd(result) {
     setDragging(false);
     if (!result.destination || result.destination.index === result.source.index) return;
     reorder(result.source.index, result.destination.index);
+  }
+
+  function columnStyle(col) {
+    const minWidth = getMinWidth(col);
+    const configured = Number(liveWidths?.[col.key]);
+    const width = Number.isFinite(configured) && configured > 0
+      ? Math.max(minWidth, configured)
+      : null;
+
+    return width
+      ? { width, minWidth, maxWidth: width }
+      : { minWidth };
+  }
+
+  function startResize(event, col) {
+    if (typeof setWidth !== 'function') return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const header = event.currentTarget.closest('th');
+    const startX = event.clientX;
+    const minWidth = getMinWidth(col);
+    const startWidth = Math.max(
+      minWidth,
+      Math.round(header?.getBoundingClientRect().width || minWidth)
+    );
+
+    let nextWidth = startWidth;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      resizeCleanupRef.current = null;
+    };
+
+    const handleMove = (moveEvent) => {
+      nextWidth = Math.max(
+        minWidth,
+        Math.round(startWidth + (moveEvent.clientX - startX))
+      );
+
+      setLiveWidths((prev) => ({
+        ...(prev || {}),
+        [col.key]: nextWidth,
+      }));
+    };
+
+    const handleUp = () => {
+      setWidth(col.key, nextWidth);
+      cleanup();
+    };
+
+    resizeCleanupRef.current?.();
+    resizeCleanupRef.current = cleanup;
+
+    setLiveWidths((prev) => ({
+      ...(prev || {}),
+      [col.key]: startWidth,
+    }));
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
   }
 
   const hasFooter = columns.some((c) => c.footer);
@@ -57,7 +150,7 @@ export default function DataTable({
         <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/40">
           <span className="text-xs text-muted-foreground flex items-center gap-1.5">
             <GripVertical className="w-3.5 h-3.5" />
-            Arraste as colunas do cabeçalho para reordenar
+            Arraste o puxador para reordenar e a divisória para redimensionar
           </span>
           <Popover>
             <PopoverTrigger asChild>
@@ -67,18 +160,28 @@ export default function DataTable({
             </PopoverTrigger>
             <PopoverContent className="w-56" align="end">
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground px-1 mb-1">Mostrar colunas</p>
+                <p className="text-xs font-semibold text-muted-foreground px-1 mb-1">
+                  Mostrar colunas
+                </p>
                 {defaultOrder.map((key) => {
                   const col = columns.find((c) => c.key === key);
                   if (!col) return null;
+                  const visible = order.includes(key);
+
                   return (
-                    <label
+                    <button
+                      type="button"
                       key={key}
-                      className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted/50 cursor-pointer text-sm"
+                      onClick={() => toggle(key)}
+                      className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-sm hover:bg-muted/50"
                     >
-                      <Checkbox checked={order.includes(key)} onCheckedChange={() => toggle(key)} />
+                      {visible ? (
+                        <Eye className="h-4 w-4 text-foreground" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      )}
                       <span>{col.label}</span>
-                    </label>
+                    </button>
                   );
                 })}
               </div>
@@ -100,14 +203,35 @@ export default function DataTable({
                           <TableHead
                             ref={p.innerRef}
                             {...p.draggableProps}
-                            {...p.dragHandleProps}
-                            style={p.draggableProps.style}
-                            className={`whitespace-nowrap select-none px-2 ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${col.align === 'right' ? 'text-right' : ''} ${col.headerClassName || ''}`}
+                            style={{
+                              ...p.draggableProps.style,
+                              ...columnStyle(col),
+                            }}
+                            className={`relative select-none px-2 ${col.headerClassName || ''}`}
                           >
-                            <span className="inline-flex items-center gap-1">
-                              <GripVertical className="w-3 h-3 text-muted-foreground/60" />
-                              {col.label}
-                            </span>
+                            <div className="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-left">
+                              <span
+                                {...p.dragHandleProps}
+                                className={`inline-flex shrink-0 items-center ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                              >
+                                <GripVertical className="h-3 w-3 text-muted-foreground/60" />
+                              </span>
+                              <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                {col.label}
+                              </span>
+                            </div>
+
+                            {typeof setWidth === 'function' && (
+                              <span
+                                role="separator"
+                                aria-orientation="vertical"
+                                aria-label={`Redimensionar coluna ${col.label}`}
+                                onPointerDown={(event) => startResize(event, col)}
+                                className="absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none select-none"
+                              >
+                                <span className="absolute right-0 top-1/4 h-1/2 w-px bg-border/80" />
+                              </span>
+                            )}
                           </TableHead>
                         )}
                       </Draggable>
@@ -118,6 +242,7 @@ export default function DataTable({
               </Droppable>
             </DragDropContext>
           </TableHeader>
+
           <TableBody>
             {data.map((row, i) => (
               <TableRow
@@ -128,30 +253,41 @@ export default function DataTable({
                 {visibleColumns.map((col) => (
                   <TableCell
                     key={col.key}
-                    className={`${['nome', 'produto', 'deposito', 'setor', 'maquina', 'observacao', 'descricao'].includes(col.key) ? 'whitespace-normal break-words' : 'whitespace-nowrap'} px-2 ${col.align === 'right' ? 'text-right' : ''} ${col.cellClassName || ''}`}
+                    style={columnStyle(col)}
+                    className={`px-2 ${col.cellClassName || ''}`}
                   >
-                    {col.render ? col.render(row, ctx) : null}
+                    <div className="min-w-0 overflow-hidden whitespace-nowrap text-left">
+                      {col.render ? col.render(row, ctx) : null}
+                    </div>
                   </TableCell>
                 ))}
               </TableRow>
             ))}
+
             {data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={Math.max(1, visibleColumns.length)} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell
+                  colSpan={Math.max(1, visibleColumns.length)}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
+
           {hasFooter && data.length > 0 && (
-            <TableFooter className="sticky bottom-0 bg-muted/70 backdrop-blur-sm z-10">
-              <TableRow className="font-semibold hover:bg-transparent border-t-2 border-border">
+            <TableFooter className="sticky bottom-0 z-10 bg-muted/70 backdrop-blur-sm">
+              <TableRow className="border-t-2 border-border font-semibold hover:bg-transparent">
                 {visibleColumns.map((col, i) => (
                   <TableCell
                     key={col.key}
-                    className={`whitespace-nowrap ${col.align === 'right' ? 'text-right' : ''} ${col.cellClassName || ''}`}
+                    style={columnStyle(col)}
+                    className={`${col.cellClassName || ''}`}
                   >
-                    {i === 0 ? footerLabel : col.footer ? col.footer(ctx) : ''}
+                    <div className="min-w-0 overflow-hidden whitespace-nowrap text-left">
+                      {i === 0 ? footerLabel : col.footer ? col.footer(ctx) : ''}
+                    </div>
                   </TableCell>
                 ))}
               </TableRow>
