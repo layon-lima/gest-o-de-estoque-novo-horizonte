@@ -1,41 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { usePersistentState } from '@/hooks/usePersistentState';
 
-function readStoredWidths(storageKey) {
-  if (typeof window === 'undefined') return {};
-
-  try {
-    const raw = window.localStorage.getItem(`${storageKey}:widths`);
-    if (!raw) return {};
-
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-// Estado persistido por tabela:
-// - `order` mantém as colunas visíveis e a ordem durante a sessão;
-// - `widths` guarda no navegador a largura escolhida manualmente pelo usuário.
+// Estado persistido por tabela: `order` é a lista de chaves VISÍVEIS na ordem
+// de exibição. Colunas ocultas ficam de fora de `order`. Arrastar reordena
+// `order`; o toggle adiciona/remov a chave de `order`.
 export function useColumnConfig(storageKey, defaultOrder) {
   const [order, setOrder] = usePersistentState(storageKey, defaultOrder);
-  const [widths, setWidths] = useState(() => readStoredWidths(storageKey));
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      window.localStorage.setItem(
-        `${storageKey}:widths`,
-        JSON.stringify(widths)
-      );
-    } catch {
-      // A tabela continua funcionando mesmo se o navegador bloquear storage.
-    }
-  }, [storageKey, widths]);
 
   const toggle = useCallback((key) => {
     setOrder((prev) => {
@@ -54,21 +24,5 @@ export function useColumnConfig(storageKey, defaultOrder) {
     });
   }, [defaultOrder, setOrder]);
 
-  const setWidth = useCallback((key, value) => {
-    const width = Math.round(Number(value));
-    if (!Number.isFinite(width) || width <= 0) return;
-
-    setWidths((prev) => ({
-      ...(prev && typeof prev === 'object' ? prev : {}),
-      [key]: width,
-    }));
-  }, []);
-
-  return {
-    order: Array.isArray(order) ? order : defaultOrder,
-    toggle,
-    reorder,
-    widths: widths && typeof widths === 'object' ? widths : {},
-    setWidth,
-  };
+  return { order: Array.isArray(order) ? order : defaultOrder, toggle, reorder };
 }
